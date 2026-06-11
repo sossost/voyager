@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { lazy, Suspense, useCallback, useRef, useState } from 'react'
 
-import { HelloScene } from '@/scenes/HelloScene'
+import { SceneRouter } from '@/scenes/SceneRouter'
 import { ContextLossGuard } from '@/scenes/shared/ContextLossGuard'
 
 const Perf = lazy(() =>
@@ -40,14 +40,14 @@ export function CanvasLayer() {
     <div className="layer-canvas" data-layer="canvas">
       <Canvas
         key={canvasGeneration}
-        camera={{ position: [0, 0, 5], fov: 60 }}
+        camera={{ position: [0, 180, 320], fov: 60, near: 0.5, far: 30_000 }}
         dpr={[1, 2]}
       >
         <ContextLossGuard
           onContextLost={handleContextLost}
           onContextRestored={handleContextRestored}
         />
-        <HelloScene />
+        <SceneRouter />
         {import.meta.env.DEV ? (
           <Suspense fallback={null}>
             <Perf position="top-left" />

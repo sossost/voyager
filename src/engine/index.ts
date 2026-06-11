@@ -21,6 +21,8 @@ export {
 } from './galaxy/density'
 export type { SpectralClass, Star } from './galaxy/sectors'
 export { MAX_STARS_PER_SECTOR, starsInSector } from './galaxy/sectors'
+export { originStar } from './galaxy/origin'
+export { starById, starWorldPosition } from './galaxy/position'
 
 export type { Planet, PlanetKind } from './system/planets'
 export { LIFE_PROBABILITY, planetsOf } from './system/planets'

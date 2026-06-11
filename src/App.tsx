@@ -1,4 +1,5 @@
 import { CanvasLayer } from '@/scenes/CanvasLayer'
+import { HudLayer } from '@/ui/hud/HudLayer'
 
 /**
  * z-레이어 계약 (02-decisions.md 결정 15):
@@ -13,7 +14,7 @@ export function App() {
   return (
     <div className="app-root">
       <CanvasLayer />
-      <div className="layer-hud" data-layer="hud" />
+      <HudLayer />
       <div className="layer-overlay" data-layer="overlay" />
       <div className="layer-system" data-layer="system" />
     </div>
