@@ -17,10 +17,13 @@ interface CameraRigProps {
  */
 export function CameraRig({ focus, minDistance = 15, maxDistance = 1600 }: CameraRigProps) {
   const camera = useThree((state) => state.camera)
+  // 좌표 값 기준 의존성 — focus 배열의 참조가 바뀌어도 값이 같으면 스냅하지 않는다
+  // (워프 중 GalaxyScene 리렌더가 플레이어의 궤도 포즈를 초기화하면 안 된다)
+  const [focusX, focusY, focusZ] = focus
 
   useEffect(() => {
-    camera.position.set(focus[0], focus[1] + CAMERA_OFFSET.y, focus[2] + CAMERA_OFFSET.z)
-  }, [camera, focus])
+    camera.position.set(focusX, focusY + CAMERA_OFFSET.y, focusZ + CAMERA_OFFSET.z)
+  }, [camera, focusX, focusY, focusZ])
 
   return (
     <OrbitControls
@@ -28,7 +31,7 @@ export function CameraRig({ focus, minDistance = 15, maxDistance = 1600 }: Camer
       enableDamping
       dampingFactor={0.08}
       enablePan
-      target={[focus[0], focus[1], focus[2]]}
+      target={[focusX, focusY, focusZ]}
       minDistance={minDistance}
       maxDistance={maxDistance}
     />
