@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
 
-import { planetsOf, starById, starWorldPosition } from '@/engine'
+import { planetsOf, starById } from '@/engine'
 import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { CameraRig } from '@/scenes/shared/CameraRig'
-import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { StarSurface } from '@/scenes/system/StarSurface'
@@ -30,13 +29,6 @@ export function SystemScene() {
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
   const starColor = star == null ? '#ffffff' : SPECTRAL_RENDER[star.spectral].color
 
-  // 배경 은하는 은하 중심 기준 좌표 — 플로팅 오리진(현재 별 = 0,0,0)을 역오프셋해야
-  // 은하 씬과 같은 하늘 방향에 떠 있다 (SystemBackdropStars와 같은 기준계, 결정 24)
-  const galaxyAnchor = useMemo<readonly [number, number, number]>(() => {
-    const origin = starWorldPosition(seed, starId)
-    return origin == null ? [0, 0, 0] : [-origin[0], -origin[1], -origin[2]]
-  }, [seed, starId])
-
   return (
     <>
       <color attach="background" args={['#05060f']} />
@@ -46,9 +38,6 @@ export function SystemScene() {
         maxDistance={CAMERA_MAX_DISTANCE}
       />
       <SystemEntryTransition restDistance={CAMERA_MAX_DISTANCE} />
-      <group position={galaxyAnchor}>
-        <DistantGalaxies />
-      </group>
       <SystemStarfield />
       <SystemBackdropStars seed={seed} starId={starId} />
       <ambientLight intensity={0.25} />

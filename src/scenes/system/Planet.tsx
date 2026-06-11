@@ -5,7 +5,6 @@ import type { Group, Mesh } from 'three'
 import type { Planet as PlanetData } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
-import { PlanetAtmosphere } from '@/scenes/system/PlanetAtmosphere'
 import { bakePlanetTextures, disposePlanetTextures } from '@/scenes/system/planetTexture'
 import { useGameStore } from '@/store'
 
@@ -28,8 +27,6 @@ const SPIN_SPEED_SPAN = 0.09
 /** 구름층은 표면보다 약간 빨리 돌아 살아있는 느낌을 만든다. */
 const CLOUD_SPIN_FACTOR = 1.55
 const CLOUD_LAYER_SCALE = 1.035
-/** 대기(renderOrder 2)보다 먼저 그린다. */
-const CLOUD_RENDER_ORDER = 1
 
 export function orbitRadiusOf(planet: PlanetData): number {
   return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE
@@ -93,7 +90,7 @@ export function Planet({ planet }: PlanetProps) {
       </mesh>
 
       {textures.clouds != null ? (
-        <mesh ref={cloudsRef} renderOrder={CLOUD_RENDER_ORDER}>
+        <mesh ref={cloudsRef}>
           <sphereGeometry args={[visualRadius * CLOUD_LAYER_SCALE, segments, segments]} />
           <meshStandardMaterial
             map={textures.clouds}
@@ -104,8 +101,6 @@ export function Planet({ planet }: PlanetProps) {
           />
         </mesh>
       ) : null}
-
-      <PlanetAtmosphere planet={planet} radius={visualRadius} />
 
       {isSelected ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
