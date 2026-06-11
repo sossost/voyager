@@ -30,7 +30,13 @@ export { LIFE_PROBABILITY, planetById, planetsOf } from './system/planets'
 export type { Rarity } from './alien/rarity'
 export { RARITIES, RARITY_WEIGHTS } from './alien/rarity'
 export type { AlienPalette, PartSlot, SpeciesArchetype } from './alien/species'
-export { PART_SLOTS, SPECIES_BY_ID, SPECIES_BY_RARITY, SPECIES_CATALOG } from './alien/species'
+export {
+  PALETTE_FAMILIES,
+  PART_SLOTS,
+  SPECIES_BY_ID,
+  SPECIES_BY_RARITY,
+  SPECIES_CATALOG,
+} from './alien/species'
 export type { AlienIndividual } from './alien/individual'
 export { alienAt } from './alien/individual'
 

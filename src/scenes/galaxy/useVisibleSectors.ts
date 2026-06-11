@@ -49,10 +49,16 @@ export function useVisibleSectors(): readonly LoadedSector[] {
   const [visibleSectors, setVisibleSectors] = useState<readonly LoadedSector[]>([])
   const loadedRef = useRef(new Map<string, LoadedSector>())
   const cacheRef = useRef<LruCache<string, readonly Star[]> | null>(null)
+  const cacheRadiusRef = useRef(preset.sectorLoadRadius)
   const lastUpdateRef = useRef(Number.NEGATIVE_INFINITY)
 
-  if (cacheRef.current == null) {
+  // 품질 티어 변경으로 로드 반경이 바뀌면 캐시를 새 용량으로 교체한다 —
+  // '용량 ≥ 최대 가시 작업셋' 불변식 유지 (결정 12, 코드 리뷰 지적).
+  // 생성은 결정론적이므로 캐시를 버려도 동일하게 재계산된다.
+  if (cacheRef.current == null || cacheRadiusRef.current !== preset.sectorLoadRadius) {
+    cacheRadiusRef.current = preset.sectorLoadRadius
     cacheRef.current = new LruCache(lruCapacityFor(preset.sectorLoadRadius))
+    loadedRef.current = new Map()
   }
 
   useFrame((state) => {

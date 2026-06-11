@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { starById } from '@/engine'
 import type { VisitRecord } from '@/persistence/types'
@@ -11,7 +11,8 @@ const PAGE_SIZE = 20
 function SeedShare() {
   const seed = useGameStore((state) => state.seed)
   const pushToast = useGameStore((state) => state.pushToast)
-  const shareUrl = `${window.location.origin}${window.location.pathname}?seed=${seed}`
+  // 시드 알파벳은 URL-safe지만, 안전이 우연이 아니라 명시이도록 인코딩한다
+  const shareUrl = `${window.location.origin}${window.location.pathname}?seed=${encodeURIComponent(seed)}`
 
   const handleCopy = async () => {
     try {
@@ -49,11 +50,19 @@ function VisitTimeline() {
   )
 
   // 일지는 전체를 store에 들고 있지 않는다 — 어댑터 페이징 (결정 19, 메모리 폭주 방지)
+  const isLoadingRef = useRef(false)
   const loadMore = useCallback(async (offset: number) => {
-    const page = await getStorageDriver().listVisits({ offset, limit: PAGE_SIZE })
-    // offset 0은 교체 — StrictMode 이중 실행에도 멱등
-    setVisits((previous) => (offset === 0 ? page : [...previous, ...page]))
-    if (page.length < PAGE_SIZE) setIsExhausted(true)
+    // 인플라이트 가드 — '더 보기' 연타 시 같은 페이지 중복 추가 방지 (코드 리뷰 지적)
+    if (isLoadingRef.current) return
+    isLoadingRef.current = true
+    try {
+      const page = await getStorageDriver().listVisits({ offset, limit: PAGE_SIZE })
+      // offset 0은 교체 — StrictMode 이중 실행에도 멱등
+      setVisits((previous) => (offset === 0 ? page : [...previous, ...page]))
+      if (page.length < PAGE_SIZE) setIsExhausted(true)
+    } finally {
+      isLoadingRef.current = false
+    }
   }, [])
 
   useEffect(() => {

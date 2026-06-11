@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { App } from '@/App'
 import type { Seed } from '@/engine'
-import { GEN_VERSION, originStar } from '@/engine'
+import { GEN_VERSION, originStar, parseSeed } from '@/engine'
+import { persist } from '@/persistence/persist'
 import { probeStorage } from '@/persistence/probeStorage'
 import { detectInitialQualityTier } from '@/quality/detectInitialTier'
 import type { Profile, StorageDriver } from '@/persistence/types'
@@ -28,8 +29,11 @@ type BootState =
     }
   | { readonly status: 'ready' }
 
+/** 읽는 시점에 검증 — 유효하지 않은 ?seed=는 프리필 자체를 하지 않는다. */
 function readSeedFromUrl(): string | null {
-  return new URLSearchParams(window.location.search).get('seed')
+  const raw = new URLSearchParams(window.location.search).get('seed')
+  if (raw == null) return null
+  return parseSeed(raw)
 }
 
 function startGame(
@@ -55,6 +59,7 @@ function startGame(
  */
 export function BootGate() {
   const [bootState, setBootState] = useState<BootState>({ status: 'checking' })
+  const [bootError, setBootError] = useState<string | null>(null)
 
   useEffect(() => {
     let isCancelled = false
@@ -103,9 +108,22 @@ export function BootGate() {
         currentStarId: startStarId,
         createdAt: Date.now(),
       }
-      await driver.saveProfile(profile)
-      await driver.addVisit({ starId: startStarId, visitedAt: profile.createdAt })
 
+      // 부트 커밋도 단일 저장 경로(persist: 백오프 3회)를 따른다 — 둘 다 업서트라 재시도 안전.
+      // 실패 시 온보딩에 머물며 에러를 표시한다 (조용한 고착 방지 — 코드 리뷰 지적).
+      let isCommitted = false
+      await persist(async () => {
+        await driver.saveProfile(profile)
+        await driver.addVisit({ starId: startStarId, visitedAt: profile.createdAt })
+        isCommitted = true
+      }, () => undefined)
+
+      if (!isCommitted) {
+        setBootError('우주를 저장하지 못했어요 — 저장 공간을 확인한 뒤 다시 시도해 주세요')
+        return
+      }
+
+      setBootError(null)
       startGame(driver, tier, profile, { visits: [], explorations: [], collection: [] })
       setBootState({ status: 'ready' })
     },
@@ -126,6 +144,7 @@ export function BootGate() {
       return (
         <SeedSetup
           prefillSeed={readSeedFromUrl()}
+          submitError={bootError}
           onStart={(seed) => void handleStartNewUniverse(bootState.driver, bootState.tier, seed)}
         />
       )

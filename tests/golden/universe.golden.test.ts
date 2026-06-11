@@ -6,8 +6,10 @@ import {
   GEN_VERSION,
   makePlanetId,
   makeStarId,
+  PALETTE_FAMILIES,
   parseSeed,
   planetsOf,
+  SPECIES_CATALOG,
   starsInSector,
 } from '@/engine'
 
@@ -30,6 +32,17 @@ function seedOf(value: string): Seed {
 describe('우주 생성물 골든 마스터', () => {
   it('GEN_VERSION은 1이다 — 스냅샷이 바뀌면 이 값을 올려야 한다', () => {
     expect(GEN_VERSION).toBe(1)
+  })
+
+  it('SPECIES_CATALOG 전체 구조가 영구히 같다 (allowedParts 내부 순서 포함)', () => {
+    // rng.pick은 배열 인덱스로 해석되므로 카탈로그의 "순서"가 곧 저장 포맷이다.
+    // 종족 추가/수정/풀 재정렬 → 이 스냅샷이 깨진다 → GEN_VERSION을 올려라.
+    // (조우 프로브 6건만으로는 60종 중 5종만 봉인되는 사각지대를 막는다)
+    expect(SPECIES_CATALOG).toMatchSnapshot()
+  })
+
+  it('PALETTE_FAMILIES 구조가 영구히 같다 (셰이드 순서 포함)', () => {
+    expect(PALETTE_FAMILIES).toMatchSnapshot()
   })
 
   it.each(GOLDEN_SEEDS)('시드 %s의 우주가 영구히 같다', (rawSeed) => {

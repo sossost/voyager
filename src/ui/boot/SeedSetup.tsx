@@ -7,11 +7,13 @@ import { generateRandomSeed } from '@/ui/boot/generateRandomSeed'
 interface SeedSetupProps {
   /** ?seed= 딥링크 프리필 — 친구가 공유한 우주. */
   readonly prefillSeed: string | null
+  /** 부트 커밋 실패 등 상위에서 내려오는 에러 (입력 검증 에러와 별개). */
+  readonly submitError?: string | null
   onStart(seed: Seed): void
 }
 
 /** 첫 실행 온보딩 — 시드 자동 생성 또는 직접 입력 (1~32자 영숫자, 인라인 검증). */
-export function SeedSetup({ prefillSeed, onStart }: SeedSetupProps) {
+export function SeedSetup({ prefillSeed, submitError = null, onStart }: SeedSetupProps) {
   const [input, setInput] = useState(prefillSeed ?? generateRandomSeed())
   const [error, setError] = useState<string | null>(null)
 
@@ -67,6 +69,11 @@ export function SeedSetup({ prefillSeed, onStart }: SeedSetupProps) {
         {error != null ? (
           <p id="seed-error" className="seed-error" role="alert">
             {error}
+          </p>
+        ) : null}
+        {submitError != null ? (
+          <p className="seed-error" role="alert">
+            {submitError}
           </p>
         ) : null}
 
