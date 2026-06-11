@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Seed, StarId } from '@/engine'
+import type { PlanetId, Seed, StarId } from '@/engine'
 import { originStar, parseSeed, starsInSector } from '@/engine'
 import { MemoryDriver } from '@/persistence/memoryDriver'
 import type { GameStoreApi } from './createGameStore'
@@ -159,6 +159,56 @@ describe('write-through 영속화', () => {
       expect(visits.filter((visit) => visit.starId === target)).toHaveLength(1)
       expect(visits.filter((visit) => visit.starId === startStarId)).toHaveLength(1)
     })
+  })
+})
+
+describe('selectPlanet / setQuality', () => {
+  it('selectPlanet은 태양계 뷰에서만 동작한다', () => {
+    const planetId = `${startStarId}:p0` as PlanetId
+
+    store.getState().selectPlanet(planetId)
+    expect(store.getState().selectedPlanetId).toBe(planetId)
+
+    store.getState().backToGalaxy()
+    expect(store.getState().selectedPlanetId).toBeNull() // 이탈 시 초기화
+
+    store.getState().selectPlanet(planetId)
+    expect(store.getState().selectedPlanetId).toBeNull() // 은하 뷰 — 무시
+  })
+
+  it('setQuality는 티어와 모드를 함께 바꾼다', () => {
+    store.getState().setQuality('low', 'manual')
+    expect(store.getState().qualityTier).toBe('low')
+    expect(store.getState().qualityMode).toBe('manual')
+  })
+})
+
+describe('영속화 실패 처리', () => {
+  it('재시도 소진 후 토스트로 알리고 게임은 계속된다', async () => {
+    vi.useFakeTimers()
+    try {
+      const failingDriver = new MemoryDriver()
+      failingDriver.addVisit = () => Promise.reject(new Error('디스크 오류'))
+
+      const failingStore = createGameStore({
+        seed,
+        startStarId,
+        driver: failingDriver,
+        now: () => 1,
+        createdAt: 1,
+      })
+
+      failingStore.getState().backToGalaxy()
+      failingStore.getState().warpTo(target)
+      expect(failingStore.getState().currentStarId).toBe(target) // 진행 비차단
+
+      await vi.advanceTimersByTimeAsync(200 + 600 + 1_800 + 10)
+      expect(failingStore.getState().toasts.map((toast) => toast.message)).toContain(
+        '저장에 실패했어요 — 게임은 계속 진행됩니다',
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

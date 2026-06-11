@@ -4,10 +4,12 @@ import { App } from '@/App'
 import type { Seed } from '@/engine'
 import { GEN_VERSION, originStar } from '@/engine'
 import { probeStorage } from '@/persistence/probeStorage'
+import { detectInitialQualityTier } from '@/quality/detectInitialTier'
 import type { Profile, StorageDriver } from '@/persistence/types'
 import { SAVE_VERSION } from '@/persistence/types'
 import { initializeGameStore } from '@/store'
 import type { HydrationRecords } from '@/store/createGameStore'
+import type { QualityTier } from '@/store/types'
 import { hasWebGLSupport } from '@/ui/boot/hasWebGLSupport'
 import { GenVersionNotice } from '@/ui/boot/GenVersionNotice'
 import { SeedSetup } from '@/ui/boot/SeedSetup'
@@ -16,10 +18,11 @@ import { WebGLBlocked } from '@/ui/boot/WebGLBlocked'
 type BootState =
   | { readonly status: 'checking' }
   | { readonly status: 'webgl-blocked' }
-  | { readonly status: 'seed-setup'; readonly driver: StorageDriver }
+  | { readonly status: 'seed-setup'; readonly driver: StorageDriver; readonly tier: QualityTier }
   | {
       readonly status: 'gen-mismatch'
       readonly driver: StorageDriver
+      readonly tier: QualityTier
       readonly profile: Profile
       readonly records: HydrationRecords
     }
@@ -29,12 +32,18 @@ function readSeedFromUrl(): string | null {
   return new URLSearchParams(window.location.search).get('seed')
 }
 
-function startGame(driver: StorageDriver, profile: Profile, records: HydrationRecords): void {
+function startGame(
+  driver: StorageDriver,
+  tier: QualityTier,
+  profile: Profile,
+  records: HydrationRecords,
+): void {
   initializeGameStore({
     seed: profile.seed,
     startStarId: profile.currentStarId,
     driver,
     hydration: records,
+    initialQualityTier: tier,
     createdAt: profile.createdAt,
   })
 }
@@ -56,12 +65,12 @@ export function BootGate() {
         return
       }
 
-      const driver = await probeStorage()
+      const [driver, tier] = await Promise.all([probeStorage(), detectInitialQualityTier()])
       const profile = await driver.loadProfile()
       if (isCancelled) return
 
       if (profile == null) {
-        setBootState({ status: 'seed-setup', driver })
+        setBootState({ status: 'seed-setup', driver, tier })
         return
       }
 
@@ -69,11 +78,11 @@ export function BootGate() {
       if (isCancelled) return
 
       if (profile.genVersion !== GEN_VERSION) {
-        setBootState({ status: 'gen-mismatch', driver, profile, records })
+        setBootState({ status: 'gen-mismatch', driver, tier, profile, records })
         return
       }
 
-      startGame(driver, profile, records)
+      startGame(driver, tier, profile, records)
       setBootState({ status: 'ready' })
     }
 
@@ -84,7 +93,7 @@ export function BootGate() {
   }, [])
 
   const handleStartNewUniverse = useCallback(
-    async (driver: StorageDriver, seed: Seed) => {
+    async (driver: StorageDriver, tier: QualityTier, seed: Seed) => {
       const startStarId = originStar(seed)
       const profile: Profile = {
         id: 1,
@@ -97,7 +106,7 @@ export function BootGate() {
       await driver.saveProfile(profile)
       await driver.addVisit({ starId: startStarId, visitedAt: profile.createdAt })
 
-      startGame(driver, profile, { visits: [], explorations: [], collection: [] })
+      startGame(driver, tier, profile, { visits: [], explorations: [], collection: [] })
       setBootState({ status: 'ready' })
     },
     [],
@@ -117,7 +126,7 @@ export function BootGate() {
       return (
         <SeedSetup
           prefillSeed={readSeedFromUrl()}
-          onStart={(seed) => void handleStartNewUniverse(bootState.driver, seed)}
+          onStart={(seed) => void handleStartNewUniverse(bootState.driver, bootState.tier, seed)}
         />
       )
     case 'gen-mismatch':
@@ -126,12 +135,12 @@ export function BootGate() {
           savedVersion={bootState.profile.genVersion}
           currentVersion={GEN_VERSION}
           onContinue={() => {
-            startGame(bootState.driver, bootState.profile, bootState.records)
+            startGame(bootState.driver, bootState.tier, bootState.profile, bootState.records)
             setBootState({ status: 'ready' })
           }}
           onReset={() => {
             void bootState.driver.reset().then(() => {
-              setBootState({ status: 'seed-setup', driver: bootState.driver })
+              setBootState({ status: 'seed-setup', driver: bootState.driver, tier: bootState.tier })
             })
           }}
         />

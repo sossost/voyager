@@ -38,15 +38,20 @@ exports[`AlienCard > 개체 → SVG 레이어 합성 스냅샷 (회귀 방지) 1
       viewBox="0 0 200 200"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect
+      <path
+        d="M100 60c50-2 72 24 72 50 0 30-30 52-72 52s-72-22-72-52c0-26 22-48 72-50Z"
         fill="var(--alien-primary)"
-        height="112"
-        rx="26"
         stroke="var(--alien-secondary)"
+        stroke-linejoin="round"
         stroke-width="5"
-        width="116"
-        x="42"
-        y="48"
+      />
+      <ellipse
+        cx="100"
+        cy="128"
+        fill="var(--alien-accent)"
+        opacity="0.25"
+        rx="30"
+        ry="20"
       />
     </svg>
     <svg

@@ -6,7 +6,15 @@ const SvgBody05 = (props: SVGProps<SVGSVGElement>) => (
       stroke="var(--alien-secondary)"
       strokeLinejoin="round"
       strokeWidth={5}
-      d="m100 38 56 32v68l-56 32-56-32V70z"
+      d="M100 34c18 26 62 58 62 88s-28 50-62 50-62-20-62-50 44-62 62-88Z"
+    />
+    <ellipse
+      cx={100}
+      cy={128}
+      fill="var(--alien-accent)"
+      opacity={0.25}
+      rx={30}
+      ry={20}
     />
   </svg>
 );

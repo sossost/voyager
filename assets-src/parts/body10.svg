@@ -1,3 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-<polygon points="100,40 162,86 138,162 62,162 38,86" fill="var(--alien-primary)" stroke="var(--alien-secondary)" stroke-width="5" stroke-linejoin="round"/>
+<path d="M100 66 C152 66 170 96 170 122 C170 146 154 160 132 160 L68 160 C46 160 30 146 30 122 C30 96 48 66 100 66 Z" fill="var(--alien-primary)" stroke="var(--alien-secondary)" stroke-width="5" stroke-linejoin="round"/>
+<ellipse cx="100" cy="128" rx="30" ry="20" fill="var(--alien-accent)" opacity="0.25"/>
 </svg>

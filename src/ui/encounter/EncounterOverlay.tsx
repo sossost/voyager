@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Rarity } from '@/engine'
 import { useGameStore } from '@/store'
 import { RARITY_LABELS, SCAN_BURST_MS, SCAN_DURATIONS_MS } from '@/ui/common/rarityLabels'
+import { useFocusTrap } from '@/ui/common/useFocusTrap'
 import { AlienCard } from '@/ui/encounter/AlienCard'
 
 interface ScanSequenceProps {
@@ -39,6 +40,9 @@ export function EncounterOverlay() {
   const encounter = useGameStore((state) => state.encounter)
   const closeEncounter = useGameStore((state) => state.closeEncounter)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(overlayRef, encounter != null)
 
   useEffect(() => {
     if (encounter == null) return
@@ -56,7 +60,13 @@ export function EncounterOverlay() {
   if (encounter == null) return null
 
   return (
-    <div className="encounter-overlay" role="dialog" aria-modal="true" aria-label="외계 생명체 조우">
+    <div
+      ref={overlayRef}
+      className="encounter-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="외계 생명체 조우"
+    >
       {encounter.phase === 'scanning' ? (
         <ScanSequence rarity={encounter.alien.rarity} />
       ) : (

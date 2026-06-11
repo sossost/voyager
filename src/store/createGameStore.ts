@@ -25,6 +25,8 @@ export interface CreateGameStoreOptions {
   readonly startStarId: StarId
   readonly driver: StorageDriver
   readonly hydration?: HydrationRecords
+  /** detect-gpu가 판정한 초기 품질 티어 (기본 high). */
+  readonly initialQualityTier?: QualityTier
   /** 테스트에서 시각을 고정할 수 있도록 주입 가능. */
   readonly now?: () => number
   readonly createdAt?: number
@@ -229,7 +231,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
     },
 
     // ── settingsSlice ───────────────────────────────────────
-    qualityTier: 'high' satisfies QualityTier,
+    qualityTier: options.initialQualityTier ?? ('high' satisfies QualityTier),
     qualityMode: 'auto' satisfies QualityMode,
 
     setQuality(tier, mode) {

@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "build:parts": "node scripts/build-parts.mjs",
     "generate:placeholder-parts": "node scripts/generate-placeholder-parts.mjs"
   },
@@ -29,6 +30,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.60.0",
+    "@react-three/postprocessing": "^3.0.4",
     "@react-three/test-renderer": "^9.1.0",
     "@svgr/cli": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",

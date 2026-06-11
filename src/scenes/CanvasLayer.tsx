@@ -1,6 +1,8 @@
 import { Canvas } from '@react-three/fiber'
-import { lazy, Suspense, useCallback, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 
+import { QUALITY_PRESETS } from '@/quality/presets'
+import { QualityAdapter } from '@/quality/QualityAdapter'
 import { SceneRouter } from '@/scenes/SceneRouter'
 import { ContextLossGuard } from '@/scenes/shared/ContextLossGuard'
 import { useGameStore } from '@/store'
@@ -9,17 +11,38 @@ const Perf = lazy(() =>
   import('r3f-perf').then((module) => ({ default: module.Perf })),
 )
 
+/** high 티어 전용 — medium/low 기기는 이 번들을 받지 않는다 (동적 로드). */
+const PostEffects = lazy(() => import('@/scenes/shared/PostEffects'))
+
 /** webglcontextrestored가 이 시간 안에 오지 않으면 Canvas를 리마운트해 컨텍스트를 재생성한다. */
 const CONTEXT_RESTORE_TIMEOUT_MS = 3_000
 
+function useIsDocumentHidden(): boolean {
+  const [isHidden, setIsHidden] = useState(false)
+
+  useEffect(() => {
+    const handleVisibilityChange = () => setIsHidden(document.hidden)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  return isHidden
+}
+
 /**
  * 앱 전체에서 유일한 <Canvas> (02-decisions.md 결정 15).
- * 씬 전환은 Canvas 내부에서 일어나며, 컨텍스트 손실 시에만 key로 리마운트한다.
+ * 탭 비활성·풀스크린 오버레이(도감/일지) 동안 렌더 루프를 정지한다 (배터리 AC).
  */
 export function CanvasLayer() {
   const [canvasGeneration, setCanvasGeneration] = useState(0)
   const [isReconnecting, setIsReconnecting] = useState(false)
   const restoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const qualityTier = useGameStore((state) => state.qualityTier)
+  const isFullOverlayOpen = useGameStore((state) => state.overlay != null)
+  const isDocumentHidden = useIsDocumentHidden()
+  const preset = QUALITY_PRESETS[qualityTier]
+  const shouldPauseRendering = isDocumentHidden || isFullOverlayOpen
 
   const handleContextLost = useCallback(() => {
     setIsReconnecting(true)
@@ -42,14 +65,21 @@ export function CanvasLayer() {
       <Canvas
         key={canvasGeneration}
         camera={{ position: [0, 180, 320], fov: 60, near: 0.5, far: 30_000 }}
-        dpr={[1, 2]}
+        dpr={[1, preset.dprMax]}
+        frameloop={shouldPauseRendering ? 'never' : 'always'}
         onPointerMissed={() => useGameStore.getState().selectPlanet(null)}
       >
         <ContextLossGuard
           onContextLost={handleContextLost}
           onContextRestored={handleContextRestored}
         />
+        <QualityAdapter />
         <SceneRouter />
+        {preset.postFx ? (
+          <Suspense fallback={null}>
+            <PostEffects />
+          </Suspense>
+        ) : null}
         {import.meta.env.DEV ? (
           <Suspense fallback={null}>
             <Perf position="top-left" />

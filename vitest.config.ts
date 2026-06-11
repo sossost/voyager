@@ -11,16 +11,36 @@ export default mergeConfig(
       coverage: {
         provider: 'v8',
         include: ['src/**'],
-        // scenes/는 WebGL 의존이라 단위 커버리지 대상이 아님 — E2E(Phase 7)가 커버
-        exclude: ['src/main.tsx', 'src/assets/**', 'src/scenes/**', 'src/styles/**', '**/*.d.ts'],
+        // scenes/(WebGL)·ui/(프레젠테이션)·quality/(R3F 어댑터)는 단위 커버리지가 아닌
+        // Playwright E2E의 상태 단언이 커버한다 (03-plan.md 테스트 4계층 전략)
+        exclude: [
+          'src/main.tsx',
+          'src/assets/**',
+          'src/scenes/**',
+          'src/styles/**',
+          'src/ui/**',
+          'src/quality/**',
+          '**/*.d.ts',
+        ],
         thresholds: {
-          // 전체 80% 게이트는 Phase 7(수락 기준 전수 체크)에서 활성화한다.
-          // 엔진은 결정론의 본체이므로 처음부터 90%를 강제한다.
+          // 로직 계층 게이트 — 엔진은 결정론의 본체이므로 90%
           'src/engine/**': {
             lines: 90,
             branches: 90,
             functions: 90,
             statements: 90,
+          },
+          'src/store/**': {
+            lines: 80,
+            branches: 80,
+            functions: 80,
+            statements: 80,
+          },
+          'src/persistence/**': {
+            lines: 80,
+            branches: 80,
+            functions: 80,
+            statements: 80,
           },
         },
       },

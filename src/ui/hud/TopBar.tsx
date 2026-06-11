@@ -1,4 +1,5 @@
 import { useGameStore } from '@/store'
+import { QualitySelect } from '@/ui/hud/QualitySelect'
 
 export function TopBar() {
   const seed = useGameStore((state) => state.seed)
@@ -14,6 +15,7 @@ export function TopBar() {
         <button type="button" className="hud-button hud-button-compact" onClick={() => openOverlay('journal')}>
           일지
         </button>
+        <QualitySelect />
         <span className="top-bar-seed" title="우주 시드 — 같은 시드는 같은 우주">
           시드 {seed}
         </span>

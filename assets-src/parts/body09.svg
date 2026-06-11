@@ -1,3 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-<rect x="42" y="48" width="116" height="112" rx="26" fill="var(--alien-primary)" stroke="var(--alien-secondary)" stroke-width="5"/>
+<path d="M100 36 C132 36 156 74 156 116 C156 150 132 170 100 170 C68 170 44 150 44 116 C44 74 68 36 100 36 Z" fill="var(--alien-primary)" stroke="var(--alien-secondary)" stroke-width="5" stroke-linejoin="round"/>
+<ellipse cx="100" cy="128" rx="30" ry="20" fill="var(--alien-accent)" opacity="0.25"/>
 </svg>
