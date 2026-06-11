@@ -88,11 +88,12 @@ const FRAGMENT_SHADER = /* glsl */ `
     float energy = (primary + secondary * 0.5) * radialMask * edgeBoost * uProgress;
 
     // 플래시로 이어지는 중앙 코어 플레어 — uProgress가 JS에서 이미 제곱 업로드되므로
-    // 실효 곡선은 원시 진행도의 12제곱: 플래시 직전 한순간에만 목적지가 타오른다.
-    // 넓은 안개가 아니라 작고 뜨거운 점광 — 백색 전환의 불씨 역할만 한다
-    float glowSurge = uProgress * uProgress * uProgress;
-    float centerGlow =
-      (1.0 - smoothstep(0.0, 0.2, radius)) * glowSurge * glowSurge * 1.1;
+    // 실효 곡선은 원시 진행도의 16제곱: 마지막 순간에만 점화된다.
+    // 반경이 점화도를 따라 자란다 — 작게 맺혔다가 부풀어 오르며 플래시로 넘어간다
+    float surge = uProgress * uProgress;
+    float ignite = surge * surge * surge * surge;
+    float flareRadius = mix(0.03, 0.3, ignite);
+    float centerGlow = (1.0 - smoothstep(0.0, flareRadius, radius)) * ignite * 1.2;
 
     // 주층은 한색 청백, 보조층이 섞이는 곳은 보랏빛 — 고광량부는 살짝 백색으로
     // (나머지 백색화는 가산 누적이 알아서 한다)
