@@ -5,9 +5,15 @@ import type { Group } from 'three'
 import type { Planet as PlanetData } from '@/engine'
 import { useGameStore } from '@/store'
 
-export const ORBIT_BASE_RADIUS = 6
-export const ORBIT_SCALE = 9
-const PLANET_SCALE = 0.9
+export const ORBIT_BASE_RADIUS = 10
+export const ORBIT_SCALE = 16
+/**
+ * 행성 시각 반경 = BASE + 엔진 radius × SCALE (압축 매핑).
+ * 엔진 radius(0.4~5.0)를 그대로 쓰면 큰 행성(4.5)이 항성(5)에 육박하는 모순이
+ * 생기므로 0.6~2.5로 압축한다 — 항성이 항상 2배 이상 크다. 렌더 전용, 엔진 불변.
+ */
+const PLANET_VISUAL_BASE = 0.45
+const PLANET_VISUAL_SCALE = 0.4
 /** orbitAu=1 행성의 공전 각속도 (rad/s) — 케플러 근사로 바깥쪽일수록 느려진다. */
 const BASE_ANGULAR_SPEED = 0.22
 const FULL_TURN = Math.PI * 2
@@ -38,7 +44,7 @@ export function Planet({ planet }: PlanetProps) {
   const orbitRadius = orbitRadiusOf(planet)
   const initialPhase = ((planet.paletteSeed % 360) / 360) * FULL_TURN
   const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(planet.orbitAu, 1.5)
-  const visualRadius = planet.radius * PLANET_SCALE
+  const visualRadius = PLANET_VISUAL_BASE + planet.radius * PLANET_VISUAL_SCALE
 
   useFrame((state) => {
     const group = groupRef.current

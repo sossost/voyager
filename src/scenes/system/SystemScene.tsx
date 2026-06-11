@@ -8,11 +8,16 @@ import { GalacticBand } from '@/scenes/system/GalacticBand'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { SystemBackdropStars } from '@/scenes/system/SystemBackdropStars'
+import { SystemEntryTransition } from '@/scenes/system/SystemEntryTransition'
 import { useGameStore } from '@/store'
 
 /** 태양계 씬은 항상 자기 원점(0,0,0)에 항성을 둔다 — 플로팅 오리진 (결정 15). */
 const SYSTEM_ORIGIN: readonly [number, number, number] = [0, 0, 0]
-const STAR_VISUAL_RADIUS = 3
+/** 항성 시각 반경 — 행성 시각 반경 상한(~2.5)의 2배 이상이어야 위계가 선다. */
+const STAR_VISUAL_RADIUS = 5
+/** 카메라 줌 한계 — 진입 트랜지션의 안착 거리로도 쓰인다. */
+const CAMERA_MIN_DISTANCE = 10
+const CAMERA_MAX_DISTANCE = 180
 
 export function SystemScene() {
   const seed = useGameStore((state) => state.seed)
@@ -34,7 +39,12 @@ export function SystemScene() {
   return (
     <>
       <color attach="background" args={['#05060f']} />
-      <CameraRig focus={SYSTEM_ORIGIN} minDistance={10} maxDistance={180} />
+      <CameraRig
+        focus={SYSTEM_ORIGIN}
+        minDistance={CAMERA_MIN_DISTANCE}
+        maxDistance={CAMERA_MAX_DISTANCE}
+      />
+      <SystemEntryTransition restDistance={CAMERA_MAX_DISTANCE} />
       <group position={galaxyAnchor}>
         <DistantGalaxies />
       </group>
