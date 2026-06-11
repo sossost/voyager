@@ -5,7 +5,7 @@ import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import { SECTOR_SIZE, sectorDensity } from './density'
 
-export const MAX_STARS_PER_SECTOR = 12
+export const MAX_STARS_PER_SECTOR = 8
 
 export type SpectralClass = 'O' | 'B' | 'A' | 'F' | 'G' | 'K' | 'M'
 

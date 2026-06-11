@@ -6,11 +6,8 @@
  * (simplex-noise 등 외부 라이브러리·초월함수 기반 노이즈는 금지 — lint로 강제)
  */
 
-/**
- * 정수 격자점 → [0, 1). murmur3 finalizer 기반 믹싱.
- * valueNoise3의 격자 해시이자, 렌더 레이어의 결정론적 지터 용도로도 공개한다.
- */
-export function hash01(ix: number, iy: number, iz: number, salt = 0): number {
+/** 정수 격자점 → [0, 1). murmur3 finalizer 기반 믹싱. */
+function hash01(ix: number, iy: number, iz: number, salt = 0): number {
   let h =
     Math.imul(ix, 0x9e3779b1) ^
     Math.imul(iy, 0x85ebca77) ^

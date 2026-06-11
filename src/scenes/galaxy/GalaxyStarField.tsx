@@ -7,8 +7,8 @@ import { SECTOR_SIZE } from '@/engine'
 import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMaterial'
 
-/** 원거리 별 크기 하한 (px) — 줌아웃해도 별이 서브픽셀로 사라지지 않는다. */
-const STAR_MIN_POINT_SIZE = 1.2
+/** 원거리 별 크기 하한 (px) — 줌아웃 시 은하 형상이 별만으로 읽히는 밝기를 보장한다. */
+const STAR_MIN_POINT_SIZE = 2.2
 
 function buildGeometry(stars: readonly Star[]): BufferGeometry {
   const count = stars.length
@@ -43,8 +43,8 @@ interface GalaxyStarFieldProps {
 }
 
 /**
- * 은하 전체 별 필드 — 모든 별(약 1.7만)을 Points 1개 = 드로콜 1로 그린다 (결정 22).
- * 화면에 보이는 별이 곧 클릭 가능한 별이다 — 별도 원경 점은 색 보조용 백드롭뿐.
+ * 은하 전체 별 필드 — 모든 별(약 1.2만)을 Points 1개 = 드로콜 1로 그린다 (결정 22).
+ * 화면의 모든 점이 클릭 가능한 진짜 별이다 (별도 원경 레이어 없음).
  */
 export function GalaxyStarField({ stars, maxPointSize }: GalaxyStarFieldProps) {
   const geometry = useMemo(() => buildGeometry(stars), [stars])
