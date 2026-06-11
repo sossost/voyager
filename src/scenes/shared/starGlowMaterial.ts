@@ -17,7 +17,7 @@ const VERTEX_SHADER = /* glsl */ `
   attribute vec3 starColor;
   uniform float uPixelRatio;
   uniform float uMaxPointSize;
-  uniform float uMinPointSize;
+  uniform float uMinPointSizePerUnit;
   varying vec3 vColor;
 
   void main() {
@@ -25,7 +25,9 @@ const VERTEX_SHADER = /* glsl */ `
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float distanceToCamera = max(-mvPosition.z, 1.0);
     float pointSize = size * uPixelRatio * (${PERSPECTIVE_SCALE.toFixed(1)} / distanceToCamera);
-    gl_PointSize = clamp(pointSize, uMinPointSize * uPixelRatio, uMaxPointSize * uPixelRatio);
+    // 하한이 size에 비례 — 원거리에서도 거성/왜성의 크기 격차가 유지된다
+    float minSize = uMinPointSizePerUnit * size * uPixelRatio;
+    gl_PointSize = clamp(pointSize, minSize, uMaxPointSize * uPixelRatio);
     gl_Position = projectionMatrix * mvPosition;
   }
 `
@@ -64,15 +66,15 @@ export interface StarGlowMaterialOptions {
   readonly initialOpacity?: number
   /** 'glow' 부드러운 글로우(기본) / 'star' 또렷한 별. */
   readonly profile?: 'glow' | 'star'
-  /** 점 크기 하한 (px) — 원거리 별이 서브픽셀로 사라지지 않게 한다. */
-  readonly minPointSize?: number
+  /** size 어트리뷰트 1단위당 점 크기 하한 (px) — 원거리에서도 크기 격차를 유지한다. */
+  readonly minPointSizePerUnit?: number
 }
 
 export function createStarGlowMaterial({
   maxPointSize,
   initialOpacity = 0,
   profile = 'glow',
-  minPointSize = 0,
+  minPointSizePerUnit = 0,
 }: StarGlowMaterialOptions): ShaderMaterial {
   return new ShaderMaterial({
     vertexShader: VERTEX_SHADER,
@@ -81,7 +83,7 @@ export function createStarGlowMaterial({
       uOpacity: { value: initialOpacity },
       uPixelRatio: { value: 1 },
       uMaxPointSize: { value: maxPointSize },
-      uMinPointSize: { value: minPointSize },
+      uMinPointSizePerUnit: { value: minPointSizePerUnit },
     },
     transparent: true,
     depthWrite: false,
