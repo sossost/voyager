@@ -20,6 +20,8 @@ function pickNearestStar(
   camera: Parameters<Vector3['project']>[0],
   sectors: readonly LoadedSector[],
   hitRadiusPx: number,
+  fadeCenter: Vector3,
+  fadeOuter: number,
 ): Star | null {
   let nearest: Star | null = null
   let nearestDistance = hitRadiusPx
@@ -31,6 +33,8 @@ function pickNearestStar(
         star.sector.sy * SECTOR_SIZE + star.localPos[1],
         star.sector.sz * SECTOR_SIZE + star.localPos[2],
       )
+      // 구형 페이드로 완전히 투명해진 별은 선택 불가 — 보이는 것만 탭할 수 있다
+      if (projected.distanceTo(fadeCenter) > fadeOuter) continue
       projected.project(camera)
       // NDC 밖(뒤쪽 포함)은 후보가 아니다
       if (projected.z > 1 || projected.z < -1) continue
@@ -51,10 +55,12 @@ function pickNearestStar(
 /**
  * 화면공간 최근접 별 피킹 — click/tap 시점에만 O(n) 수행 (결정 20).
  * Points raycast threshold 방식과 달리 점 크기와 무관한 히트 영역을 보장한다.
+ * fadeOuter는 SectorPoints의 구형 페이드와 동일 기준 — 보이지 않는 별은 후보가 아니다.
  */
-export function useStarPicking(sectors: readonly LoadedSector[]) {
+export function useStarPicking(sectors: readonly LoadedSector[], fadeOuter: number) {
   const gl = useThree((state) => state.gl)
   const camera = useThree((state) => state.camera)
+  const getThreeState = useThree((state) => state.get)
   const sectorsRef = useRef(sectors)
   sectorsRef.current = sectors
 
@@ -81,12 +87,17 @@ export function useStarPicking(sectors: readonly LoadedSector[]) {
       if (dragDistance > CLICK_SLOP_PX) return
 
       const hitRadius = event.pointerType === 'touch' ? BASE_HIT_RADIUS_PX * 2 : BASE_HIT_RADIUS_PX
+      // 페이드 중심 = SectorPoints의 uFadeCenter와 동일 기준 (controls.target)
+      const controls = getThreeState().controls as { target?: Vector3 } | null
+      const fadeCenter = controls?.target ?? camera.position
       const star = pickNearestStar(
         event,
         element.getBoundingClientRect(),
         camera,
         sectorsRef.current,
         hitRadius,
+        fadeCenter,
+        fadeOuter,
       )
       selectStar(star?.id ?? null)
     }
@@ -97,5 +108,5 @@ export function useStarPicking(sectors: readonly LoadedSector[]) {
       element.removeEventListener('pointerdown', handlePointerDown)
       element.removeEventListener('pointerup', handlePointerUp)
     }
-  }, [gl, camera])
+  }, [gl, camera, getThreeState, fadeOuter])
 }

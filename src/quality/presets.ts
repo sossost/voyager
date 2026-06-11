@@ -10,6 +10,10 @@ export interface QualityPreset {
   readonly starBudget: number
   readonly sectorLoadRadius: number
   readonly maxPointSize: number
+  /** 은하 원경 샘플 간격 (섹터 단위) — 점 수 = fill-rate 비용이므로 티어가 통제한다. */
+  readonly backdropStride: number
+  /** 은하 원경 글로우 점 크기 캡 (px) — maxPointSize와 같은 fill-rate 캡 역할. */
+  readonly backdropMaxPointSize: number
   readonly planetSegments: number
   readonly postFx: boolean
 }
@@ -20,6 +24,8 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     starBudget: 20_000,
     sectorLoadRadius: 3,
     maxPointSize: 24,
+    backdropStride: 1,
+    backdropMaxPointSize: 24,
     planetSegments: 64,
     postFx: true,
   },
@@ -28,6 +34,8 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     starBudget: 8_000,
     sectorLoadRadius: 2,
     maxPointSize: 18,
+    backdropStride: 1,
+    backdropMaxPointSize: 20,
     planetSegments: 32,
     postFx: false,
   },
@@ -36,6 +44,8 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     starBudget: 3_000,
     sectorLoadRadius: 1,
     maxPointSize: 12,
+    backdropStride: 2,
+    backdropMaxPointSize: 16,
     planetSegments: 16,
     postFx: false,
   },
