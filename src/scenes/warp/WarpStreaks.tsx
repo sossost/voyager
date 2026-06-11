@@ -6,6 +6,7 @@ import { AdditiveBlending, PerspectiveCamera, ShaderMaterial } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
 import {
+  WARP_DIVE_END_PROGRESS,
   WARP_FOV_PEAK,
   WARP_FOV_REST,
   WARP_STAGE_A_MS,
@@ -152,12 +153,18 @@ export function WarpStreaks() {
     const elapsed = state.clock.elapsedTime - startRef.current
     const progress = Math.min(1, elapsed / (WARP_STAGE_A_MS / 1_000))
 
-    setUniform(material, 'uProgress', progress * progress) // ease-in
+    // 스트리크·FOV는 다이브(출발 항성 확대)가 끝난 뒤부터 — 목표를 바라보며 점화된다 (결정 31)
+    const ignitable = Math.max(
+      0,
+      (progress - WARP_DIVE_END_PROGRESS) / (1 - WARP_DIVE_END_PROGRESS),
+    )
+
+    setUniform(material, 'uProgress', ignitable * ignitable) // ease-in
     setUniform(material, 'uAspect', state.size.width / state.size.height)
 
     if (state.camera instanceof PerspectiveCamera) {
       // 큐빅 서지 — FOV 펀치가 막판에 몰려 플래시 직전 가속감이 최대가 된다
-      const fovSurge = progress * progress * progress
+      const fovSurge = ignitable * ignitable * ignitable
       const targetFov = WARP_FOV_REST + (WARP_FOV_PEAK - WARP_FOV_REST) * fovSurge
       damp(state.camera, 'fov', targetFov, 0.1, delta)
       state.camera.updateProjectionMatrix()
