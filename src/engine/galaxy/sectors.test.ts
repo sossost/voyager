@@ -40,6 +40,32 @@ describe('sectorDensity', () => {
       }
     }
   })
+
+  it('중심 섹터 (0,0,0)의 밀도는 1이다 — originStar의 0:0:0:0 보장 (시드 LIFE1 의존)', () => {
+    expect(sectorDensity({ sx: 0, sy: 0, sz: 0 })).toBe(1)
+  })
+
+  it('같은 반경대에서 나선팔 위는 팔 사이보다 밀도가 높다', () => {
+    // 반경 22~26 고리의 모든 섹터를 훑어 최대/최소를 비교 — 팔 변조가 실제로 작동하는지 확인
+    // (engine/ 테스트도 순수성 린트 대상이라 Math.cos 대신 정수 격자 스캔을 쓴다)
+    const densities: number[] = []
+    for (let sx = -26; sx <= 26; sx++) {
+      for (let sz = -26; sz <= 26; sz++) {
+        const radius = Math.sqrt(sx * sx + sz * sz)
+        if (radius < 22 || radius > 26) continue
+        densities.push(sectorDensity({ sx, sy: 0, sz }))
+      }
+    }
+    const onArm = Math.max(...densities)
+    const betweenArms = Math.min(...densities)
+    expect(onArm).toBeGreaterThan(betweenArms * 2)
+  })
+
+  it('원반 평면(sy=0)이 평면 밖(|sy|=4)보다 밀도가 높다', () => {
+    const inPlane = sectorDensity({ sx: 12, sy: 0, sz: 9 })
+    const offPlane = sectorDensity({ sx: 12, sy: 4, sz: 9 })
+    expect(inPlane).toBeGreaterThan(offPlane)
+  })
 })
 
 describe('starsInSector', () => {

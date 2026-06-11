@@ -2,16 +2,18 @@ import { useMemo } from 'react'
 
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { QUALITY_PRESETS } from '@/quality/presets'
-import { GalaxyBackdrop } from '@/scenes/galaxy/GalaxyBackdrop'
-import { SectorPoints } from '@/scenes/galaxy/SectorPoints'
+import { GalaxyNebula } from '@/scenes/galaxy/GalaxyNebula'
+import { GalaxyStarField } from '@/scenes/galaxy/GalaxyStarField'
 import { SelectedStarMarker } from '@/scenes/galaxy/SelectedStarMarker'
+import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
-import { useVisibleSectors } from '@/scenes/galaxy/useVisibleSectors'
 import { VisitedStarMarkers } from '@/scenes/galaxy/VisitedStarMarkers'
 import { CameraRig } from '@/scenes/shared/CameraRig'
 import { useGameStore } from '@/store'
 
 const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0]
+/** 은하 전체(지름 9,600 유닛)가 화면에 들어오는 줌아웃 한계 — 나선 형상 조망용. */
+const GALAXY_MAX_ZOOM_OUT = 6_000
 
 export function GalaxyScene() {
   const seed = useGameStore((state) => state.seed)
@@ -24,18 +26,16 @@ export function GalaxyScene() {
     [seed, currentStarId],
   )
 
-  const sectors = useVisibleSectors()
-  useStarPicking(sectors)
+  const stars = useGalaxyStars()
+  useStarPicking(stars)
 
   return (
     <>
       <color attach="background" args={['#05060f']} />
-      <CameraRig focus={focus} />
-      <GalaxyBackdrop />
-      {sectors.map((sector) => (
-        <SectorPoints key={sector.key} sector={sector} maxPointSize={preset.maxPointSize} />
-      ))}
-      <VisitedStarMarkers sectors={sectors} />
+      <CameraRig focus={focus} maxDistance={GALAXY_MAX_ZOOM_OUT} />
+      <GalaxyNebula />
+      <GalaxyStarField stars={stars} maxPointSize={preset.maxPointSize} />
+      <VisitedStarMarkers />
       <SelectedStarMarker />
     </>
   )

@@ -267,6 +267,53 @@
 
 ---
 
+### 21. 나선은하 형상 + 별 밀도 하향 (GEN_VERSION 1 → 2)
+
+**Date:** 2026-06-11 (v1 직후 — 은하 지도가 "정육면체 별 무더기"로 읽히고 별이 과밀하다는 피드백)
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 렌더만 수정 (페이드/백드롭) | GEN_VERSION 불변 | 밀도 함수가 무정형이라 줌아웃해도 나선이 없음 — 03-plan의 '나선팔 밀도 함수' 약속 미이행 상태 지속 |
+| B: 엔진 밀도 함수에 나선팔 추가 + 밀도 하향 + 렌더 수정 | 실제 은하 형상, 별 과밀 해소, 백드롭이 밀도 함수를 그대로 비춰 게임플레이와 비주얼 일치 | 출력 분포 변경 → GEN_VERSION 2 (기존 프로필은 부트 안내 모달) |
+
+**Chosen:** B — 세 갈래 동시 변경:
+1. **엔진** (`engine/math/trig.ts` 신설 + `density.ts`): cos/atan2를 사칙연산 유리 근사(Bhaskara I, 최대 오차 ~0.002)로 벤더링 — 결정 14의 "산술 연산만" 원칙 유지. 밀도 = 원반 감쇠² × 수직 감쇠² × 2팔 아르키메데스 나선(비틀림 0.45rad/섹터, 팔 바닥 0.15) × 덩어리 질감(바닥 0.5) + 벌지(반경 6섹터). `MAX_STARS_PER_SECTOR` 80 → 5.
+2. **렌더**: 별 글로우 셰이더에 초점 기준 구형 페이드(로드 큐브 내접구) — 체비셰프 로드 경계가 구로 읽힘. 백드롭은 섹터당 1점 + hash01 지터/크기 변주 + 벌지 난색→팔 한색 그라데이션, 줌아웃 한계 1,600 → 6,000.
+3. **호환**: 중심 섹터 (0,0,0)의 밀도를 구조적으로 1로 보장 → `originStar`는 모든 시드에서 `0:0:0:0` 유지 → 시드 LIFE1의 시작 별계·행성·외계인은 스트림 격리로 비트 동일 (E2E 불변).
+
+**Reason:** "은하 모양"은 밀도 함수의 속성이지 렌더의 속성이 아니다 — 렌더만 고치면 백드롭과 실제 별 분포가 어긋난다. GEN_VERSION 메커니즘(결정 13)이 정확히 이런 변경을 위해 설계되었고, v1 미출시 시점이라 비용이 최소다.
+**Consequences:** `tests/golden/universe.golden.test.ts.snap` 전면 재생성. 기존 v1 프로필은 부트 시 안내 모달(확인 완료). 섹터당 별 밀도 80 → 5 (24 → 12 → 8 → 5, 과밀 피드백으로 출시 전 같은 GEN_VERSION 2 안에서 단계 하향). 구형 페이드는 결정 22에서 가상화와 함께 제거됨.
+
+---
+
+### 22. 은하 별 전수 렌더링 — 섹터 가상화 제거 (결정 12 일부 대체, 결정 21 보완)
+
+**Date:** 2026-06-11 (결정 21 직후 — "클릭 가능한 별은 여전히 좁은 구역에 몰려 있고, 나선은 클릭 불가능한 배경 그림"이라는 피드백)
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 가상화 유지 + 백드롭 강화 | 변경 최소 | 보이는 은하 = 가짜 점, 진짜 별 = 카메라 주변 버블 — 지도가 거짓말을 한다 |
+| B: 은하 전체 별 전수 생성·렌더 (Points 1드로콜) | 보이는 별 = 클릭 가능한 별 항상 성립, 가상화·LRU·구형 페이드 전부 삭제, 드로콜 363→21 | 시드당 1회 전수 생성 비용 |
+
+**Chosen:** B — 결정 12의 섹터 가상화는 '무한 우주' 가정이었으나, 은하는 유한하다(반경 48섹터, 총 ~7.3천 별). 전수 생성을 실측하니 이름 포함 ~50ms — 가상화가 해결하던 문제가 존재하지 않았다. `useGalaxyStars`가 시드당 1회 모듈 캐시로 전수 생성하고, `GalaxyStarField`가 1드로콜로 그린다. 피킹(결정 20)은 전체 별 대상 O(n) — 클릭 시점에만 수행하므로 ~7.3천 × 투영 ≈ 수 ms. 별 셰이더는 거리 적응형 — 카메라 ~800 이내는 '단단한 코어 + 옅은 헤일로'의 또렷한 점광원, ~3,200 밖은 소프트 글로우로 전환(확대할수록 초점이 맞는 느낌). 크기 하한은 분광형 크기 비례(1.2px/단위)로 줌아웃에서도 거성/왜성 격차가 유지되고, 별마다 좌표 파생 밝기·크기 변주로 균일한 점 패턴을 깬다. 성운 백드롭(GalaxyBackdrop)은 "블러 점이 배경 같다"는 피드백으로 완전 제거 — 화면의 모든 점이 클릭 가능한 진짜 별이다.
+**Consequences:** `useVisibleSectors`·`SectorPoints`·`lruCache`·구형 페이드(결정 21) 삭제. 프리셋에서 `sectorLoadRadius`·`starBudget` 제거 (점 수는 티어 불변, 티어는 크기 캡만 통제). 04-backlog의 페이드 기하 불일치 항목 무효화. 생성 분포 무변 — GEN_VERSION 2 유지, 골든 불변.
+
+---
+
+### 23. 줌아웃 은하 연출 — 성운 텍스처 평면 + 코어 광원
+
+**Date:** 2026-06-11 (결정 22 직후 — "축소 시 너무 샤프하고 단조롭다, 은하 중심 광원과 성운 배경이 필요해 보인다"는 피드백)
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 점 블롭 백드롭 부활 | 구현 재사용 | "블러 점이 가짜 별 같다"로 이미 기각된 방식 |
+| B: 밀도 함수를 구운 연속 텍스처 평면 1장 + 코어 라디얼 글로우 | 점이 아닌 연속 발광 면 — 가짜 별 없음, 실제 별 분포와 같은 함수라 팔에 정확히 밀착, 드로콜 1 | 평면이 화면을 덮는 중간 줌에서 fill-rate·얼룩 위험 (줌 게이팅으로 해소) |
+
+**Chosen:** B — `GalaxyNebula`: 섹터당 1텍셀(97²)로 sectorDensity를 굽고 4배 블러 업스케일 + 중심 코어 라디얼 글로우를 덧그린 CanvasTexture를 은하면 평면(가산 블렌딩)에 깐다. 카메라-초점 거리 2,000→4,500에서만 페이드인하고 그 미만이면 mesh를 꺼서(visible=false) 근접 항행 중 fill-rate 낭비와 회색 얼룩을 차단. 밀도 함수가 시드 무관이라 텍스처는 1회 생성. 별 셰이더의 소프트 블렌딩은 상한 0.65·크기 부풀림 0.35로 낮춰 별이 헤이즈 위의 또렷한 알갱이로 남는다.
+**Reason:** 결정 22에서 백드롭을 제거한 건 "점 블롭이 가짜 별로 읽혀서"였지 성운 자체가 문제가 아니었다. 연속 텍스처는 그 결함 없이 은하 사진의 광량을 준다. 렌더 전용 — 생성 분포·GEN_VERSION 불변.
+
+---
+
 ## Architecture
 
 ### Structure
@@ -291,7 +338,7 @@ src/
 ├── scenes/                   # R3F — 게임 규칙 없음, store 액션 호출만
 │   ├── SceneRouter.tsx       # scene.kind switch
 │   ├── shared/               # CameraRig(마우스+터치), ContextLossGuard
-│   ├── galaxy/               # GalaxyScene, SectorPoints, useVisibleSectors, useStarPicking
+│   ├── galaxy/               # GalaxyScene, GalaxyStarField(전수 별, 결정 22), useGalaxyStars, useStarPicking, VisitedStarMarkers
 │   ├── system/               # SystemScene, Planet, Orbits
 │   └── warp/WarpEffect.tsx   # 3단 타임라인
 ├── quality/useQualityTier.ts # detect-gpu 초기 티어 + PerformanceMonitor 사후 하향
@@ -319,8 +366,8 @@ main():
   loadAll() → store 하이드레이트(Set/Map 캐시) → 현재 별 태양계 뷰로 시작
   driver.mode == 'memory' → 상시 경고 배너
 
-# 결정론 생성 (engine/* 순수함수 — 저장 안 함, LRU 캐시만)
-starsInSector(seed, sector) → rngFor(seed,'sector',...)로 별 0~80개
+# 결정론 생성 (engine/* 순수함수 — 저장 안 함, 은하 전수는 useGalaxyStars 시드당 1회 캐시)
+starsInSector(seed, sector) → rngFor(seed,'sector',...)로 별 0~24개 (나선 밀도, 결정 21)
 planetsOf(seed, starId)     → 행성마다 독립 스트림(스트림 격리 = 호환성 1차 방어)
 alienAt(seed, planetId)     → 희귀도(70/22/7/1) → 종족 → fixedParts+allowedParts pick
                               individualId = hash128(...) — 결정론 PK, 중복 등록 DB 제약 차단
@@ -337,7 +384,7 @@ explore(planetId): guard(hasLife && !encounter)
 
 # 수명주기/품질
 탭 비활성·풀스크린 오버레이 → frameloop='never'
-detect-gpu 초기 티어 → decline 시 DPR → 별 예산 → postFx 순 하향
+detect-gpu 초기 티어 → decline 시 DPR → 점 크기 캡 → postFx 순 하향 (별 수는 전수 고정, 결정 22)
 ```
 
 ### Key Interfaces

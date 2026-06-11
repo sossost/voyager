@@ -7,7 +7,7 @@
  */
 
 /** 정수 격자점 → [0, 1). murmur3 finalizer 기반 믹싱. */
-function latticeHash(ix: number, iy: number, iz: number, salt: number): number {
+function hash01(ix: number, iy: number, iz: number, salt = 0): number {
   let h =
     Math.imul(ix, 0x9e3779b1) ^
     Math.imul(iy, 0x85ebca77) ^
@@ -39,14 +39,14 @@ export function valueNoise3(x: number, y: number, z: number, salt = 0): number {
   const ty = smoothstep(y - iy)
   const tz = smoothstep(z - iz)
 
-  const c000 = latticeHash(ix, iy, iz, salt)
-  const c100 = latticeHash(ix + 1, iy, iz, salt)
-  const c010 = latticeHash(ix, iy + 1, iz, salt)
-  const c110 = latticeHash(ix + 1, iy + 1, iz, salt)
-  const c001 = latticeHash(ix, iy, iz + 1, salt)
-  const c101 = latticeHash(ix + 1, iy, iz + 1, salt)
-  const c011 = latticeHash(ix, iy + 1, iz + 1, salt)
-  const c111 = latticeHash(ix + 1, iy + 1, iz + 1, salt)
+  const c000 = hash01(ix, iy, iz, salt)
+  const c100 = hash01(ix + 1, iy, iz, salt)
+  const c010 = hash01(ix, iy + 1, iz, salt)
+  const c110 = hash01(ix + 1, iy + 1, iz, salt)
+  const c001 = hash01(ix, iy, iz + 1, salt)
+  const c101 = hash01(ix + 1, iy, iz + 1, salt)
+  const c011 = hash01(ix, iy + 1, iz + 1, salt)
+  const c111 = hash01(ix + 1, iy + 1, iz + 1, salt)
 
   const bottom = lerp(lerp(c000, c100, tx), lerp(c010, c110, tx), ty)
   const top = lerp(lerp(c001, c101, tx), lerp(c011, c111, tx), ty)

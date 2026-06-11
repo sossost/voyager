@@ -13,7 +13,7 @@ interface CameraRigProps {
 
 /**
  * 공용 카메라 리그 — 마우스 회전/줌/팬 + 터치 드래그/핀치 (OrbitControls 내장).
- * makeDefault로 등록되어 useVisibleSectors가 controls.target을 읽는다.
+ * makeDefault로 등록되어 씬 컴포넌트들이 state.controls를 읽을 수 있다.
  */
 export function CameraRig({ focus, minDistance = 15, maxDistance = 1600 }: CameraRigProps) {
   const camera = useThree((state) => state.camera)
