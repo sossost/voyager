@@ -6,6 +6,7 @@ import {
   CanvasTexture,
   type Group,
   MeshBasicMaterial,
+  RepeatWrapping,
 } from 'three'
 
 import { GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
@@ -52,6 +53,37 @@ const BRIGHTNESS_GAMMA = 0.8
 /** 수직 가우시안 σ (절반 높이 대비) — 밝은 방향일수록 띠가 두꺼워진다. */
 const SIGMA_BASE = 0.18
 const SIGMA_SPAN = 0.3
+/**
+ * 수직 2층 프로파일 — 얇은 원반(밝은 심) + 두꺼운 원반(옅은 헤일로).
+ * 단일 가우시안은 가장자리가 균일하게 풀려 "안개 줄무늬"로 읽힌다 (정중앙 정박 실측).
+ */
+const THIN_LAYER_WEIGHT = 0.72
+const THIN_SIGMA_SCALE = 0.55
+const THICK_LAYER_WEIGHT = 0.28
+const THICK_SIGMA_SCALE = 1.6
+/**
+ * 적도 암흑대 — 은하수 대균열처럼 밝은 띠 한가운데를 가르는 먼지 실루엣.
+ * 가산 블렌딩이라 빛을 빼는 게 아니라 베이크 단계에서 광량을 깎는다.
+ * 깊이는 밝기에 비례(어두운 방향에선 보이지 않는다) + 방위각 노이즈로 끊긴다.
+ */
+const RIFT_SIGMA = 0.1
+const RIFT_MAX_DEPTH = 0.45
+const RIFT_NOISE_FLOOR = 0.35
+/** 방위각 패치 변조 폭 — 완전 균일한 띠는 구조가 아니라 안개로 읽힌다. */
+const PATCH_BASE = 0.86
+const PATCH_SPAN = 0.28
+
+/**
+ * 방위각 패치 노이즈 [0, 1] — 정수 주파수 sin 합이라 θ 한 바퀴에서 이음매가 없다.
+ * phase로 서로 다른 패턴(밝기 패치 vs 암흑대 끊김)을 뽑는다.
+ */
+function azimuthNoise(theta: number, phase: number): number {
+  const wave =
+    Math.sin(theta * 3 + 1.7 + phase) +
+    0.5 * Math.sin(theta * 7 + 0.4 + phase * 2) +
+    0.25 * Math.sin(theta * 13 + 3.1 + phase * 3)
+  return 0.5 + wave / 3.5
+}
 
 /** 벌지(난색) ↔ 나선팔(한색) — GalaxyNebula(결정 23)와 같은 색 언어. */
 const BULGE_RGB = [255, 208, 150] as const
@@ -134,9 +166,21 @@ function buildBandTexture(anchorX: number, anchorZ: number): CanvasTexture {
     const blue = ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth
     const sigma = SIGMA_BASE + SIGMA_SPAN * brightness
 
+    const patch = PATCH_BASE + PATCH_SPAN * azimuthNoise(theta, 0)
+    const riftDepth =
+      RIFT_MAX_DEPTH *
+      (RIFT_NOISE_FLOOR + (1 - RIFT_NOISE_FLOOR) * azimuthNoise(theta, 2.3)) *
+      brightness
+
     for (let row = 0; row < VERTICAL_TEXELS; row++) {
       const elevation = (row / (VERTICAL_TEXELS - 1)) * 2 - 1
-      const level = brightness * Math.exp(-((elevation / sigma) ** 2))
+      const thinLayer =
+        THIN_LAYER_WEIGHT * Math.exp(-((elevation / (sigma * THIN_SIGMA_SCALE)) ** 2))
+      const thickLayer =
+        THICK_LAYER_WEIGHT * Math.exp(-((elevation / (sigma * THICK_SIGMA_SCALE)) ** 2))
+      const rift = 1 - riftDepth * Math.exp(-((elevation / RIFT_SIGMA) ** 2))
+      const level = brightness * patch * (thinLayer + thickLayer) * rift
+
       const offset = (row * AZIMUTH_COLUMNS + column) * 4
       image.data[offset] = red * level
       image.data[offset + 1] = green * level
@@ -148,6 +192,8 @@ function buildBandTexture(anchorX: number, anchorZ: number): CanvasTexture {
 
   const texture = new CanvasTexture(canvas)
   texture.colorSpace = 'srgb'
+  // 방위각은 한 바퀴 — 기본 ClampToEdge면 0°/360° 경계에서 보간이 끊겨 수직 솔기가 보인다
+  texture.wrapS = RepeatWrapping
   return texture
 }
 
