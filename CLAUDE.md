@@ -1,4 +1,4 @@
-# Stellar Voyage — 프로젝트 규칙
+# Voyager — 프로젝트 규칙
 
 시드 기반 결정론적 3D 은하 탐험·외계생명체 수집 웹 게임 (React 19 + R3F 9 + TS strict + Zustand + Dexie).
 

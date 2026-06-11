@@ -134,7 +134,7 @@ export function BootGate() {
     case 'checking':
       return (
         <main className="boot-screen" aria-busy="true">
-          <h1 className="boot-title">Stellar Voyage</h1>
+          <h1 className="boot-title">Voyager</h1>
           <p className="boot-subtitle">항행 시스템 점검 중…</p>
         </main>
       )

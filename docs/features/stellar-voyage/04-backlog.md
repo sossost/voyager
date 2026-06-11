@@ -64,7 +64,7 @@
 
 ### G-a. 빠른 개선 (렌더/DOM 전용 — GEN_VERSION 무관)
 
-1. **서비스 이름 확정: Voyager** — "Stellar Voyage" → "Voyager" 리네임. TopBar 타이틀·부트 화면·index.html `<title>`·README·스펙 문서 헤더. (저장 데이터·시드 무관 — 순수 표기)
+1. ~~**서비스 이름 확정: Voyager**~~ — ✅ 완료 (2026-06-12): 표기 전부 "Voyager"로 (TopBar·부트 3종·index.html·README·스펙 문서 헤더·CLAUDE.md). Dexie DB명(`stellar-voyage`)·디렉터리·package.json name은 식별자라 유지.
 2. **우주선 뷰 배경 정리** — 원거리 은하 빌보드(DistantGalaxies)는 우주선 뷰에서 제외(지도 전용으로), 대신 별계 씬처럼 균일 배경 별(SystemStarfield 패턴)을 깔아 빈 하늘을 채운다. 실제 은하 별(GalaxyStarField)은 그대로 — 장식 레이어만 교체.
 3. **생명체 행성 통신 파동** — 별계 씬에서 hasLife 행성 주변으로 원형 링이 주기적으로 퍼져나가는 연출(전파/통신 신호 느낌). CurrentStarBeacon 소나 링 패턴 재사용(빌보드 + 위상 스태거), 청록 가산. 행성 공전을 따라가야 하므로 행성 그룹 자식으로.
 4. **별계 진입 시 항성 정보 표시** — 현재 어떤 항성계인지 알 길이 없음. 항성 이름·분광형을 표시 — 항성 클릭 시 홀로그램 콜아웃(G-a-5와 같은 패턴) 또는 진입 시 잠깐 떴다 사라지는 함교 리드아웃. starById로 이름 조회.
