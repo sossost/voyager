@@ -19,6 +19,7 @@ export {
   SECTOR_SIZE,
   sectorDensity,
 } from './galaxy/density'
+export { hash01 } from './noise/valueNoise'
 export type { SpectralClass, Star } from './galaxy/sectors'
 export { MAX_STARS_PER_SECTOR, starsInSector } from './galaxy/sectors'
 export { originStar } from './galaxy/origin'
