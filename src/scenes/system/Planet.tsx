@@ -6,6 +6,7 @@ import type { Planet as PlanetData } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
+import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
 import {
   bakePlanetTextures,
   disposePlanetTextures,
@@ -145,6 +146,8 @@ export function Planet({ planet }: PlanetProps) {
           <meshBasicMaterial color="#7c5cff" transparent opacity={0.95} depthWrite={false} />
         </mesh>
       ) : null}
+
+      {planet.hasLife ? <LifeSignalWaves planetRadius={visualRadius} /> : null}
     </group>
   )
 }
