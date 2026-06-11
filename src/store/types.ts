@@ -1,9 +1,15 @@
 import type { AlienIndividual, IndividualId, PlanetId, Seed, StarId } from '@/engine'
 import type { CollectionEntry } from '@/persistence/types'
 
+/**
+ * 은하 공간의 두 시점 (결정 34) — ship: 우주선 뷰(궤도 중심 = 현재 별, 시뮬레이션 기본),
+ * map: 은하 전도(궤도 중심 = 은하 중심 고정, 항행 목적지 선택용).
+ */
+export type GalaxyViewMode = 'ship' | 'map'
+
 /** 씬 상태머신 — 전이는 sceneSlice의 가드 액션으로만 가능하다 (02-decisions.md 결정 15). */
 export type SceneState =
-  | { readonly kind: 'galaxy' }
+  | { readonly kind: 'galaxy'; readonly view: GalaxyViewMode }
   | { readonly kind: 'warping'; readonly from: StarId; readonly to: StarId }
   | { readonly kind: 'system'; readonly starId: StarId }
 
@@ -39,6 +45,10 @@ export interface SceneSlice {
   onWarpComplete(): void
   enterCurrentSystem(): void
   backToGalaxy(): void
+  /** 우주선 뷰 → 은하 전도 (은하 뷰에서만). */
+  openGalaxyMap(): void
+  /** 은하 전도 → 우주선 뷰 (은하 뷰에서만). */
+  closeGalaxyMap(): void
 }
 
 export interface PlayerSlice {

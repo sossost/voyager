@@ -6,9 +6,9 @@ import { AdditiveBlending, PerspectiveCamera, ShaderMaterial } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
 import {
-  WARP_DIVE_END_PROGRESS,
   WARP_FOV_PEAK,
   WARP_FOV_REST,
+  WARP_IGNITION_PROGRESS,
   WARP_STAGE_A_MS,
 } from '@/scenes/warp/warpTimeline'
 
@@ -153,10 +153,10 @@ export function WarpStreaks() {
     const elapsed = state.clock.elapsedTime - startRef.current
     const progress = Math.min(1, elapsed / (WARP_STAGE_A_MS / 1_000))
 
-    // 스트리크·FOV는 다이브(출발 항성 확대)가 끝난 뒤부터 — 목표를 바라보며 점화된다 (결정 31)
+    // 스트리크·FOV는 홀드(예열)가 끝난 뒤부터 — 목표를 바라보며 점화된다 (결정 31·34)
     const ignitable = Math.max(
       0,
-      (progress - WARP_DIVE_END_PROGRESS) / (1 - WARP_DIVE_END_PROGRESS),
+      (progress - WARP_IGNITION_PROGRESS) / (1 - WARP_IGNITION_PROGRESS),
     )
 
     setUniform(material, 'uProgress', ignitable * ignitable) // ease-in

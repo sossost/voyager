@@ -119,6 +119,28 @@ describe('씬 전이 가드', () => {
     store.getState().backToGalaxy()
     expect(store.getState().scene.kind).toBe('galaxy') // galaxy에서 무시 (변화 없음)
   })
+
+  it('별계 이탈은 우주선 뷰로 나가고, 은하 전도는 열고 닫는다 (결정 34)', () => {
+    store.getState().backToGalaxy()
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
+
+    store.getState().openGalaxyMap()
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'map' })
+
+    store.getState().closeGalaxyMap()
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
+  })
+
+  it('지도 열기/닫기는 은하 뷰에서만 동작한다', () => {
+    store.getState().openGalaxyMap() // system에서 — 무시
+    expect(store.getState().scene.kind).toBe('system')
+
+    store.getState().backToGalaxy()
+    store.getState().openGalaxyMap()
+    store.getState().warpTo(target)
+    store.getState().closeGalaxyMap() // warping에서 — 무시
+    expect(store.getState().scene.kind).toBe('warping')
+  })
 })
 
 describe('불변성', () => {

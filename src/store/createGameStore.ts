@@ -133,7 +133,19 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     backToGalaxy() {
       if (get().scene.kind !== 'system') return
-      set({ scene: { kind: 'galaxy' }, selectedPlanetId: null })
+      // 별계 이탈은 우주선 뷰로 — 지도는 명시적으로 연다 (결정 34)
+      set({ scene: { kind: 'galaxy', view: 'ship' }, selectedPlanetId: null })
+    },
+
+    openGalaxyMap() {
+      if (get().scene.kind !== 'galaxy') return
+      set({ scene: { kind: 'galaxy', view: 'map' } })
+    },
+
+    closeGalaxyMap() {
+      if (get().scene.kind !== 'galaxy') return
+      // 선택은 유지 — 우주선 뷰에서도 StarInfoPanel·항행이 동작한다
+      set({ scene: { kind: 'galaxy', view: 'ship' } })
     },
 
     // ── playerSlice (영속 기록의 O(1) 캐시) ──────────────────
