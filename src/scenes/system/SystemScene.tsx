@@ -4,6 +4,7 @@ import { planetsOf, starById, starWorldPosition } from '@/engine'
 import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { CameraRig } from '@/scenes/shared/CameraRig'
 import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
+import { GalacticBand } from '@/scenes/system/GalacticBand'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { SystemBackdropStars } from '@/scenes/system/SystemBackdropStars'
@@ -37,6 +38,7 @@ export function SystemScene() {
       <group position={galaxyAnchor}>
         <DistantGalaxies />
       </group>
+      <GalacticBand seed={seed} starId={starId} />
       <SystemBackdropStars seed={seed} starId={starId} />
       <ambientLight intensity={0.25} />
       <pointLight position={[0, 0, 0]} intensity={1_200} decay={1.6} color={starColor} />
