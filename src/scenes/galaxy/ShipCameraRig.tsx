@@ -1,14 +1,13 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
-import { PerspectiveCamera } from 'three'
 
 /**
  * 우주선 1인칭 시점 리그 (결정 36) — 회전축이 카메라 자신이다.
  *
  * OrbitControls(외부 점을 도는 관찰자 시점)와 달리, 카메라가 현재 별 옆의
  * 고정 위치에 떠서 드래그로 시선만 돌린다(요/피치) — "함교에서 고개를 돌리는"
- * 느낌. 휠은 FOV 줌(망원경처럼 먼 별을 당겨 본다). 모든 연속 값은 ref +
- * useFrame, store 쓰기 없음 (철칙 6).
+ * 느낌. 확대/축소는 없다 — 회전 전용("줌도 빼 달라" 피드백, 거리 탐색은 지도의
+ * 몫). 모든 연속 값은 ref + useFrame, store 쓰기 없음 (철칙 6).
  */
 
 /** 우주선 정박 위치 — 현재 별 기준 오프셋 (별을 살짝 내려다보며 시작한다). */
@@ -25,12 +24,6 @@ const INITIAL_PITCH = -Math.asin(
 const LOOK_SENSITIVITY = 0.0042
 /** 수직 시선 한계 — 천정/천저에서 짐벌락 직전까지. */
 const PITCH_LIMIT = Math.PI / 2 - 0.08
-
-/** FOV 줌 범위 — 좁히면 망원, 기본 60은 Canvas 카메라와 동일. */
-const FOV_MIN = 35
-const FOV_MAX = 70
-const FOV_REST = 60
-const FOV_WHEEL_STEP = 0.02
 
 /** 시선 감쇠 — 클수록 즉각, 작을수록 부드럽게 따라온다. */
 const LOOK_DAMPING = 9
@@ -54,10 +47,9 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
   const targetPitch = useRef(INITIAL_PITCH)
   const currentYaw = useRef(0)
   const currentPitch = useRef(INITIAL_PITCH)
-  const targetFov = useRef(FOV_REST)
   const dragPointer = useRef<{ id: number; x: number; y: number } | null>(null)
 
-  // 드래그 = 시선 회전, 휠 = FOV 줌 — 캔버스에만 붙여 HUD와 간섭하지 않는다
+  // 드래그 = 시선 회전 — 캔버스에만 붙여 HUD와 간섭하지 않는다
   useEffect(() => {
     const element = gl.domElement
 
@@ -86,40 +78,18 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
       if (dragPointer.current?.id === event.pointerId) dragPointer.current = null
     }
 
-    const handleWheel = (event: WheelEvent) => {
-      event.preventDefault()
-      targetFov.current = clamp(
-        targetFov.current + event.deltaY * FOV_WHEEL_STEP,
-        FOV_MIN,
-        FOV_MAX,
-      )
-    }
-
     element.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerEnd)
     window.addEventListener('pointercancel', handlePointerEnd)
-    element.addEventListener('wheel', handleWheel, { passive: false })
 
     return () => {
       element.removeEventListener('pointerdown', handlePointerDown)
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerEnd)
       window.removeEventListener('pointercancel', handlePointerEnd)
-      element.removeEventListener('wheel', handleWheel)
     }
   }, [gl])
-
-  // 언마운트(지도/워프 전환) 시 FOV 복원 — 다른 씬은 기본 60을 가정한다
-  useEffect(
-    () => () => {
-      if (camera instanceof PerspectiveCamera) {
-        camera.fov = FOV_REST
-        camera.updateProjectionMatrix()
-      }
-    },
-    [camera],
-  )
 
   useFrame((_, delta) => {
     const blend = 1 - Math.exp(-LOOK_DAMPING * delta)
@@ -133,11 +103,6 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
     )
     camera.rotation.order = 'YXZ'
     camera.rotation.set(currentPitch.current, currentYaw.current, 0)
-
-    if (camera instanceof PerspectiveCamera) {
-      camera.fov += (targetFov.current - camera.fov) * blend
-      camera.updateProjectionMatrix()
-    }
   })
 
   return null

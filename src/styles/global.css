@@ -319,6 +319,95 @@ body {
   color: var(--color-holo-strong);
 }
 
+/* ── 별 정보 홀로그램 콜아웃 (결정 37) ───────────────────
+   항성의 화면 좌표(StarCalloutProjector가 transform 갱신)에 점을 찍고,
+   사선 리더 라인으로 패널을 들어 올린다 — 홀로그램 주석처럼. */
+
+.star-callout {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden; /* 투영기가 첫 프레임에 켠다 — 초기 깜빡임 방지 */
+  pointer-events: none; /* 점·선은 통과, 패널만 상호작용 */
+}
+
+.star-callout-dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid var(--color-holo);
+  background: color-mix(in srgb, var(--color-holo) 35%, transparent);
+  box-shadow: 0 0 10px var(--color-holo);
+}
+
+/* 리더 라인 — 길이 90px(=64√2), 끝점이 (64, -64): 패널의 모서리에 닿는다 */
+.star-callout-line {
+  position: absolute;
+  width: 90px;
+  height: 2px;
+  transform-origin: 0 50%;
+  transform: rotate(-45deg);
+  background: linear-gradient(
+    90deg,
+    var(--color-holo),
+    color-mix(in srgb, var(--color-holo) 20%, transparent)
+  );
+}
+
+.star-callout .hud-panel {
+  position: absolute;
+  top: auto;
+  right: auto;
+  left: 60px;
+  bottom: 60px;
+  width: min(19rem, calc(100vw - 3rem));
+  pointer-events: auto;
+  transform-origin: bottom left;
+  animation: callout-in 170ms ease-out;
+}
+
+@keyframes callout-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 가장자리 플립 — 패널이 화면 밖으로 나가지 않게 반대쪽으로 편다 */
+.star-callout-flip-x .star-callout-line {
+  transform: rotate(-135deg);
+}
+
+.star-callout-flip-x .hud-panel {
+  left: auto;
+  right: 60px;
+  transform-origin: bottom right;
+}
+
+.star-callout-flip-y .star-callout-line {
+  transform: rotate(45deg);
+}
+
+.star-callout-flip-y .hud-panel {
+  bottom: auto;
+  top: 60px;
+  transform-origin: top left;
+}
+
+.star-callout-flip-x.star-callout-flip-y .star-callout-line {
+  transform: rotate(135deg);
+}
+
+.star-callout-flip-x.star-callout-flip-y .hud-panel {
+  transform-origin: top right;
+}
+
 /* 우주선 캐노피 프레임 — 우주선 뷰/워프 전용 시점 표지 (장식, 포인터 통과) */
 .ship-frame {
   position: absolute;
@@ -989,8 +1078,9 @@ body {
     flex-wrap: wrap;
   }
 
-  /* 정보 패널은 바텀 시트로 — 화면 가장자리에 붙으므로 모따기는 상단만 */
-  .hud-panel {
+  /* 행성 패널은 바텀 시트로 — 화면 가장자리에 붙으므로 모따기는 상단만.
+     별 패널은 콜아웃(결정 37)이라 제외 — 항성 위치에 떠 있어야 한다 */
+  .planet-panel {
     top: auto;
     bottom: 0;
     left: 0;

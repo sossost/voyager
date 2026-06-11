@@ -8,6 +8,7 @@ import { GalaxyStarField } from '@/scenes/galaxy/GalaxyStarField'
 import { JourneyPath } from '@/scenes/galaxy/JourneyPath'
 import { SelectedStarMarker } from '@/scenes/galaxy/SelectedStarMarker'
 import { ShipCameraRig } from '@/scenes/galaxy/ShipCameraRig'
+import { StarCalloutProjector } from '@/scenes/galaxy/StarCalloutProjector'
 import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
 import { CameraRig } from '@/scenes/shared/CameraRig'
@@ -72,6 +73,7 @@ export function GalaxyScene() {
       {isMapView ? <JourneyPath /> : null}
       {isMapView || scene.kind === 'warping' ? <CurrentStarBeacon /> : null}
       <SelectedStarMarker />
+      <StarCalloutProjector />
     </>
   )
 }
