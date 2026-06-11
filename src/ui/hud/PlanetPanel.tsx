@@ -16,6 +16,7 @@ export function PlanetPanel() {
     (state) => state.selectedPlanetId != null && state.exploredPlanets.has(state.selectedPlanetId),
   )
   const selectPlanet = useGameStore((state) => state.selectPlanet)
+  const explore = useGameStore((state) => state.explore)
 
   const planet = useMemo(
     () => (selectedPlanetId == null ? null : planetById(seed, selectedPlanetId)),
@@ -71,10 +72,9 @@ export function PlanetPanel() {
         <button
           type="button"
           className="hud-button hud-button-primary"
-          disabled
-          title="Phase 5에서 활성화됩니다"
+          onClick={() => explore(planet.id)}
         >
-          탐사 (준비 중)
+          {isExplored ? '재탐사' : '탐사'}
         </button>
       ) : null}
     </section>

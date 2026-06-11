@@ -1,0 +1,149 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AlienCard > 개체 → SVG 레이어 합성 스냅샷 (회귀 방지) 1`] = `
+<figure
+  class="alien-card alien-card-common"
+  style="--alien-primary: #aacc00; --alien-secondary: #3a5a40; --alien-accent: #f4fdd9;"
+>
+  <div
+    aria-hidden="true"
+    class="alien-card-stage"
+  >
+    <svg
+      class="alien-part"
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="m71 52-8-30M129 52l8-30"
+        stroke="var(--alien-secondary)"
+        stroke-linecap="round"
+        stroke-width="5"
+      />
+      <circle
+        cx="63"
+        cy="20"
+        fill="var(--alien-accent)"
+        r="8"
+      />
+      <circle
+        cx="137"
+        cy="20"
+        fill="var(--alien-accent)"
+        r="8"
+      />
+    </svg>
+    <svg
+      class="alien-part"
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect
+        fill="var(--alien-primary)"
+        height="112"
+        rx="26"
+        stroke="var(--alien-secondary)"
+        stroke-width="5"
+        width="116"
+        x="42"
+        y="48"
+      />
+    </svg>
+    <svg
+      class="alien-part"
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle
+        cx="72"
+        cy="148"
+        fill="var(--alien-accent)"
+        opacity="0.7"
+        r="4.5"
+      />
+      <circle
+        cx="91"
+        cy="148"
+        fill="var(--alien-accent)"
+        opacity="0.7"
+        r="4.5"
+      />
+      <circle
+        cx="110"
+        cy="148"
+        fill="var(--alien-accent)"
+        opacity="0.7"
+        r="4.5"
+      />
+      <circle
+        cx="129"
+        cy="148"
+        fill="var(--alien-accent)"
+        opacity="0.7"
+        r="4.5"
+      />
+    </svg>
+    <svg
+      class="alien-part"
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle
+        cx="70"
+        cy="90"
+        fill="#fff"
+        r="16"
+        stroke="var(--alien-secondary)"
+        stroke-width="3"
+      />
+      <circle
+        cx="130"
+        cy="90"
+        fill="#fff"
+        r="16"
+        stroke="var(--alien-secondary)"
+        stroke-width="3"
+      />
+      <circle
+        cx="70"
+        cy="90"
+        fill="var(--alien-accent)"
+        r="10"
+      />
+      <circle
+        cx="130"
+        cy="90"
+        fill="var(--alien-accent)"
+        r="10"
+      />
+    </svg>
+    <svg
+      class="alien-part"
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="m80 128 10 8 10-8 10 8 10-8"
+        fill="none"
+        stroke="var(--alien-secondary)"
+        stroke-linecap="round"
+        stroke-width="5"
+      />
+    </svg>
+  </div>
+  <figcaption
+    class="alien-card-caption"
+  >
+    <span
+      class="alien-card-name"
+    >
+      Riklo
+    </span>
+    <span
+      class="alien-card-rarity rarity-text-common"
+    >
+      커먼
+    </span>
+  </figcaption>
+</figure>
+`;

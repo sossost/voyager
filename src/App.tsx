@@ -1,6 +1,7 @@
 import { CanvasLayer } from '@/scenes/CanvasLayer'
 import { ToastViewport } from '@/ui/common/ToastViewport'
 import { WarpFlashOverlay } from '@/ui/common/WarpFlashOverlay'
+import { EncounterOverlay } from '@/ui/encounter/EncounterOverlay'
 import { HudLayer } from '@/ui/hud/HudLayer'
 
 /**
@@ -18,6 +19,7 @@ export function App() {
       <CanvasLayer />
       <HudLayer />
       <div className="layer-overlay" data-layer="overlay">
+        <EncounterOverlay />
         <WarpFlashOverlay />
       </div>
       <div className="layer-system" data-layer="system">

@@ -47,6 +47,8 @@ export interface PlayerSlice {
   readonly collectedIndividuals: ReadonlySet<IndividualId>
   /** speciesId → 수집 개체 수. */
   readonly discoveredSpecies: ReadonlyMap<string, number>
+  /** 생명체 행성 탐사 — 조우 판정·캐시 갱신·영속화를 한 곳에서 처리한다. */
+  explore(planetId: PlanetId): void
 }
 
 export interface UiSlice {
@@ -56,6 +58,9 @@ export interface UiSlice {
   readonly toasts: readonly Toast[]
   openOverlay(overlay: Exclude<Overlay, null>): void
   closeOverlay(): void
+  /** 스캔 연출 종료 → 카드 공개. */
+  revealEncounter(): void
+  closeEncounter(): void
   pushToast(message: string): void
   dismissToast(id: number): void
 }

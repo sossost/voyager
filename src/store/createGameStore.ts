@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 import type { IndividualId, PlanetId, Seed, StarId } from '@/engine'
-import { GEN_VERSION } from '@/engine'
+import { alienAt, GEN_VERSION, planetById } from '@/engine'
 import { persist } from '@/persistence/persist'
 import type { Profile, StorageDriver } from '@/persistence/types'
 import { SAVE_VERSION } from '@/persistence/types'
@@ -111,6 +111,58 @@ export function createGameStore(options: CreateGameStoreOptions) {
     collectedIndividuals: new Set<IndividualId>(),
     discoveredSpecies: new Map<string, number>(),
 
+    explore(planetId) {
+      const state = get()
+      if (state.scene.kind !== 'system') return
+      if (state.encounter != null) return
+
+      const planet = planetById(state.seed, planetId)
+      if (planet == null || !planet.hasLife) return
+      if (planet.starId !== state.scene.starId) return // 현재 별계의 행성만 탐사 가능
+
+      // 결정론: 같은 행성 = 항상 같은 개체 (재방문 = 재조우)
+      const alien = alienAt(state.seed, planetId)
+      const alreadyCollected = state.collectedIndividuals.has(alien.individualId)
+      const isFirstOfSpecies = !state.discoveredSpecies.has(alien.speciesId)
+
+      const nextExplored = new Set(state.exploredPlanets)
+      nextExplored.add(planetId)
+
+      if (alreadyCollected) {
+        set({
+          encounter: { planetId, alien, alreadyCollected, isFirstOfSpecies: false, phase: 'scanning' },
+          exploredPlanets: nextExplored,
+        })
+        return // 중복 등록 없음 — 캐시·영속 모두 변화 없음
+      }
+
+      const nextCollected = new Set(state.collectedIndividuals)
+      nextCollected.add(alien.individualId)
+      const nextSpecies = new Map(state.discoveredSpecies)
+      nextSpecies.set(alien.speciesId, (nextSpecies.get(alien.speciesId) ?? 0) + 1)
+
+      set({
+        encounter: { planetId, alien, alreadyCollected: false, isFirstOfSpecies, phase: 'scanning' },
+        exploredPlanets: nextExplored,
+        collectedIndividuals: nextCollected,
+        discoveredSpecies: nextSpecies,
+      })
+
+      // write-through — 연출이 끝나기 전에 커밋 (스캔 중 이탈해도 수집은 안전)
+      const discoveredAt = now()
+      void persist(async () => {
+        await driver.addExploration({ planetId, exploredAt: discoveredAt })
+        await driver.addCollectionEntry({
+          individualId: alien.individualId,
+          speciesId: alien.speciesId,
+          rarity: alien.rarity,
+          planetId,
+          discoveredAt,
+          isFirstOfSpecies,
+        })
+      }, reportPersistFailure)
+    },
+
     // ── uiSlice ─────────────────────────────────────────────
     overlay: null,
     encounter: null,
@@ -123,6 +175,16 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     closeOverlay() {
       set({ overlay: null })
+    },
+
+    revealEncounter() {
+      const { encounter } = get()
+      if (encounter == null || encounter.phase !== 'scanning') return
+      set({ encounter: { ...encounter, phase: 'reveal' } })
+    },
+
+    closeEncounter() {
+      set({ encounter: null })
     },
 
     pushToast(message) {

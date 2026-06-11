@@ -293,3 +293,153 @@ body {
 .toast-message {
   font-size: 0.875rem;
 }
+
+/* ── 조우 오버레이 (z-20) ───────────────────────────── */
+
+.encounter-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--color-bg) 78%, transparent);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.scan-sequence {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 16rem;
+  height: 16rem;
+  --scan-color: var(--color-accent);
+}
+
+.scan-burst-common { --scan-color: var(--rarity-common); }
+.scan-burst-rare { --scan-color: var(--rarity-rare); }
+.scan-burst-epic { --scan-color: var(--rarity-epic); }
+.scan-burst-legendary { --scan-color: var(--rarity-legendary); }
+
+.scan-ring {
+  position: absolute;
+  width: 9rem;
+  height: 9rem;
+  border-radius: 50%;
+  border: 3px solid var(--scan-color);
+  animation: scan-pulse 1.1s ease-out infinite;
+  transition: border-color 300ms;
+}
+
+.scan-ring-delayed {
+  animation-delay: 0.55s;
+}
+
+@keyframes scan-pulse {
+  from {
+    transform: scale(0.5);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.scan-label {
+  font-size: 0.95rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.08em;
+}
+
+.encounter-reveal {
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  perspective: 1000px;
+}
+
+.encounter-badge {
+  margin: 0;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.encounter-badge-first {
+  background: color-mix(in srgb, var(--rarity-legendary) 25%, transparent);
+  color: #ffe1ad;
+}
+
+.encounter-badge-known {
+  background: color-mix(in srgb, var(--color-text-dim) 20%, transparent);
+  color: var(--color-text-dim);
+}
+
+.encounter-summary {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: 0.9rem;
+}
+
+/* ── 외계인 카드 ────────────────────────────────────── */
+
+.alien-card {
+  margin: 0;
+  width: min(17rem, 70vw);
+  border-radius: 1rem;
+  padding: 1rem 1rem 0.8rem;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-surface) 96%, #ffffff),
+    var(--color-surface)
+  );
+  border: 2px solid var(--rarity-common);
+}
+
+.alien-card-common { border-color: var(--rarity-common); }
+.alien-card-rare { border-color: var(--rarity-rare); }
+.alien-card-epic { border-color: var(--rarity-epic); }
+.alien-card-legendary {
+  border-color: var(--rarity-legendary);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--rarity-legendary) 55%, transparent);
+}
+
+.alien-card-stage {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--alien-secondary) 18%, var(--color-bg));
+  overflow: hidden;
+}
+
+.alien-part {
+  position: absolute;
+  inset: 6%;
+  width: 88%;
+  height: 88%;
+}
+
+.alien-card-silhouette .alien-part {
+  filter: brightness(0) opacity(0.85);
+}
+
+.alien-card-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-top: 0.6rem;
+}
+
+.alien-card-name {
+  font-weight: 700;
+}
+
+.alien-card-rarity {
+  font-size: 0.8rem;
+}
+
+.rarity-text-common { color: var(--rarity-common); }
+.rarity-text-rare { color: var(--rarity-rare); }
+.rarity-text-epic { color: var(--rarity-epic); }
+.rarity-text-legendary { color: var(--rarity-legendary); }

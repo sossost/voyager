@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<circle cx="70" cy="90" r="16" fill="#ffffff" stroke="var(--alien-secondary)" stroke-width="3"/><circle cx="130" cy="90" r="16" fill="#ffffff" stroke="var(--alien-secondary)" stroke-width="3"/><circle cx="70" cy="90" r="10" fill="var(--alien-accent)"/><circle cx="130" cy="90" r="10" fill="var(--alien-accent)"/>
+</svg>

@@ -95,6 +95,14 @@ export default tseslint.config(
     },
   },
 
+  // 빌드/생성 스크립트 — Node 환경
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+
   // engine/ 전용 순수성 규칙: 브라우저 API · 시간 · 초월함수 금지
   {
     files: ['src/engine/**/*.ts'],
