@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { QUALITY_PRESETS } from '@/quality/presets'
+import { GalaxyNebula } from '@/scenes/galaxy/GalaxyNebula'
 import { GalaxyStarField } from '@/scenes/galaxy/GalaxyStarField'
 import { SelectedStarMarker } from '@/scenes/galaxy/SelectedStarMarker'
 import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
@@ -32,6 +33,7 @@ export function GalaxyScene() {
     <>
       <color attach="background" args={['#05060f']} />
       <CameraRig focus={focus} maxDistance={GALAXY_MAX_ZOOM_OUT} />
+      <GalaxyNebula />
       <GalaxyStarField stars={stars} maxPointSize={preset.maxPointSize} />
       <VisitedStarMarkers />
       <SelectedStarMarker />

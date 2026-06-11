@@ -12,7 +12,9 @@ import { AdditiveBlending, ShaderMaterial } from 'three'
 /** 원근 크기 계수 — 이 거리(월드 단위)에서 size 어트리뷰트가 1:1 픽셀이 된다. */
 const PERSPECTIVE_SCALE = 700
 /** 소프트 전환 시 점 크기 가산 비율 — 글로우가 퍼져 보이도록 살짝 부풀린다. */
-const SOFT_SIZE_BOOST = 0.6
+const SOFT_SIZE_BOOST = 0.35
+/** 소프트 블렌딩 상한 — 1이면 원거리 별이 완전한 글로우가 되어 너무 뭉개진다. */
+const SOFT_MAX_BLEND = 0.65
 
 const VERTEX_SHADER = /* glsl */ `
   attribute float size;
@@ -30,8 +32,10 @@ const VERTEX_SHADER = /* glsl */ `
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float distanceToCamera = max(-mvPosition.z, 1.0);
 
-    // 0 = 근거리(샤프) ~ 1 = 원거리(소프트 글로우)
-    vSoftness = uSoftFar > 0.0 ? smoothstep(uSoftNear, uSoftFar, distanceToCamera) : 0.0;
+    // 0 = 근거리(샤프) ~ SOFT_MAX_BLEND = 원거리(소프트 글로우)
+    vSoftness = uSoftFar > 0.0
+      ? smoothstep(uSoftNear, uSoftFar, distanceToCamera) * ${SOFT_MAX_BLEND.toFixed(2)}
+      : 0.0;
 
     float pointSize = size * uPixelRatio * (${PERSPECTIVE_SCALE.toFixed(1)} / distanceToCamera);
     // 하한이 size에 비례 — 원거리에서도 거성/왜성의 크기 격차가 유지된다
