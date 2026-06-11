@@ -9,6 +9,7 @@ import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
 import { VisitedStarMarkers } from '@/scenes/galaxy/VisitedStarMarkers'
 import { CameraRig } from '@/scenes/shared/CameraRig'
+import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
 import { useGameStore } from '@/store'
 
 const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0]
@@ -33,6 +34,7 @@ export function GalaxyScene() {
     <>
       <color attach="background" args={['#05060f']} />
       <CameraRig focus={focus} maxDistance={GALAXY_MAX_ZOOM_OUT} />
+      <DistantGalaxies />
       <GalaxyNebula />
       <GalaxyStarField stars={stars} maxPointSize={preset.maxPointSize} />
       <VisitedStarMarkers />
