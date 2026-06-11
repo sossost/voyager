@@ -1,0 +1,1966 @@
+[
+  {
+    "id": "sp001",
+    "name": "Glofang",
+    "rarity": "common",
+    "lore": "Glofang — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body01"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes01",
+        "eyes06",
+        "eyes11",
+        "eyes16"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app01",
+        "app04",
+        "app07"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp002",
+    "name": "Zefnib",
+    "rarity": "common",
+    "lore": "Zefnib — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body02"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes04",
+        "eyes09",
+        "eyes14",
+        "eyes03"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app06",
+        "app09",
+        "app12"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp003",
+    "name": "Marawink",
+    "rarity": "common",
+    "lore": "Marawink — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body03"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes07",
+        "eyes12",
+        "eyes01",
+        "eyes06"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app11",
+        "app14",
+        "app03"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp004",
+    "name": "Quilgle",
+    "rarity": "common",
+    "lore": "Quilgle — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body04"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes10",
+        "eyes15",
+        "eyes04",
+        "eyes09"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app02",
+        "app05",
+        "app08"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "violet"
+  },
+  {
+    "id": "sp005",
+    "name": "Bompod",
+    "rarity": "common",
+    "lore": "Bompod — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body05"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes13",
+        "eyes02",
+        "eyes07",
+        "eyes12"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app07",
+        "app10",
+        "app13"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "sand"
+  },
+  {
+    "id": "sp006",
+    "name": "Serayarn",
+    "rarity": "common",
+    "lore": "Serayarn — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body06"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes16",
+        "eyes05",
+        "eyes10",
+        "eyes15"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app12",
+        "app01",
+        "app04"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "ice"
+  },
+  {
+    "id": "sp007",
+    "name": "Tikohorn",
+    "rarity": "common",
+    "lore": "Tikohorn — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body07"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes03",
+        "eyes08",
+        "eyes13",
+        "eyes02"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app03",
+        "app06",
+        "app09"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "toxic"
+  },
+  {
+    "id": "sp008",
+    "name": "Velquill",
+    "rarity": "common",
+    "lore": "Velquill — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body08"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes06",
+        "eyes11",
+        "eyes16",
+        "eyes05"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app08",
+        "app11",
+        "app14"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "nebula"
+  },
+  {
+    "id": "sp009",
+    "name": "Nimzest",
+    "rarity": "common",
+    "lore": "Nimzest — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body09"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes09",
+        "eyes14",
+        "eyes03",
+        "eyes08"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app13",
+        "app02",
+        "app05"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp010",
+    "name": "Oxajell",
+    "rarity": "common",
+    "lore": "Oxajell — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body10"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes12",
+        "eyes01",
+        "eyes06",
+        "eyes11"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app04",
+        "app07",
+        "app10"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp011",
+    "name": "Pjurell",
+    "rarity": "common",
+    "lore": "Pjurell — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body11"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes15",
+        "eyes04",
+        "eyes09",
+        "eyes14"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app09",
+        "app12",
+        "app01"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp012",
+    "name": "Rynbit",
+    "rarity": "common",
+    "lore": "Rynbit — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body12"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes02",
+        "eyes07",
+        "eyes12",
+        "eyes01"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app14",
+        "app03",
+        "app06"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "violet"
+  },
+  {
+    "id": "sp013",
+    "name": "Sunikin",
+    "rarity": "common",
+    "lore": "Sunikin — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body01"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes05",
+        "eyes10",
+        "eyes15",
+        "eyes04"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app05",
+        "app08",
+        "app11"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "sand"
+  },
+  {
+    "id": "sp014",
+    "name": "Tuluspore",
+    "rarity": "common",
+    "lore": "Tuluspore — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body02"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes08",
+        "eyes13",
+        "eyes02",
+        "eyes07"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app10",
+        "app13",
+        "app02"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "ice"
+  },
+  {
+    "id": "sp015",
+    "name": "Umbracor",
+    "rarity": "common",
+    "lore": "Umbracor — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body03"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes11",
+        "eyes16",
+        "eyes05",
+        "eyes10"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app01",
+        "app04",
+        "app07"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "toxic"
+  },
+  {
+    "id": "sp016",
+    "name": "Wizloom",
+    "rarity": "common",
+    "lore": "Wizloom — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body04"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes14",
+        "eyes03",
+        "eyes08",
+        "eyes13"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app06",
+        "app09",
+        "app12"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "nebula"
+  },
+  {
+    "id": "sp017",
+    "name": "Xelotuft",
+    "rarity": "common",
+    "lore": "Xelotuft — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body05"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes01",
+        "eyes06",
+        "eyes11",
+        "eyes16"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app11",
+        "app14",
+        "app03"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp018",
+    "name": "Yuradell",
+    "rarity": "common",
+    "lore": "Yuradell — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body06"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes04",
+        "eyes09",
+        "eyes14",
+        "eyes03"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app02",
+        "app05",
+        "app08"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp019",
+    "name": "Zonkmox",
+    "rarity": "common",
+    "lore": "Zonkmox — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body07"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes07",
+        "eyes12",
+        "eyes01",
+        "eyes06"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app07",
+        "app10",
+        "app13"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp020",
+    "name": "Abovore",
+    "rarity": "common",
+    "lore": "Abovore — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body08"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes10",
+        "eyes15",
+        "eyes04",
+        "eyes09"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app12",
+        "app01",
+        "app04"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "violet"
+  },
+  {
+    "id": "sp021",
+    "name": "Glofang",
+    "rarity": "common",
+    "lore": "Glofang — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body09"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes13",
+        "eyes02",
+        "eyes07",
+        "eyes12"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app03",
+        "app06",
+        "app09"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "sand"
+  },
+  {
+    "id": "sp022",
+    "name": "Zefnib",
+    "rarity": "common",
+    "lore": "Zefnib — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body10"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes16",
+        "eyes05",
+        "eyes10",
+        "eyes15"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app08",
+        "app11",
+        "app14"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "ice"
+  },
+  {
+    "id": "sp023",
+    "name": "Marawink",
+    "rarity": "common",
+    "lore": "Marawink — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body11"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes03",
+        "eyes08",
+        "eyes13",
+        "eyes02"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app13",
+        "app02",
+        "app05"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "toxic"
+  },
+  {
+    "id": "sp024",
+    "name": "Quilgle",
+    "rarity": "common",
+    "lore": "Quilgle — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body12"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes06",
+        "eyes11",
+        "eyes16",
+        "eyes05"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app04",
+        "app07",
+        "app10"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "nebula"
+  },
+  {
+    "id": "sp025",
+    "name": "Bompod",
+    "rarity": "common",
+    "lore": "Bompod — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body01"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes09",
+        "eyes14",
+        "eyes03",
+        "eyes08"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app09",
+        "app12",
+        "app01"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp026",
+    "name": "Serayarn",
+    "rarity": "common",
+    "lore": "Serayarn — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body02"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes12",
+        "eyes01",
+        "eyes06",
+        "eyes11"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app14",
+        "app03",
+        "app06"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp027",
+    "name": "Tikohorn",
+    "rarity": "common",
+    "lore": "Tikohorn — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body03"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes15",
+        "eyes04",
+        "eyes09",
+        "eyes14"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app05",
+        "app08",
+        "app11"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp028",
+    "name": "Velquill",
+    "rarity": "common",
+    "lore": "Velquill — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body04"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes02",
+        "eyes07",
+        "eyes12",
+        "eyes01"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app10",
+        "app13",
+        "app02"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "violet"
+  },
+  {
+    "id": "sp029",
+    "name": "Nimzest",
+    "rarity": "common",
+    "lore": "Nimzest — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body05"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes05",
+        "eyes10",
+        "eyes15",
+        "eyes04"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app01",
+        "app04",
+        "app07"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "sand"
+  },
+  {
+    "id": "sp030",
+    "name": "Oxajell",
+    "rarity": "common",
+    "lore": "Oxajell — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body06"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes08",
+        "eyes13",
+        "eyes02",
+        "eyes07"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app06",
+        "app09",
+        "app12"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "ice"
+  },
+  {
+    "id": "sp031",
+    "name": "Pjurell",
+    "rarity": "common",
+    "lore": "Pjurell — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body07"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes11",
+        "eyes16",
+        "eyes05",
+        "eyes10"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app11",
+        "app14",
+        "app03"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "toxic"
+  },
+  {
+    "id": "sp032",
+    "name": "Rynbit",
+    "rarity": "common",
+    "lore": "Rynbit — 커먼 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body08"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes14",
+        "eyes03",
+        "eyes08",
+        "eyes13"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app02",
+        "app05",
+        "app08"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "nebula"
+  },
+  {
+    "id": "sp033",
+    "name": "Sunikin",
+    "rarity": "rare",
+    "lore": "Sunikin — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body09"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes01",
+        "eyes06",
+        "eyes11",
+        "eyes16"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app07",
+        "app10",
+        "app13"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp034",
+    "name": "Tuluspore",
+    "rarity": "rare",
+    "lore": "Tuluspore — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body10"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes04",
+        "eyes09",
+        "eyes14",
+        "eyes03"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app12",
+        "app01",
+        "app04"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp035",
+    "name": "Umbracor",
+    "rarity": "rare",
+    "lore": "Umbracor — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body11"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes07",
+        "eyes12",
+        "eyes01",
+        "eyes06"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app03",
+        "app06",
+        "app09"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp036",
+    "name": "Wizloom",
+    "rarity": "rare",
+    "lore": "Wizloom — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body12"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes10",
+        "eyes15",
+        "eyes04",
+        "eyes09"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app08",
+        "app11",
+        "app14"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "violet"
+  },
+  {
+    "id": "sp037",
+    "name": "Xelotuft",
+    "rarity": "rare",
+    "lore": "Xelotuft — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body01"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes13",
+        "eyes02",
+        "eyes07",
+        "eyes12"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app13",
+        "app02",
+        "app05"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "sand"
+  },
+  {
+    "id": "sp038",
+    "name": "Yuradell",
+    "rarity": "rare",
+    "lore": "Yuradell — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body02"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes16",
+        "eyes05",
+        "eyes10",
+        "eyes15"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app04",
+        "app07",
+        "app10"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "ice"
+  },
+  {
+    "id": "sp039",
+    "name": "Zonkmox",
+    "rarity": "rare",
+    "lore": "Zonkmox — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body03"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes03",
+        "eyes08",
+        "eyes13",
+        "eyes02"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app09",
+        "app12",
+        "app01"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "toxic"
+  },
+  {
+    "id": "sp040",
+    "name": "Abovore",
+    "rarity": "rare",
+    "lore": "Abovore — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body04"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes06",
+        "eyes11",
+        "eyes16",
+        "eyes05"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app14",
+        "app03",
+        "app06"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "nebula"
+  },
+  {
+    "id": "sp041",
+    "name": "Glofang",
+    "rarity": "rare",
+    "lore": "Glofang — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body05"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes09",
+        "eyes14",
+        "eyes03",
+        "eyes08"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app05",
+        "app08",
+        "app11"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp042",
+    "name": "Zefnib",
+    "rarity": "rare",
+    "lore": "Zefnib — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body06"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes12",
+        "eyes01",
+        "eyes06",
+        "eyes11"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app10",
+        "app13",
+        "app02"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp043",
+    "name": "Marawink",
+    "rarity": "rare",
+    "lore": "Marawink — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body07"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes15",
+        "eyes04",
+        "eyes09",
+        "eyes14"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app01",
+        "app04",
+        "app07"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp044",
+    "name": "Quilgle",
+    "rarity": "rare",
+    "lore": "Quilgle — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body08"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes02",
+        "eyes07",
+        "eyes12",
+        "eyes01"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app06",
+        "app09",
+        "app12"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "violet"
+  },
+  {
+    "id": "sp045",
+    "name": "Bompod",
+    "rarity": "rare",
+    "lore": "Bompod — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body09"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes05",
+        "eyes10",
+        "eyes15",
+        "eyes04"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app11",
+        "app14",
+        "app03"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "sand"
+  },
+  {
+    "id": "sp046",
+    "name": "Serayarn",
+    "rarity": "rare",
+    "lore": "Serayarn — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body10"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes08",
+        "eyes13",
+        "eyes02",
+        "eyes07"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app02",
+        "app05",
+        "app08"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "ice"
+  },
+  {
+    "id": "sp047",
+    "name": "Tikohorn",
+    "rarity": "rare",
+    "lore": "Tikohorn — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body11"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes11",
+        "eyes16",
+        "eyes05",
+        "eyes10"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app07",
+        "app10",
+        "app13"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "toxic"
+  },
+  {
+    "id": "sp048",
+    "name": "Velquill",
+    "rarity": "rare",
+    "lore": "Velquill — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body12"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes14",
+        "eyes03",
+        "eyes08",
+        "eyes13"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app12",
+        "app01",
+        "app04"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "nebula"
+  },
+  {
+    "id": "sp049",
+    "name": "Nimzest",
+    "rarity": "rare",
+    "lore": "Nimzest — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body01"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes01",
+        "eyes06",
+        "eyes11",
+        "eyes16"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app03",
+        "app06",
+        "app09"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp050",
+    "name": "Oxajell",
+    "rarity": "rare",
+    "lore": "Oxajell — 레어 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body02"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes04",
+        "eyes09",
+        "eyes14",
+        "eyes03"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app08",
+        "app11",
+        "app14"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp051",
+    "name": "Pjurell",
+    "rarity": "epic",
+    "lore": "Pjurell — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body03"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes07",
+        "eyes12",
+        "eyes01",
+        "eyes06"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app13",
+        "app02",
+        "app05"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp052",
+    "name": "Rynbit",
+    "rarity": "epic",
+    "lore": "Rynbit — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body04"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes10",
+        "eyes15",
+        "eyes04",
+        "eyes09"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app04",
+        "app07",
+        "app10"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "violet"
+  },
+  {
+    "id": "sp053",
+    "name": "Sunikin",
+    "rarity": "epic",
+    "lore": "Sunikin — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body05"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes13",
+        "eyes02",
+        "eyes07",
+        "eyes12"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02",
+        "mouth07"
+      ],
+      "appendage": [
+        "app09",
+        "app12",
+        "app01"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "sand"
+  },
+  {
+    "id": "sp054",
+    "name": "Tuluspore",
+    "rarity": "epic",
+    "lore": "Tuluspore — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body06"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes16",
+        "eyes05",
+        "eyes10",
+        "eyes15"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04",
+        "mouth09"
+      ],
+      "appendage": [
+        "app14",
+        "app03",
+        "app06"
+      ],
+      "pattern": [
+        "pat03",
+        "pat06",
+        "pat09"
+      ]
+    },
+    "paletteFamily": "ice"
+  },
+  {
+    "id": "sp055",
+    "name": "Umbracor",
+    "rarity": "epic",
+    "lore": "Umbracor — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body07"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes03",
+        "eyes08",
+        "eyes13",
+        "eyes02"
+      ],
+      "mouth": [
+        "mouth01",
+        "mouth06",
+        "mouth11"
+      ],
+      "appendage": [
+        "app05",
+        "app08",
+        "app11"
+      ],
+      "pattern": [
+        "pat07",
+        "pat10",
+        "pat03"
+      ]
+    },
+    "paletteFamily": "toxic"
+  },
+  {
+    "id": "sp056",
+    "name": "Wizloom",
+    "rarity": "epic",
+    "lore": "Wizloom — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body08"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes06",
+        "eyes11",
+        "eyes16",
+        "eyes05"
+      ],
+      "mouth": [
+        "mouth03",
+        "mouth08",
+        "mouth01"
+      ],
+      "appendage": [
+        "app10",
+        "app13",
+        "app02"
+      ],
+      "pattern": [
+        "pat01",
+        "pat04",
+        "pat07"
+      ]
+    },
+    "paletteFamily": "nebula"
+  },
+  {
+    "id": "sp057",
+    "name": "Xelotuft",
+    "rarity": "epic",
+    "lore": "Xelotuft — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body09"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes09",
+        "eyes14",
+        "eyes03",
+        "eyes08"
+      ],
+      "mouth": [
+        "mouth05",
+        "mouth10",
+        "mouth03"
+      ],
+      "appendage": [
+        "app01",
+        "app04",
+        "app07"
+      ],
+      "pattern": [
+        "pat05",
+        "pat08",
+        "pat01"
+      ]
+    },
+    "paletteFamily": "ember"
+  },
+  {
+    "id": "sp058",
+    "name": "Yuradell",
+    "rarity": "epic",
+    "lore": "Yuradell — 에픽 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body10"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes12",
+        "eyes01",
+        "eyes06",
+        "eyes11"
+      ],
+      "mouth": [
+        "mouth07",
+        "mouth12",
+        "mouth05"
+      ],
+      "appendage": [
+        "app06",
+        "app09",
+        "app12"
+      ],
+      "pattern": [
+        "pat09",
+        "pat02",
+        "pat05"
+      ]
+    },
+    "paletteFamily": "ocean"
+  },
+  {
+    "id": "sp059",
+    "name": "Zonkmox",
+    "rarity": "legendary",
+    "lore": "Zonkmox — 레전더리 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body11",
+      "pattern": "pat05"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes15",
+        "eyes04"
+      ],
+      "mouth": [
+        "mouth09",
+        "mouth02"
+      ],
+      "appendage": [
+        "app11",
+        "app14"
+      ]
+    },
+    "paletteFamily": "flora"
+  },
+  {
+    "id": "sp060",
+    "name": "Abovore",
+    "rarity": "legendary",
+    "lore": "Abovore — 레전더리 종족. (로어 스텁: 실아트 교체 단계에서 작성)",
+    "fixedParts": {
+      "body": "body12",
+      "pattern": "pat08"
+    },
+    "allowedParts": {
+      "eyes": [
+        "eyes02",
+        "eyes07"
+      ],
+      "mouth": [
+        "mouth11",
+        "mouth04"
+      ],
+      "appendage": [
+        "app02",
+        "app05"
+      ]
+    },
+    "paletteFamily": "violet"
+  }
+]

@@ -38,6 +38,8 @@ export default tseslint.config(
     },
     settings: {
       'boundaries/include': ['src/**/*'],
+      // 테스트 파일은 vitest 등 테스트 도구를 임포트해야 하므로 레이어 검사 제외
+      'boundaries/ignore': ['**/*.test.*'],
       'boundaries/elements': [
         { type: 'engine', pattern: 'src/engine' },
         { type: 'data', pattern: 'src/data' },
@@ -131,6 +133,16 @@ export default tseslint.config(
         {
           selector: "NewExpression[callee.name='Date']",
           message: 'engine/은 시간에 의존할 수 없습니다 — 타임스탬프는 호출자가 인자로 전달하세요.',
+        },
+        {
+          selector: "BinaryExpression[operator='**']",
+          message:
+            '** 연산자는 Math.pow와 동일하게 정밀도가 구현 정의입니다 — x*x 같은 곱셈으로 풀어 쓰세요.',
+        },
+        {
+          selector: "AssignmentExpression[operator='**=']",
+          message:
+            '**= 연산자는 Math.pow와 동일하게 정밀도가 구현 정의입니다 — 곱셈으로 풀어 쓰세요.',
         },
       ],
     },

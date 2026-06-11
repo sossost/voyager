@@ -1,0 +1,42 @@
+{
+  "ember": [
+    { "primary": "#ff6b35", "secondary": "#7a2e12", "accent": "#ffd166" },
+    { "primary": "#e84545", "secondary": "#5c1a1a", "accent": "#ffb627" },
+    { "primary": "#ff8c42", "secondary": "#8c3a1d", "accent": "#fff275" }
+  ],
+  "ocean": [
+    { "primary": "#2ec4b6", "secondary": "#0b3954", "accent": "#cbf3f0" },
+    { "primary": "#3a86ff", "secondary": "#14213d", "accent": "#8ecae6" },
+    { "primary": "#48bfe3", "secondary": "#1b4965", "accent": "#d0f4ff" }
+  ],
+  "flora": [
+    { "primary": "#80b918", "secondary": "#2b5114", "accent": "#e9f5db" },
+    { "primary": "#52b788", "secondary": "#1b4332", "accent": "#d8f3dc" },
+    { "primary": "#aacc00", "secondary": "#3a5a40", "accent": "#f4fdd9" }
+  ],
+  "violet": [
+    { "primary": "#9d4edd", "secondary": "#3c096c", "accent": "#e0aaff" },
+    { "primary": "#7b2cbf", "secondary": "#2a0a4a", "accent": "#c77dff" },
+    { "primary": "#b185db", "secondary": "#4a2570", "accent": "#efd3ff" }
+  ],
+  "sand": [
+    { "primary": "#d4a373", "secondary": "#6b4d2e", "accent": "#faedcd" },
+    { "primary": "#c9ada7", "secondary": "#5e4b45", "accent": "#f2e9e4" },
+    { "primary": "#e6b800", "secondary": "#7d6608", "accent": "#fff3b0" }
+  ],
+  "ice": [
+    { "primary": "#a2d6f9", "secondary": "#3066be", "accent": "#eaf6ff" },
+    { "primary": "#b8e1ff", "secondary": "#2c6e9e", "accent": "#f0f9ff" },
+    { "primary": "#9bf6ff", "secondary": "#2f7686", "accent": "#e8feff" }
+  ],
+  "toxic": [
+    { "primary": "#ccff33", "secondary": "#3e6212", "accent": "#f5ff9e" },
+    { "primary": "#70e000", "secondary": "#274e13", "accent": "#defc9d" },
+    { "primary": "#d9ff5b", "secondary": "#506b1f", "accent": "#fbffd6" }
+  ],
+  "nebula": [
+    { "primary": "#f72585", "secondary": "#560bad", "accent": "#fcd5ce" },
+    { "primary": "#ff70a6", "secondary": "#6a2c70", "accent": "#ffd6e0" },
+    { "primary": "#e56b6f", "secondary": "#553772", "accent": "#ffe5ec" }
+  ]
+}
