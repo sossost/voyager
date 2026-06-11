@@ -2,7 +2,7 @@ import { ScreenQuad } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { damp } from 'maath/easing'
 import { useEffect, useMemo, useRef } from 'react'
-import { PerspectiveCamera, ShaderMaterial } from 'three'
+import { AdditiveBlending, PerspectiveCamera, ShaderMaterial } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
 import {
@@ -26,9 +26,10 @@ const SECONDARY_RAY_COUNT = 72
 
 /**
  * 방사형 하이퍼스페이스 스트리크 — 시각 연출 전용 셰이더.
- * 2층 구조: 가늘고 빠른 한색 주층 + 굵고 느린 보랏빛 보조층.
- * 레이는 가우시안 단면의 가는 빛줄기로, 머리가 또렷하고 꼬리가 주기 전체에
- * 길게 끌리는 혜성형 트레일이다. 점화 시차로 듬성듬성 시작해 점점 빽빽해지고,
+ * 빛은 가산으로 그린다: 머티리얼이 AdditiveBlending이라 줄기가 배경 위에
+ * 덧칠되는 면(색종이)이 아니라 누적되는 광량으로 렌더되고, 겹치는 곳은
+ * 자연히 백색으로 타오른다. 단면은 "가는 코어 + 넓은 헤일로" 2성분 —
+ * 실제 빛줄기의 단면 구조다. 점화 시차로 듬성듬성 시작해 점점 빽빽해지고,
  * 막판에 중앙 글로우가 차올라 플래시(스테이지 B)로 튀지 않고 이어진다.
  */
 const FRAGMENT_SHADER = /* glsl */ `
@@ -55,10 +56,12 @@ const FRAGMENT_SHADER = /* glsl */ `
     float raySeed = hash(rayId + seedOffset);
     float rayTrait = hash(rayId * 1.73 + seedOffset + 11.0);
 
-    // 가우시안 단면 — 쐐기 잔재 없는 부드러운 줄기
+    // 단면 = 가는 코어 + 넓고 옅은 헤일로 — 단일 가우시안은 면처럼 읽힌다
     float acrossRay = abs(fract(rayPosition) - 0.5) * 2.0;
-    float thinness = mix(5.0, 11.0, rayTrait);
-    float rayShape = exp(-acrossRay * acrossRay * thinness);
+    float thinness = mix(6.0, 14.0, rayTrait);
+    float core = exp(-acrossRay * acrossRay * thinness * 5.0);
+    float halo = exp(-acrossRay * acrossRay * thinness) * 0.45;
+    float rayShape = core + halo;
 
     // 점화 시차 — 진행도에 따라 레이가 하나둘 켜져 가속감이 쌓인다
     float ignition = smoothstep(raySeed * 0.55, raySeed * 0.55 + 0.3, uProgress);
@@ -81,25 +84,25 @@ const FRAGMENT_SHADER = /* glsl */ `
     float secondary = streakLayer(centered, ${SECONDARY_RAY_COUNT.toFixed(1)}, 37.0, 1.3);
     // 바깥쪽일수록 빠르게 스치는 느낌 — 가장자리 가산
     float edgeBoost = 0.55 + 0.45 * smoothstep(0.15, 0.85, radius);
-    float intensity = (primary + secondary * 0.5) * radialMask * edgeBoost * uProgress;
+    float energy = (primary + secondary * 0.5) * radialMask * edgeBoost * uProgress;
 
-    // 플래시로 이어지는 중앙 글로우 — uProgress가 JS에서 이미 제곱 업로드되므로
-    // 실효 곡선은 원시 진행도의 8제곱: 플래시 직전 한순간에만 차오른다.
-    // 반경을 좁게 유지해 회색 안개처럼 화면을 덮지 않는다
-    float glowSurge = uProgress * uProgress;
+    // 플래시로 이어지는 중앙 코어 플레어 — uProgress가 JS에서 이미 제곱 업로드되므로
+    // 실효 곡선은 원시 진행도의 12제곱: 플래시 직전 한순간에만 목적지가 타오른다.
+    // 넓은 안개가 아니라 작고 뜨거운 점광 — 백색 전환의 불씨 역할만 한다
+    float glowSurge = uProgress * uProgress * uProgress;
     float centerGlow =
-      (1.0 - smoothstep(0.0, 0.38, radius)) * glowSurge * glowSurge * 0.7;
+      (1.0 - smoothstep(0.0, 0.2, radius)) * glowSurge * glowSurge * 1.1;
 
-    // 주층은 한색 청백, 보조층이 섞이는 곳은 보랏빛 — 머리 부근만 살짝 백색화
-    vec3 streakColor = mix(vec3(0.4, 0.52, 1.0), vec3(0.6, 0.42, 1.0),
+    // 주층은 한색 청백, 보조층이 섞이는 곳은 보랏빛 — 고광량부는 살짝 백색으로
+    // (나머지 백색화는 가산 누적이 알아서 한다)
+    vec3 streakColor = mix(vec3(0.38, 0.52, 1.0), vec3(0.58, 0.4, 1.0),
       clamp(secondary * 1.5, 0.0, 1.0));
-    streakColor = mix(streakColor, vec3(1.0), clamp(intensity * 0.65, 0.0, 1.0));
+    streakColor = mix(streakColor, vec3(1.0), clamp(energy * 0.45, 0.0, 1.0));
 
-    float streakAlpha = clamp(intensity * 1.1, 0.0, 1.0);
-    float alpha = clamp(streakAlpha + centerGlow, 0.0, 1.0);
-    vec3 glowColor = vec3(0.82, 0.88, 1.0);
-    vec3 color = (streakColor * streakAlpha + glowColor * centerGlow) / max(alpha, 0.0001);
-    gl_FragColor = vec4(color, alpha);
+    // 가산 블렌딩(SrcAlpha, One): rgb에 광량을 싣고 alpha는 1 — 빛은 더해진다
+    vec3 glowColor = vec3(0.88, 0.92, 1.0);
+    vec3 light = streakColor * energy * 0.85 + glowColor * centerGlow;
+    gl_FragColor = vec4(light, 1.0);
   }
 `
 
@@ -122,6 +125,7 @@ export function WarpStreaks() {
           uAspect: { value: 1 },
         },
         transparent: true,
+        blending: AdditiveBlending,
         depthTest: false,
         depthWrite: false,
       }),
