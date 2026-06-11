@@ -20,9 +20,9 @@ const VERTEX_SHADER = /* glsl */ `
 `
 
 /** 주층(가늘고 빠른 빛줄기) 레이 수. */
-const PRIMARY_RAY_COUNT = 150
+const PRIMARY_RAY_COUNT = 75
 /** 보조층(굵고 느린 보랏빛 줄기) 레이 수 — 층이 어긋나야 깊이감이 생긴다. */
-const SECONDARY_RAY_COUNT = 72
+const SECONDARY_RAY_COUNT = 36
 
 /**
  * 방사형 하이퍼스페이스 스트리크 — 시각 연출 전용 셰이더.
@@ -56,9 +56,10 @@ const FRAGMENT_SHADER = /* glsl */ `
     float raySeed = hash(rayId + seedOffset);
     float rayTrait = hash(rayId * 1.73 + seedOffset + 11.0);
 
-    // 단면 = 가는 코어 + 넓고 옅은 헤일로 — 단일 가우시안은 면처럼 읽힌다
+    // 단면 = 가는 코어 + 넓고 옅은 헤일로 — 단일 가우시안은 면처럼 읽힌다.
+    // 계수는 레이 수 절반(버킷 폭 2배) 보정으로 4배 — 절대 굵기는 동일하다
     float acrossRay = abs(fract(rayPosition) - 0.5) * 2.0;
-    float thinness = mix(6.0, 14.0, rayTrait);
+    float thinness = mix(24.0, 56.0, rayTrait);
     float core = exp(-acrossRay * acrossRay * thinness * 5.0);
     float halo = exp(-acrossRay * acrossRay * thinness) * 0.45;
     float rayShape = core + halo;
