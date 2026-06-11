@@ -4,6 +4,7 @@ import type { Group, Mesh } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
+import { fract } from '@/scenes/shared/fract'
 import { PlanetAtmosphere } from '@/scenes/system/PlanetAtmosphere'
 import { bakePlanetTextures, disposePlanetTextures } from '@/scenes/system/planetTexture'
 import { useGameStore } from '@/store'
@@ -32,10 +33,6 @@ const CLOUD_RENDER_ORDER = 1
 
 export function orbitRadiusOf(planet: PlanetData): number {
   return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE
-}
-
-function fract(value: number): number {
-  return value - Math.floor(value)
 }
 
 interface PlanetProps {

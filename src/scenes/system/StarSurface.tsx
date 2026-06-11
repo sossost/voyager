@@ -61,6 +61,7 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
     return mix(bottom, top, f.z);
   }
 
+  // 3옥타브 fbm — 가중치 합 = 1, 주파수 배율은 격자 정렬 아티팩트를 피해 2/4에서 살짝 비튼 값
   float fbm(vec3 p) {
     float sum = 0.55 * noise3(p);
     sum += 0.27 * noise3(p * 2.13 + vec3(31.7));
@@ -81,7 +82,7 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
 
     vec3 surface = uColor * (0.68 + 0.55 * granulation) * darkening;
 
-    // 뜨거운 입상반 꼭대기는 1을 넘는 백색으로 — Bloom이 증폭한다
+    // 뜨거운 입상반 꼭대기는 1을 넘는 백색(1.45 = Bloom 임계 0.3 대비 증폭 목표)으로
     float hotness = smoothstep(0.72, 0.95, granulation) * facing;
     surface = mix(surface, vec3(1.45), hotness * 0.5);
 

@@ -12,6 +12,7 @@ import {
 } from 'three'
 
 import { starWorldPosition } from '@/engine/galaxy/position'
+import { fract } from '@/scenes/shared/fract'
 import { useGameStore } from '@/store'
 
 /**
@@ -37,10 +38,6 @@ const SONAR_MAX_SCALE = 3.4
 const SONAR_MAX_OPACITY = 0.7
 
 const RING_SEGMENTS = 48
-
-function fract(value: number): number {
-  return value - Math.floor(value)
-}
 
 export function CurrentStarBeacon() {
   const seed = useGameStore((state) => state.seed)

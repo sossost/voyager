@@ -225,11 +225,12 @@ function bakeEquirect(
       const lon = ((texelX + 0.5) / baseWidth) * FULL_TURN
       const [r, g, b, a] = painter(cosLat * Math.cos(lon), sinLat, cosLat * Math.sin(lon), lat)
 
+      // Uint8ClampedArray는 소수부를 버림한다 — 반올림해야 채널이 어두워지는 편향이 없다
       const offset = (texelY * baseWidth + texelX) * 4
-      image.data[offset] = r
-      image.data[offset + 1] = g
-      image.data[offset + 2] = b
-      image.data[offset + 3] = a
+      image.data[offset] = Math.round(r)
+      image.data[offset + 1] = Math.round(g)
+      image.data[offset + 2] = Math.round(b)
+      image.data[offset + 3] = Math.round(a)
     }
   }
   baseContext.putImageData(image, 0, 0)

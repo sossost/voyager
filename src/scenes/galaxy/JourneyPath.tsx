@@ -23,7 +23,7 @@ const OLDEST_SEGMENT_FADE = 0.12
 
 export function JourneyPath() {
   const isVisible = useGameStore((state) => state.isJourneyPathVisible)
-  if (!isVisible) return null
+  if (isVisible === false) return null
   return <JourneyPathLine />
 }
 

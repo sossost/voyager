@@ -5,6 +5,7 @@ import { BufferGeometry, Color, Float32BufferAttribute } from 'three'
 import type { Star, StarId } from '@/engine'
 import { SECTOR_SIZE } from '@/engine'
 import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import { fract } from '@/scenes/shared/fract'
 import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMaterial'
 import { starVariance } from '@/scenes/shared/starVariance'
 
@@ -36,10 +37,6 @@ const VISITED_TINT = new Color('#52f5d0')
 const VISITED_TINT_MIX = 0.6
 const VISITED_BRIGHTNESS_BOOST = 1.45
 const VISITED_SIZE_BOOST = 1.18
-
-function fract(value: number): number {
-  return value - Math.floor(value)
-}
 
 interface StarBaseAttributes {
   readonly r: number
@@ -130,6 +127,7 @@ export function GalaxyStarField({ stars, maxPointSize, visitedStars }: GalaxySta
   useEffect(() => {
     const colorAttribute = geometry.getAttribute('starColor')
     const sizeAttribute = geometry.getAttribute('size')
+    if (colorAttribute == null || sizeAttribute == null) return
     const color = new Color()
     let hasChanges = false
 
