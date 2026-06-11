@@ -8,6 +8,7 @@ import { GalaxyStarField } from '@/scenes/galaxy/GalaxyStarField'
 import { JourneyPath } from '@/scenes/galaxy/JourneyPath'
 import { SelectedStarMarker } from '@/scenes/galaxy/SelectedStarMarker'
 import { ShipCameraRig } from '@/scenes/galaxy/ShipCameraRig'
+import { ShipViewGalaxyGlow } from '@/scenes/galaxy/ShipViewGalaxyGlow'
 import { StarCalloutProjector } from '@/scenes/galaxy/StarCalloutProjector'
 import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
@@ -69,11 +70,14 @@ export function GalaxyScene() {
         <ShipCameraRig anchor={shipFocus} />
       ) : null}
       {/* 장식 배경 (백로그 G-a-2) — 전도는 원거리 은하 빌보드, 우주선 뷰·워프는
-          균일 별밭이 빈 하늘을 채운다 (별계 씬과 같은 패턴, 정박 별 중심) */}
+          균일 별밭 + 은하 광원감(원반 밴드·코어 글로우, 백로그 G-b-6)이 하늘을 채운다 */}
       {isMapView ? (
         <DistantGalaxies />
       ) : (
-        <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
+        <>
+          <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
+          <ShipViewGalaxyGlow anchor={shipFocus} />
+        </>
       )}
       {isMapView ? <GalaxyNebula /> : null}
       <GalaxyStarField
