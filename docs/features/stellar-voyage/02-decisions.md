@@ -1,4 +1,4 @@
-# Decisions: Stellar Voyage — 우주 탐험 & 외계생명체 수집 (v1)
+# Decisions: Voyager — 우주 탐험 & 외계생명체 수집 (v1)
 
 **Created:** 2026-06-11
 

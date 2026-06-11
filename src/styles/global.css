@@ -319,11 +319,11 @@ body {
   color: var(--color-holo-strong);
 }
 
-/* ── 별 정보 홀로그램 콜아웃 (결정 37) ───────────────────
-   항성의 화면 좌표(StarCalloutProjector가 transform 갱신)에 점을 찍고,
+/* ── 홀로그램 콜아웃 (결정 37, G-a-5에서 별/행성 공용) ──────
+   천체의 화면 좌표(CalloutProjector가 transform 갱신)에 점을 찍고,
    사선 리더 라인으로 패널을 들어 올린다 — 홀로그램 주석처럼. */
 
-.star-callout {
+.callout {
   position: absolute;
   top: 0;
   left: 0;
@@ -331,7 +331,7 @@ body {
   pointer-events: none; /* 점·선은 통과, 패널만 상호작용 */
 }
 
-.star-callout-dot {
+.callout-dot {
   position: absolute;
   width: 9px;
   height: 9px;
@@ -343,7 +343,7 @@ body {
 }
 
 /* 리더 라인 — 길이 90px(=64√2), 끝점이 (64, -64): 패널의 모서리에 닿는다 */
-.star-callout-line {
+.callout-line {
   position: absolute;
   width: 90px;
   height: 2px;
@@ -356,7 +356,7 @@ body {
   );
 }
 
-.star-callout .hud-panel {
+.callout .hud-panel {
   position: absolute;
   top: auto;
   right: auto;
@@ -380,32 +380,92 @@ body {
 }
 
 /* 가장자리 플립 — 패널이 화면 밖으로 나가지 않게 반대쪽으로 편다 */
-.star-callout-flip-x .star-callout-line {
+.callout-flip-x .callout-line {
   transform: rotate(-135deg);
 }
 
-.star-callout-flip-x .hud-panel {
+.callout-flip-x .hud-panel {
   left: auto;
   right: 60px;
   transform-origin: bottom right;
 }
 
-.star-callout-flip-y .star-callout-line {
+.callout-flip-y .callout-line {
   transform: rotate(45deg);
 }
 
-.star-callout-flip-y .hud-panel {
+.callout-flip-y .hud-panel {
   bottom: auto;
   top: 60px;
   transform-origin: top left;
 }
 
-.star-callout-flip-x.star-callout-flip-y .star-callout-line {
+.callout-flip-x.callout-flip-y .callout-line {
   transform: rotate(135deg);
 }
 
-.star-callout-flip-x.star-callout-flip-y .hud-panel {
+.callout-flip-x.callout-flip-y .hud-panel {
   transform-origin: top right;
+}
+
+/* ── 별계 진입 함교 리드아웃 (백로그 G-a-4) ───────────────
+   어느 항성계인지 진입 직후 잠깐 알려주고 사라진다 — 수명은 JS 타이머,
+   애니메이션은 페이드 연출만 (reduced-motion에서도 소멸 보장). */
+
+.system-readout {
+  position: absolute;
+  top: 4.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+  font-family: var(--font-console);
+  letter-spacing: 0.14em;
+  color: var(--color-holo-strong);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--color-holo) 65%, transparent);
+  pointer-events: none;
+  animation: readout-cycle 5s ease-out both;
+}
+
+.system-readout-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.system-readout-name::before {
+  content: '▸ ';
+  color: color-mix(in srgb, var(--color-holo) 70%, transparent);
+}
+
+.system-readout-spectral {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--color-holo) 80%, var(--color-text-dim));
+}
+
+/* 진입 줌인(0.9s)의 중반쯤 떠올라 한 호흡 머물고 잦아든다 */
+@keyframes readout-cycle {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  10% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* 우주선 캐노피 프레임 — 우주선 뷰/워프 전용 시점 표지 (장식, 포인터 통과) */
@@ -1078,25 +1138,6 @@ body {
     flex-wrap: wrap;
   }
 
-  /* 행성 패널은 바텀 시트로 — 화면 가장자리에 붙으므로 모따기는 상단만.
-     별 패널은 콜아웃(결정 37)이라 제외 — 항성 위치에 떠 있어야 한다 */
-  .planet-panel {
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    border-bottom: none;
-    clip-path: polygon(
-      0 var(--chamfer),
-      var(--chamfer) 0,
-      calc(100% - var(--chamfer)) 0,
-      100% var(--chamfer),
-      100% 100%,
-      0 100%
-    );
-  }
-
   .navigation-controls {
     bottom: auto;
     top: 50%;
@@ -1124,6 +1165,11 @@ body {
   }
 
   .hud-panel {
+    animation: none;
+  }
+
+  /* 페이드 없이 정적 표시 — 소멸은 JS 타이머가 보장한다 */
+  .system-readout {
     animation: none;
   }
 }

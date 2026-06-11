@@ -26,57 +26,63 @@ export function PlanetPanel() {
   if (sceneKind !== 'system' || planet == null) return null
 
   return (
-    <section className="hud-panel planet-panel" aria-label="행성 정보">
-      <header className="hud-panel-header">
-        <h2 className="hud-panel-title">{planet.name}</h2>
-        <button
-          type="button"
-          className="hud-icon-button"
-          aria-label="패널 닫기"
-          onClick={() => selectPlanet(null)}
-        >
-          ×
-        </button>
-      </header>
+    // 홀로그램 콜아웃 (백로그 G-a-5, 별 패널과 같은 패턴) — PlanetCalloutProjector가
+    // 매 프레임 공전 중인 행성의 화면 좌표로 transform을 갱신한다. 기본 hidden.
+    <div className="callout" data-planet-callout>
+      <span className="callout-dot" aria-hidden="true" />
+      <span className="callout-line" aria-hidden="true" />
+      <section className="hud-panel planet-panel" aria-label="행성 정보">
+        <header className="hud-panel-header">
+          <h2 className="hud-panel-title">{planet.name}</h2>
+          <button
+            type="button"
+            className="hud-icon-button"
+            aria-label="패널 닫기"
+            onClick={() => selectPlanet(null)}
+          >
+            ×
+          </button>
+        </header>
 
-      <dl className="hud-panel-facts">
-        <div className="hud-fact">
-          <dt>유형</dt>
-          <dd>{PLANET_KIND_LABELS[planet.kind]}</dd>
-        </div>
-        <div className="hud-fact">
-          <dt>궤도</dt>
-          <dd>{planet.orbitAu.toFixed(1)} AU</dd>
-        </div>
-        <div className="hud-fact">
-          <dt>생명체 신호</dt>
-          <dd>
-            {planet.hasLife ? (
-              <span className="badge badge-life">생명 반응 감지!</span>
-            ) : (
-              <span className="badge badge-unknown">감지되지 않음</span>
-            )}
-          </dd>
-        </div>
-        {isExplored ? (
+        <dl className="hud-panel-facts">
           <div className="hud-fact">
-            <dt>탐사</dt>
+            <dt>유형</dt>
+            <dd>{PLANET_KIND_LABELS[planet.kind]}</dd>
+          </div>
+          <div className="hud-fact">
+            <dt>궤도</dt>
+            <dd>{planet.orbitAu.toFixed(1)} AU</dd>
+          </div>
+          <div className="hud-fact">
+            <dt>생명체 신호</dt>
             <dd>
-              <span className="badge badge-visited">탐사 완료</span>
+              {planet.hasLife ? (
+                <span className="badge badge-life">생명 반응 감지!</span>
+              ) : (
+                <span className="badge badge-unknown">감지되지 않음</span>
+              )}
             </dd>
           </div>
-        ) : null}
-      </dl>
+          {isExplored ? (
+            <div className="hud-fact">
+              <dt>탐사</dt>
+              <dd>
+                <span className="badge badge-visited">탐사 완료</span>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
 
-      {planet.hasLife ? (
-        <button
-          type="button"
-          className="hud-button hud-button-primary"
-          onClick={() => explore(planet.id)}
-        >
-          {isExplored ? '재탐사' : '탐사'}
-        </button>
-      ) : null}
-    </section>
+        {planet.hasLife ? (
+          <button
+            type="button"
+            className="hud-button hud-button-primary"
+            onClick={() => explore(planet.id)}
+          >
+            {isExplored ? '재탐사' : '탐사'}
+          </button>
+        ) : null}
+      </section>
+    </div>
   )
 }

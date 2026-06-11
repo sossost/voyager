@@ -12,6 +12,7 @@ import { StarCalloutProjector } from '@/scenes/galaxy/StarCalloutProjector'
 import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
 import { CameraRig } from '@/scenes/shared/CameraRig'
+import { DecorativeStarfield } from '@/scenes/shared/DecorativeStarfield'
 import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
 import { useGameStore } from '@/store'
 
@@ -26,6 +27,11 @@ const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0]
 const MAP_MIN_DISTANCE = 200
 /** 은하 전체(지름 9,600 유닛)가 화면에 들어오는 줌아웃 한계 — 나선 형상 조망용. */
 const GALAXY_MAX_ZOOM_OUT = 6_000
+/**
+ * 우주선 뷰 하늘 천구 반경 — 정박 별에서 가장 먼 은하 별(≤9,600)보다 바깥이라
+ * 장식이 항상 배경으로 읽히고, 정박 오프셋(≤4,800)을 더해도 far(30,000) 안이다.
+ */
+const SHIP_SKY_RADIUS = 12_000
 
 export function GalaxyScene() {
   const seed = useGameStore((state) => state.seed)
@@ -62,7 +68,13 @@ export function GalaxyScene() {
       {scene.kind === 'galaxy' && scene.view === 'ship' ? (
         <ShipCameraRig anchor={shipFocus} />
       ) : null}
-      <DistantGalaxies />
+      {/* 장식 배경 (백로그 G-a-2) — 전도는 원거리 은하 빌보드, 우주선 뷰·워프는
+          균일 별밭이 빈 하늘을 채운다 (별계 씬과 같은 패턴, 정박 별 중심) */}
+      {isMapView ? (
+        <DistantGalaxies />
+      ) : (
+        <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
+      )}
       {isMapView ? <GalaxyNebula /> : null}
       <GalaxyStarField
         stars={stars}

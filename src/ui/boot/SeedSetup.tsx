@@ -30,7 +30,7 @@ export function SeedSetup({ prefillSeed, submitError = null, onStart }: SeedSetu
 
   return (
     <main className="boot-screen">
-      <h1 className="boot-title">Stellar Voyage</h1>
+      <h1 className="boot-title">Voyager</h1>
       <p className="boot-subtitle">
         시드가 우주를 결정합니다 — 같은 시드는 언제나 같은 은하, 같은 행성, 같은 생명체를
         만듭니다.

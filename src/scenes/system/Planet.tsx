@@ -1,11 +1,12 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
-import type { Group, Mesh } from 'three'
+import type { Group, Mesh, Vector3 } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
+import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
 import {
   bakePlanetTextures,
   disposePlanetTextures,
@@ -35,6 +36,26 @@ const CLOUD_LAYER_SCALE = 1.035
 
 export function orbitRadiusOf(planet: PlanetData): number {
   return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE
+}
+
+/** 궤도 시작 위상 — paletteSeed 파생 결정론 (자전 위상과도 공유). */
+function orbitInitialPhase(planet: PlanetData): number {
+  return ((planet.paletteSeed % 360) / 360) * FULL_TURN
+}
+
+/**
+ * 시간 t의 궤도 월드 좌표 — 렌더(Planet useFrame)와 콜아웃 투영기
+ * (PlanetCalloutProjector)가 같은 수식을 쓴다 (단일 소스, 백로그 G-a-5).
+ */
+export function planetOrbitPosition(
+  planet: PlanetData,
+  elapsedSeconds: number,
+  out: Vector3,
+): Vector3 {
+  const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(planet.orbitAu, 1.5)
+  const angle = orbitInitialPhase(planet) + elapsedSeconds * angularSpeed
+  const radius = orbitRadiusOf(planet)
+  return out.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius)
 }
 
 /** 베이크가 도착하기 전의 플레이스홀더 색 — paletteSeed 파생 (텍스처로 교체된다). */
@@ -77,9 +98,7 @@ export function Planet({ planet }: PlanetProps) {
     }
   }, [planet, planetTextureBaseWidth])
 
-  const orbitRadius = orbitRadiusOf(planet)
-  const initialPhase = ((planet.paletteSeed % 360) / 360) * FULL_TURN
-  const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(planet.orbitAu, 1.5)
+  const initialPhase = orbitInitialPhase(planet)
   const visualRadius = PLANET_VISUAL_BASE + planet.radius * PLANET_VISUAL_SCALE
   const spinSpeed = SPIN_BASE_SPEED + SPIN_SPEED_SPAN * fract(planet.paletteSeed * 0.0173)
   const spinDirection = planet.paletteSeed % 2 === 0 ? 1 : -1
@@ -88,8 +107,7 @@ export function Planet({ planet }: PlanetProps) {
     const group = groupRef.current
     if (group == null) return
     const elapsed = state.clock.elapsedTime
-    const angle = initialPhase + elapsed * angularSpeed
-    group.position.set(Math.cos(angle) * orbitRadius, 0, Math.sin(angle) * orbitRadius)
+    planetOrbitPosition(planet, elapsed, group.position)
 
     const spin = initialPhase + elapsed * spinSpeed * spinDirection
     if (surfaceRef.current != null) surfaceRef.current.rotation.y = spin
@@ -145,6 +163,8 @@ export function Planet({ planet }: PlanetProps) {
           <meshBasicMaterial color="#7c5cff" transparent opacity={0.95} depthWrite={false} />
         </mesh>
       ) : null}
+
+      {planet.hasLife ? <LifeSignalWaves planetRadius={visualRadius} /> : null}
     </group>
   )
 }

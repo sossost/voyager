@@ -7,7 +7,7 @@ export function TopBar() {
 
   return (
     <header className="top-bar">
-      <h1 className="top-bar-title">Stellar Voyage</h1>
+      <h1 className="top-bar-title">Voyager</h1>
       <div className="top-bar-actions">
         <button type="button" className="hud-button hud-button-compact" onClick={() => openOverlay('codex')}>
           도감

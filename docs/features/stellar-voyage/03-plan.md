@@ -1,4 +1,4 @@
-# Implementation Plan: Stellar Voyage (v1 코어 루프)
+# Implementation Plan: Voyager (v1 코어 루프)
 
 **Status:** Approved
 **Created:** 2026-06-11

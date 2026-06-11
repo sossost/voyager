@@ -1,4 +1,4 @@
-# Feature Spec: Stellar Voyage — 우주 탐험 & 외계생명체 수집 (v1 코어 루프)
+# Feature Spec: Voyager — 우주 탐험 & 외계생명체 수집 (v1 코어 루프)
 
 **Status:** Confirmed
 **Created:** 2026-06-11

@@ -64,11 +64,11 @@
 
 ### G-a. 빠른 개선 (렌더/DOM 전용 — GEN_VERSION 무관)
 
-1. **서비스 이름 확정: Voyager** — "Stellar Voyage" → "Voyager" 리네임. TopBar 타이틀·부트 화면·index.html `<title>`·README·스펙 문서 헤더. (저장 데이터·시드 무관 — 순수 표기)
-2. **우주선 뷰 배경 정리** — 원거리 은하 빌보드(DistantGalaxies)는 우주선 뷰에서 제외(지도 전용으로), 대신 별계 씬처럼 균일 배경 별(SystemStarfield 패턴)을 깔아 빈 하늘을 채운다. 실제 은하 별(GalaxyStarField)은 그대로 — 장식 레이어만 교체.
-3. **생명체 행성 통신 파동** — 별계 씬에서 hasLife 행성 주변으로 원형 링이 주기적으로 퍼져나가는 연출(전파/통신 신호 느낌). CurrentStarBeacon 소나 링 패턴 재사용(빌보드 + 위상 스태거), 청록 가산. 행성 공전을 따라가야 하므로 행성 그룹 자식으로.
-4. **별계 진입 시 항성 정보 표시** — 현재 어떤 항성계인지 알 길이 없음. 항성 이름·분광형을 표시 — 항성 클릭 시 홀로그램 콜아웃(G-a-5와 같은 패턴) 또는 진입 시 잠깐 떴다 사라지는 함교 리드아웃. starById로 이름 조회.
-5. **행성 패널도 홀로그램 콜아웃 통일** — PlanetPanel을 별 패널(결정 37)처럼 행성 위치 앵커 + 리더 라인으로. 행성은 공전으로 매 프레임 움직이므로 투영기가 궤도 위치를 따라가야 함 — Planet의 그룹 ref를 레지스트리로 공유하거나 궤도 수식(위상+시간, 결정론)을 투영기에서 재계산. StarCalloutProjector 일반화(`CalloutProjector`) 후 별/행성 공용. 모바일 바텀 시트 잔여분 제거.
+1. ~~**서비스 이름 확정: Voyager**~~ — ✅ 완료 (2026-06-12): 표기 전부 "Voyager"로 (TopBar·부트 3종·index.html·README·스펙 문서 헤더·CLAUDE.md). Dexie DB명(`stellar-voyage`)·디렉터리·package.json name은 식별자라 유지.
+2. ~~**우주선 뷰 배경 정리**~~ — ✅ 완료 (2026-06-12): SystemStarfield를 `shared/DecorativeStarfield`(radius/center 주입)로 일반화. 전도 = DistantGalaxies, 우주선 뷰·워프 = 정박 별 중심 균일 별밭(반경 12,000 — 은하 스팬 밖 + far 안). 실제 은하 별은 그대로.
+3. ~~**생명체 행성 통신 파동**~~ — ✅ 완료 (2026-06-12): `LifeSignalWaves` — hasLife 행성 그룹 자식 빌보드 링 2개(위상 0.5 스태거), 주기 3.4s, 청록(#5eead4) 가산 페이드. 발생 반경 1.4×라 행성 실루엣을 가리지 않는다 (클릭 간섭 없음).
+4. ~~**별계 진입 시 항성 정보 표시**~~ — ✅ 완료 (2026-06-12): `SystemReadout` 함교 리드아웃 — 진입(부트 포함) 직후 상단 중앙에 이름·분광형이 떠올랐다 ~5s 후 소멸. 수명은 JS 타이머·페이드는 CSS(reduced-motion 시 정적 표시 후 소멸). 클릭 콜아웃 안은 선택 상태 추가가 필요해 보류.
+5. ~~**행성 패널도 홀로그램 콜아웃 통일**~~ — ✅ 완료 (2026-06-12): `shared/CalloutProjector`(selector + computeWorldPosition 주입)로 일반화, 별/행성 공용. 행성 추적은 ref 레지스트리 대신 궤도 수식 추출(`planetOrbitPosition` — 렌더와 단일 소스)로 재계산. CSS `.star-callout*` → `.callout*`, 모바일 바텀 시트 제거.
 
 ### G-b. 중형 — 시점·연출 재작업
 
