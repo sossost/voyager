@@ -7,10 +7,10 @@
  *   피크 (+FLASH_HOLD): 완전히 차오른 플래시 뒤에서 씬 스왑 — 히치 은닉
  *   C: 플래시 페이드아웃 → 태양계 공개
  */
-export const WARP_STAGE_A_MS = 900
-export const WARP_FLASH_IN_MS = 300
+export const WARP_STAGE_A_MS = 1_600
+export const WARP_FLASH_IN_MS = 350
 export const WARP_FLASH_HOLD_MS = 120
-export const WARP_FLASH_OUT_MS = 450
+export const WARP_FLASH_OUT_MS = 650
 
 export const WARP_FOV_REST = 60
 export const WARP_FOV_PEAK = 85

@@ -19,12 +19,16 @@ const GALAXY_MAX_ZOOM_OUT = 6_000
 export function GalaxyScene() {
   const seed = useGameStore((state) => state.seed)
   const currentStarId = useGameStore((state) => state.currentStarId)
+  const scene = useGameStore((state) => state.scene)
   const qualityTier = useGameStore((state) => state.qualityTier)
   const preset = QUALITY_PRESETS[qualityTier]
 
+  // warpTo가 currentStarId를 즉시 목적지로 바꾸므로(결정 16: 저장 선행),
+  // 워프 중 카메라 앵커는 출발 별(from)에 둔다 — 연출은 현 위치에서 시작해야 한다
+  const anchorStarId = scene.kind === 'warping' ? scene.from : currentStarId
   const focus = useMemo(
-    () => starWorldPosition(seed, currentStarId) ?? GALAXY_CENTER,
-    [seed, currentStarId],
+    () => starWorldPosition(seed, anchorStarId) ?? GALAXY_CENTER,
+    [seed, anchorStarId],
   )
 
   const stars = useGalaxyStars()

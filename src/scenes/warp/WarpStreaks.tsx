@@ -20,15 +20,16 @@ const VERTEX_SHADER = /* glsl */ `
 `
 
 /** 주층(가늘고 빠른 빛줄기) 레이 수. */
-const PRIMARY_RAY_COUNT = 110
+const PRIMARY_RAY_COUNT = 150
 /** 보조층(굵고 느린 보랏빛 줄기) 레이 수 — 층이 어긋나야 깊이감이 생긴다. */
-const SECONDARY_RAY_COUNT = 64
+const SECONDARY_RAY_COUNT = 72
 
 /**
  * 방사형 하이퍼스페이스 스트리크 — 시각 연출 전용 셰이더.
  * 2층 구조: 가늘고 빠른 한색 주층 + 굵고 느린 보랏빛 보조층.
- * 레이는 쐐기가 아닌 버킷 중심 감쇠의 가는 빛줄기이며, 막판에 중앙 글로우가
- * 차올라 화이트 플래시(스테이지 B)로 튀지 않고 이어진다.
+ * 레이는 가우시안 단면의 가는 빛줄기로, 머리가 또렷하고 꼬리가 주기 전체에
+ * 길게 끌리는 혜성형 트레일이다. 점화 시차로 듬성듬성 시작해 점점 빽빽해지고,
+ * 막판에 중앙 글로우가 차올라 플래시(스테이지 B)로 튀지 않고 이어진다.
  */
 const FRAGMENT_SHADER = /* glsl */ `
   uniform float uProgress;
@@ -43,7 +44,7 @@ const FRAGMENT_SHADER = /* glsl */ `
     return fract(sin(n) * 43758.5453123);
   }
 
-  // 한 층의 스트리크 — 버킷 내 위치 감쇠로 가는 빛줄기, 레이마다 속도·꼬리 길이 변주
+  // 한 층의 스트리크 — 레이마다 점화 시점·속도·두께·꼬리 길이가 다르다
   float streakLayer(vec2 centered, float rayCount, float seedOffset, float speedBase) {
     float radius = length(centered);
     // 마스크 사각지대 조기 탈출 — atan(0,0)은 GLSL 스펙상 undefined라 NaN을 낼 수 있고,
@@ -52,41 +53,51 @@ const FRAGMENT_SHADER = /* glsl */ `
     float rayPosition = (atan(centered.y, centered.x) / TAU + 0.5) * rayCount;
     float rayId = floor(rayPosition);
     float raySeed = hash(rayId + seedOffset);
+    float rayTrait = hash(rayId * 1.73 + seedOffset + 11.0);
 
+    // 가우시안 단면 — 쐐기 잔재 없는 부드러운 줄기
     float acrossRay = abs(fract(rayPosition) - 0.5) * 2.0;
-    float thinness = mix(2.0, 6.0, raySeed);
-    float rayShape = pow(max(1.0 - acrossRay, 0.0), thinness);
+    float thinness = mix(5.0, 11.0, rayTrait);
+    float rayShape = exp(-acrossRay * acrossRay * thinness);
 
-    float raySpeed = speedBase + raySeed * 4.0;
-    float rayOffset = hash(rayId * 1.73 + seedOffset) * 8.0;
-    float streakPhase = fract(radius * 2.2 - uProgress * raySpeed - rayOffset);
-    float tailStart = 0.62 + raySeed * 0.24;
-    float streak = smoothstep(tailStart, 1.0, streakPhase);
-    return streak * rayShape;
+    // 점화 시차 — 진행도에 따라 레이가 하나둘 켜져 가속감이 쌓인다
+    float ignition = smoothstep(raySeed * 0.55, raySeed * 0.55 + 0.3, uProgress);
+
+    // 혜성형 트레일 — 위상 1.0 직전이 머리, pow 꼬리가 주기 전체에 끌린다.
+    // 머리는 랩 경계에서 뭉툭하게 잘리지 않도록 둥근 캡으로 마감한다.
+    float raySpeed = speedBase + raySeed * 2.5;
+    float phase = fract(radius * (1.1 + rayTrait * 0.7) - uProgress * raySpeed - raySeed * 8.0);
+    float trail = pow(phase, mix(3.0, 6.0, rayTrait)) * smoothstep(1.0, 0.96, phase);
+
+    return trail * rayShape * ignition * (0.55 + 0.45 * raySeed);
   }
 
   void main() {
     vec2 centered = (vUv - 0.5) * vec2(uAspect, 1.0);
     float radius = length(centered);
-    float radialMask = smoothstep(RADIAL_MASK_INNER, 0.45, radius);
+    float radialMask = smoothstep(RADIAL_MASK_INNER, 0.4, radius);
 
-    float primary = streakLayer(centered, ${PRIMARY_RAY_COUNT.toFixed(1)}, 0.0, 3.0);
-    float secondary = streakLayer(centered, ${SECONDARY_RAY_COUNT.toFixed(1)}, 37.0, 1.6);
-    float intensity = (primary + secondary * 0.45) * radialMask * uProgress;
+    float primary = streakLayer(centered, ${PRIMARY_RAY_COUNT.toFixed(1)}, 0.0, 2.4);
+    float secondary = streakLayer(centered, ${SECONDARY_RAY_COUNT.toFixed(1)}, 37.0, 1.3);
+    // 바깥쪽일수록 빠르게 스치는 느낌 — 가장자리 가산
+    float edgeBoost = 0.55 + 0.45 * smoothstep(0.15, 0.85, radius);
+    float intensity = (primary + secondary * 0.5) * radialMask * edgeBoost * uProgress;
 
     // 플래시로 이어지는 중앙 글로우 — uProgress가 JS에서 이미 제곱 업로드되므로
-    // 실효 곡선은 원시 진행도의 6제곱: FOV 서지(progress^3)보다도 늦게, 막판에만 차오른다
+    // 실효 곡선은 원시 진행도의 8제곱: 플래시 직전 한순간에만 차오른다.
+    // 반경을 좁게 유지해 회색 안개처럼 화면을 덮지 않는다
+    float glowSurge = uProgress * uProgress;
     float centerGlow =
-      (1.0 - smoothstep(0.0, 0.55, radius)) * uProgress * uProgress * uProgress * 0.6;
+      (1.0 - smoothstep(0.0, 0.38, radius)) * glowSurge * glowSurge * 0.7;
 
-    // 주층은 한색 청백, 보조층이 섞이는 곳은 보랏빛 — 끝으로 갈수록 백색화
-    vec3 streakColor = mix(vec3(0.45, 0.55, 1.0), vec3(0.62, 0.45, 1.0),
+    // 주층은 한색 청백, 보조층이 섞이는 곳은 보랏빛 — 머리 부근만 살짝 백색화
+    vec3 streakColor = mix(vec3(0.4, 0.52, 1.0), vec3(0.6, 0.42, 1.0),
       clamp(secondary * 1.5, 0.0, 1.0));
-    streakColor = mix(streakColor, vec3(1.0), clamp(intensity * 0.85, 0.0, 1.0));
+    streakColor = mix(streakColor, vec3(1.0), clamp(intensity * 0.65, 0.0, 1.0));
 
-    float streakAlpha = clamp(intensity * 0.9, 0.0, 1.0);
+    float streakAlpha = clamp(intensity * 1.1, 0.0, 1.0);
     float alpha = clamp(streakAlpha + centerGlow, 0.0, 1.0);
-    vec3 glowColor = vec3(0.93, 0.95, 1.0);
+    vec3 glowColor = vec3(0.82, 0.88, 1.0);
     vec3 color = (streakColor * streakAlpha + glowColor * centerGlow) / max(alpha, 0.0001);
     gl_FragColor = vec4(color, alpha);
   }
