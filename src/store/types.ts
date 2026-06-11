@@ -1,4 +1,5 @@
 import type { AlienIndividual, IndividualId, PlanetId, Seed, StarId } from '@/engine'
+import type { CollectionEntry } from '@/persistence/types'
 
 /** 씬 상태머신 — 전이는 sceneSlice의 가드 액션으로만 가능하다 (02-decisions.md 결정 15). */
 export type SceneState =
@@ -47,6 +48,8 @@ export interface PlayerSlice {
   readonly collectedIndividuals: ReadonlySet<IndividualId>
   /** speciesId → 수집 개체 수. */
   readonly discoveredSpecies: ReadonlyMap<string, number>
+  /** 수집 기록 전체 — 도감 상세(개체 목록)용 캐시. */
+  readonly collectionEntries: readonly CollectionEntry[]
   /** 생명체 행성 탐사 — 조우 판정·캐시 갱신·영속화를 한 곳에서 처리한다. */
   explore(planetId: PlanetId): void
 }

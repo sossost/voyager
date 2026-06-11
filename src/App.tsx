@@ -1,8 +1,11 @@
 import { CanvasLayer } from '@/scenes/CanvasLayer'
+import { StorageModeBanner } from '@/ui/common/StorageModeBanner'
 import { ToastViewport } from '@/ui/common/ToastViewport'
 import { WarpFlashOverlay } from '@/ui/common/WarpFlashOverlay'
+import { CodexOverlay } from '@/ui/codex/CodexOverlay'
 import { EncounterOverlay } from '@/ui/encounter/EncounterOverlay'
 import { HudLayer } from '@/ui/hud/HudLayer'
+import { JournalOverlay } from '@/ui/journal/JournalOverlay'
 
 /**
  * z-레이어 계약 (02-decisions.md 결정 15):
@@ -20,9 +23,12 @@ export function App() {
       <HudLayer />
       <div className="layer-overlay" data-layer="overlay">
         <EncounterOverlay />
+        <CodexOverlay />
+        <JournalOverlay />
         <WarpFlashOverlay />
       </div>
       <div className="layer-system" data-layer="system">
+        <StorageModeBanner />
         <ToastViewport />
       </div>
     </div>

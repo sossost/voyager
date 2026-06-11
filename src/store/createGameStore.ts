@@ -3,17 +3,39 @@ import { create } from 'zustand'
 import type { IndividualId, PlanetId, Seed, StarId } from '@/engine'
 import { alienAt, GEN_VERSION, planetById } from '@/engine'
 import { persist } from '@/persistence/persist'
-import type { Profile, StorageDriver } from '@/persistence/types'
+import type {
+  CollectionEntry,
+  ExplorationRecord,
+  Profile,
+  StorageDriver,
+  VisitRecord,
+} from '@/persistence/types'
 import { SAVE_VERSION } from '@/persistence/types'
 import type { GameStore, QualityMode, QualityTier, SceneState } from '@/store/types'
+
+/** 부트 시 driver.loadAll()이 돌려준 영속 기록 — 스토어의 O(1) 캐시로 변환된다. */
+export interface HydrationRecords {
+  readonly visits: readonly VisitRecord[]
+  readonly explorations: readonly ExplorationRecord[]
+  readonly collection: readonly CollectionEntry[]
+}
 
 export interface CreateGameStoreOptions {
   readonly seed: Seed
   readonly startStarId: StarId
   readonly driver: StorageDriver
+  readonly hydration?: HydrationRecords
   /** 테스트에서 시각을 고정할 수 있도록 주입 가능. */
   readonly now?: () => number
   readonly createdAt?: number
+}
+
+function buildSpeciesCounts(collection: readonly CollectionEntry[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const entry of collection) {
+    counts.set(entry.speciesId, (counts.get(entry.speciesId) ?? 0) + 1)
+  }
+  return counts
 }
 
 let nextToastId = 1
@@ -29,6 +51,10 @@ export function createGameStore(options: CreateGameStoreOptions) {
   const { driver } = options
   const now = options.now ?? Date.now
   const createdAt = options.createdAt ?? now()
+  const hydration = options.hydration ?? { visits: [], explorations: [], collection: [] }
+
+  const initialVisited = new Set<StarId>(hydration.visits.map((visit) => visit.starId))
+  initialVisited.add(options.startStarId)
 
   return create<GameStore>()((set, get) => {
     const buildProfile = (): Profile => ({
@@ -106,10 +132,13 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     // ── playerSlice (영속 기록의 O(1) 캐시) ──────────────────
     currentStarId: options.startStarId,
-    visitedStars: new Set<StarId>([options.startStarId]),
-    exploredPlanets: new Set<PlanetId>(),
-    collectedIndividuals: new Set<IndividualId>(),
-    discoveredSpecies: new Map<string, number>(),
+    visitedStars: initialVisited,
+    exploredPlanets: new Set<PlanetId>(hydration.explorations.map((record) => record.planetId)),
+    collectedIndividuals: new Set<IndividualId>(
+      hydration.collection.map((entry) => entry.individualId),
+    ),
+    discoveredSpecies: buildSpeciesCounts(hydration.collection),
+    collectionEntries: [...hydration.collection],
 
     explore(planetId) {
       const state = get()
@@ -141,32 +170,35 @@ export function createGameStore(options: CreateGameStoreOptions) {
       const nextSpecies = new Map(state.discoveredSpecies)
       nextSpecies.set(alien.speciesId, (nextSpecies.get(alien.speciesId) ?? 0) + 1)
 
+      const discoveredAt = now()
+      const entry: CollectionEntry = {
+        individualId: alien.individualId,
+        speciesId: alien.speciesId,
+        rarity: alien.rarity,
+        planetId,
+        discoveredAt,
+        isFirstOfSpecies,
+      }
+
       set({
         encounter: { planetId, alien, alreadyCollected: false, isFirstOfSpecies, phase: 'scanning' },
         exploredPlanets: nextExplored,
         collectedIndividuals: nextCollected,
         discoveredSpecies: nextSpecies,
+        collectionEntries: [...state.collectionEntries, entry],
       })
 
       // write-through — 연출이 끝나기 전에 커밋 (스캔 중 이탈해도 수집은 안전)
-      const discoveredAt = now()
       void persist(async () => {
         await driver.addExploration({ planetId, exploredAt: discoveredAt })
-        await driver.addCollectionEntry({
-          individualId: alien.individualId,
-          speciesId: alien.speciesId,
-          rarity: alien.rarity,
-          planetId,
-          discoveredAt,
-          isFirstOfSpecies,
-        })
+        await driver.addCollectionEntry(entry)
       }, reportPersistFailure)
     },
 
     // ── uiSlice ─────────────────────────────────────────────
     overlay: null,
     encounter: null,
-    storageMode: 'persistent',
+    storageMode: driver.mode,
     toasts: [],
 
     openOverlay(overlay) {

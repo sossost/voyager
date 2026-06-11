@@ -1,9 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import { App } from '@/App'
-import { hasWebGLSupport } from '@/ui/boot/hasWebGLSupport'
-import { WebGLBlocked } from '@/ui/boot/WebGLBlocked'
+import { BootGate } from '@/ui/boot/BootGate'
 
 import '@/styles/global.css'
 
@@ -13,5 +11,7 @@ if (rootElement == null) {
 }
 
 createRoot(rootElement).render(
-  <StrictMode>{hasWebGLSupport() ? <App /> : <WebGLBlocked />}</StrictMode>,
+  <StrictMode>
+    <BootGate />
+  </StrictMode>,
 )

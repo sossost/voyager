@@ -443,3 +443,292 @@ body {
 .rarity-text-rare { color: var(--rarity-rare); }
 .rarity-text-epic { color: var(--rarity-epic); }
 .rarity-text-legendary { color: var(--rarity-legendary); }
+
+/* ── 부트 화면 ─────────────────────────────────────── */
+
+.boot-screen {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.boot-title {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.boot-subtitle {
+  margin: 0;
+  max-width: 26rem;
+  color: var(--color-text-dim);
+  line-height: 1.6;
+}
+
+.boot-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.seed-form {
+  display: grid;
+  gap: 0.6rem;
+  width: min(24rem, 90vw);
+  text-align: left;
+}
+
+.seed-label {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+}
+
+.seed-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.seed-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--color-text-dim) 40%, transparent);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-family: ui-monospace, monospace;
+}
+
+.seed-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.seed-input-invalid {
+  border-color: #e85454;
+}
+
+.seed-error {
+  margin: 0;
+  color: #ff9a9a;
+  font-size: 0.85rem;
+}
+
+.boot-start-button {
+  margin-top: 0.5rem;
+}
+
+/* ── 오버레이 셸 (도감/일지) ────────────────────────── */
+
+.overlay-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text-dim) 20%, transparent);
+}
+
+.overlay-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.overlay-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+/* ── 도감 ──────────────────────────────────────────── */
+
+.codex-progress {
+  margin: 0 0 1rem;
+  color: var(--color-text-dim);
+}
+
+.codex-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.8rem;
+}
+
+.codex-grid .alien-card {
+  width: 100%;
+  padding: 0.5rem 0.5rem 0.4rem;
+}
+
+.codex-grid .alien-card-caption {
+  padding-top: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.codex-slot {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 1rem;
+}
+
+.codex-slot:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.codex-slot-unknown {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.codex-detail {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: start;
+  max-width: 60rem;
+}
+
+.codex-detail-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.codex-detail-title {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.codex-detail-lore {
+  margin: 0;
+  color: var(--color-text-dim);
+}
+
+.codex-detail-subtitle {
+  margin: 0.5rem 0 0;
+}
+
+.codex-individual-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.codex-individual-meta {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  word-break: break-all;
+}
+
+/* ── 일지 ──────────────────────────────────────────── */
+
+.journal-subtitle {
+  margin: 1.5rem 0 0.75rem;
+}
+
+.seed-share {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 36rem;
+}
+
+.seed-share-hint {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: 0.875rem;
+}
+
+.seed-share-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.visit-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  max-width: 36rem;
+}
+
+.visit-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+}
+
+.visit-entry-star {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.visit-entry-spectral {
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+}
+
+.visit-entry-time {
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* ── 시스템 레이어 ─────────────────────────────────── */
+
+.storage-banner {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.45rem 1rem;
+  border-radius: 0 0 0.6rem 0.6rem;
+  background: color-mix(in srgb, #e6b800 25%, var(--color-surface));
+  color: #ffe9a8;
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hud-button-compact {
+  min-height: 36px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+}

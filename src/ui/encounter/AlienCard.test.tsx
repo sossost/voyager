@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import type { Seed } from '@/engine'
 import { alienAt, makePlanetId, makeStarId, parseSeed } from '@/engine'
@@ -15,6 +15,8 @@ function seedOf(value: string): Seed {
 const seed = seedOf('CARDTEST')
 const planetId = makePlanetId(makeStarId({ sx: 1, sy: 0, sz: 1 }, 0), 0)
 const alien = alienAt(seed, planetId)
+
+afterEach(cleanup)
 
 describe('AlienCard', () => {
   it('개체 → SVG 레이어 합성 스냅샷 (회귀 방지)', () => {

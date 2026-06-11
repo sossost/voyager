@@ -1,38 +1,50 @@
-import type { Seed } from '@/engine'
-import { originStar, parseSeed } from '@/engine'
-import { MemoryDriver } from '@/persistence/memoryDriver'
+import { useStore } from 'zustand'
+
+import type { StorageDriver } from '@/persistence/types'
+import type { CreateGameStoreOptions, GameStoreApi } from '@/store/createGameStore'
 import { createGameStore } from '@/store/createGameStore'
+import type { GameStore } from '@/store/types'
 
 /**
- * 임시 부트 시드 해석 — Phase 6에서 SeedSetup 온보딩 + IndexedDB 복원으로 대체된다.
- * ?seed= 딥링크가 있으면 사용, 없거나 유효하지 않으면 데모 시드.
+ * 게임 스토어 싱글톤 홀더 — 부트 시퀀스(BootGate)가 프로필 복원 후 초기화한다.
+ * <App/>은 초기화 이후에만 렌더되므로 컴포넌트에서의 접근은 항상 안전하다.
  */
-function resolveBootSeed(): Seed {
-  const FALLBACK = parseSeed('STELLARDEMO')
-  /* v8 ignore next -- 리터럴 상수는 항상 유효 */
-  if (FALLBACK == null) throw new Error('unreachable')
+let storeApi: GameStoreApi | null = null
+let storageDriver: StorageDriver | null = null
 
-  if (typeof window === 'undefined') return FALLBACK
-  const raw = new URLSearchParams(window.location.search).get('seed')
-  if (raw == null) return FALLBACK
-  return parseSeed(raw) ?? FALLBACK
+export function initializeGameStore(options: CreateGameStoreOptions): GameStoreApi {
+  storeApi = createGameStore(options)
+  storageDriver = options.driver
+
+  // 개발/E2E 전용 — Playwright는 픽셀 비교 대신 상태를 단언한다 (테스트 전략)
+  if (typeof window !== 'undefined' && import.meta.env.MODE !== 'production') {
+    ;(window as unknown as Record<string, unknown>)['__gameStore'] = storeApi
+  }
+  return storeApi
 }
 
-const bootSeed = resolveBootSeed()
+export function getGameStoreApi(): GameStoreApi {
+  if (storeApi == null) {
+    throw new Error('게임 스토어가 초기화되지 않았습니다 — BootGate 이후에 사용하세요')
+  }
+  return storeApi
+}
 
-/**
- * 앱 전역 게임 스토어 — Canvas 안팎이 같은 인스턴스를 공유한다.
- * 임시로 MemoryDriver 사용 — Phase 6에서 probeStorage(Dexie/Memory 자동 선택)로 대체.
- */
-export const useGameStore = createGameStore({
-  seed: bootSeed,
-  startStarId: originStar(bootSeed),
-  driver: new MemoryDriver(),
+/** 일지 페이징 등 UI의 직접 조회 경로 (store 캐시 + listVisits만 허용 — 결정 19). */
+export function getStorageDriver(): StorageDriver {
+  if (storageDriver == null) {
+    throw new Error('저장 드라이버가 초기화되지 않았습니다 — BootGate 이후에 사용하세요')
+  }
+  return storageDriver
+}
+
+function useGameStoreImpl<T>(selector: (state: GameStore) => T): T {
+  return useStore(getGameStoreApi(), selector)
+}
+
+/** zustand 훅 인터페이스 호환 — useGameStore(selector) + useGameStore.getState(). */
+export const useGameStore = Object.assign(useGameStoreImpl, {
+  getState: (): GameStore => getGameStoreApi().getState(),
 })
-
-// 개발/E2E 전용 — 상태 단언용 (Playwright는 픽셀 비교 대신 상태를 단언한다, 결정: 테스트 전략)
-if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
-  ;(window as unknown as Record<string, unknown>)['__gameStore'] = useGameStore
-}
 
 export type { GameStore, SceneState } from '@/store/types'
