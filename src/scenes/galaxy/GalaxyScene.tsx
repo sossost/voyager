@@ -2,12 +2,13 @@ import { useMemo } from 'react'
 
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { QUALITY_PRESETS } from '@/quality/presets'
+import { CurrentStarBeacon } from '@/scenes/galaxy/CurrentStarBeacon'
 import { GalaxyNebula } from '@/scenes/galaxy/GalaxyNebula'
 import { GalaxyStarField } from '@/scenes/galaxy/GalaxyStarField'
+import { JourneyPath } from '@/scenes/galaxy/JourneyPath'
 import { SelectedStarMarker } from '@/scenes/galaxy/SelectedStarMarker'
 import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
-import { VisitedStarMarkers } from '@/scenes/galaxy/VisitedStarMarkers'
 import { CameraRig } from '@/scenes/shared/CameraRig'
 import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
 import { useGameStore } from '@/store'
@@ -20,6 +21,7 @@ export function GalaxyScene() {
   const seed = useGameStore((state) => state.seed)
   const currentStarId = useGameStore((state) => state.currentStarId)
   const scene = useGameStore((state) => state.scene)
+  const visitedStars = useGameStore((state) => state.visitedStars)
   const qualityTier = useGameStore((state) => state.qualityTier)
   const preset = QUALITY_PRESETS[qualityTier]
 
@@ -40,8 +42,13 @@ export function GalaxyScene() {
       <CameraRig focus={focus} maxDistance={GALAXY_MAX_ZOOM_OUT} />
       <DistantGalaxies />
       <GalaxyNebula />
-      <GalaxyStarField stars={stars} maxPointSize={preset.maxPointSize} />
-      <VisitedStarMarkers />
+      <GalaxyStarField
+        stars={stars}
+        maxPointSize={preset.maxPointSize}
+        visitedStars={visitedStars}
+      />
+      <JourneyPath />
+      <CurrentStarBeacon />
       <SelectedStarMarker />
     </>
   )

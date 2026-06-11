@@ -59,8 +59,11 @@ export interface UiSlice {
   readonly encounter: EncounterState | null
   readonly storageMode: StorageMode
   readonly toasts: readonly Toast[]
+  /** 은하 지도 여정 경로선 표시 여부 — 취향 타는 요소라 기본 off (백로그 F-2). */
+  readonly isJourneyPathVisible: boolean
   openOverlay(overlay: Exclude<Overlay, null>): void
   closeOverlay(): void
+  toggleJourneyPath(): void
   /** 스캔 연출 종료 → 카드 공개. */
   revealEncounter(): void
   closeEncounter(): void

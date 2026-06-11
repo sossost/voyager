@@ -229,4 +229,12 @@ describe('uiSlice', () => {
     if (first != null) store.getState().dismissToast(first.id)
     expect(store.getState().toasts.map((toast) => toast.message)).toEqual(['두 번째'])
   })
+
+  it('여정 경로선은 기본 꺼짐이고 토글로 켜고 끈다 (백로그 F-2)', () => {
+    expect(store.getState().isJourneyPathVisible).toBe(false)
+    store.getState().toggleJourneyPath()
+    expect(store.getState().isJourneyPathVisible).toBe(true)
+    store.getState().toggleJourneyPath()
+    expect(store.getState().isJourneyPathVisible).toBe(false)
+  })
 })

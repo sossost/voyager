@@ -55,7 +55,11 @@ export function createGameStore(options: CreateGameStoreOptions) {
   const createdAt = options.createdAt ?? now()
   const hydration = options.hydration ?? { visits: [], explorations: [], collection: [] }
 
-  const initialVisited = new Set<StarId>(hydration.visits.map((visit) => visit.starId))
+  // visitedAt 오름차순으로 Set을 구성한다 — Set 순회 순서가 곧 여정 타임라인이 되어
+  // JourneyPath(백로그 F-2)가 별도 기록 없이 시간순 폴리라인을 그릴 수 있다.
+  // (드라이버 loadAll의 정렬은 구현마다 다르므로 여기서 보장한다)
+  const chronologicalVisits = [...hydration.visits].sort((a, b) => a.visitedAt - b.visitedAt)
+  const initialVisited = new Set<StarId>(chronologicalVisits.map((visit) => visit.starId))
   initialVisited.add(options.startStarId)
 
   return create<GameStore>()((set, get) => {
@@ -202,6 +206,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
     encounter: null,
     storageMode: driver.mode,
     toasts: [],
+    isJourneyPathVisible: false,
 
     openOverlay(overlay) {
       set({ overlay })
@@ -209,6 +214,10 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     closeOverlay() {
       set({ overlay: null })
+    },
+
+    toggleJourneyPath() {
+      set({ isJourneyPathVisible: !get().isJourneyPathVisible })
     },
 
     revealEncounter() {

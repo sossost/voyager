@@ -216,6 +216,12 @@ body {
   outline-offset: 2px;
 }
 
+/* 토글 버튼 눌림 상태 — 여정 경로 등 켜짐을 시각으로도 구분한다 */
+.hud-button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--color-accent) 40%, var(--color-surface));
+  border-color: var(--color-accent);
+}
+
 .hud-button-primary {
   width: 100%;
   background: color-mix(in srgb, var(--color-accent) 45%, var(--color-surface));
