@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 
-import { planetsOf, starById } from '@/engine'
+import { planetsOf, starById, starWorldPosition } from '@/engine'
 import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { CameraRig } from '@/scenes/shared/CameraRig'
+import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import { SystemBackdropStars } from '@/scenes/system/SystemBackdropStars'
 import { useGameStore } from '@/store'
 
 /** 태양계 씬은 항상 자기 원점(0,0,0)에 항성을 둔다 — 플로팅 오리진 (결정 15). */
@@ -21,10 +23,21 @@ export function SystemScene() {
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
   const starColor = star == null ? '#ffffff' : SPECTRAL_RENDER[star.spectral].color
 
+  // 배경 은하는 은하 중심 기준 좌표 — 플로팅 오리진(현재 별 = 0,0,0)을 역오프셋해야
+  // 은하 씬과 같은 하늘 방향에 떠 있다 (SystemBackdropStars와 같은 기준계, 결정 24)
+  const galaxyAnchor = useMemo<readonly [number, number, number]>(() => {
+    const origin = starWorldPosition(seed, starId)
+    return origin == null ? [0, 0, 0] : [-origin[0], -origin[1], -origin[2]]
+  }, [seed, starId])
+
   return (
     <>
       <color attach="background" args={['#05060f']} />
       <CameraRig focus={SYSTEM_ORIGIN} minDistance={10} maxDistance={180} />
+      <group position={galaxyAnchor}>
+        <DistantGalaxies />
+      </group>
+      <SystemBackdropStars seed={seed} starId={starId} />
       <ambientLight intensity={0.25} />
       <pointLight position={[0, 0, 0]} intensity={1_200} decay={1.6} color={starColor} />
 
