@@ -48,9 +48,12 @@ export function Planet({ planet }: PlanetProps) {
   const selectPlanet = useGameStore((state) => state.selectPlanet)
   const isSelected = useGameStore((state) => state.selectedPlanetId === planet.id)
   const qualityTier = useGameStore((state) => state.qualityTier)
-  const segments = QUALITY_PRESETS[qualityTier].planetSegments
+  const { planetSegments: segments, planetTextureBaseWidth } = QUALITY_PRESETS[qualityTier]
 
-  const textures = useMemo(() => bakePlanetTextures(planet), [planet])
+  const textures = useMemo(
+    () => bakePlanetTextures(planet, planetTextureBaseWidth),
+    [planet, planetTextureBaseWidth],
+  )
   useEffect(() => () => disposePlanetTextures(textures), [textures])
 
   const orbitRadius = orbitRadiusOf(planet)

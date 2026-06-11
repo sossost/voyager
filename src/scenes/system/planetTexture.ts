@@ -18,15 +18,15 @@ export interface PlanetTextureSet {
   readonly clouds: CanvasTexture | null
 }
 
-/** 표면 베이크 해상도 — 업스케일 보간이 격자를 부드러운 무늬로 만든다. */
-const SURFACE_BASE_WIDTH = 192
-const SURFACE_BASE_HEIGHT = 96
+/**
+ * 베이스 해상도는 품질 티어가 정한다 (presets.planetTextureBaseWidth, 결정 33) —
+ * 업스케일 보간이 격자를 부드러운 무늬로 만든다.
+ */
 const SURFACE_UPSCALE_FACTOR = 2
 const SURFACE_BLUR_PX = 1
 
-/** 구름은 본질이 무정형이라 표면보다 낮은 해상도 + 강한 블러로 충분하다. */
-const CLOUD_BASE_WIDTH = 96
-const CLOUD_BASE_HEIGHT = 48
+/** 구름은 본질이 무정형이라 표면의 절반 해상도 + 강한 블러로 충분하다. */
+const CLOUD_BASE_DIVISOR = 2
 const CLOUD_UPSCALE_FACTOR = 4
 const CLOUD_BLUR_PX = 2
 
@@ -250,17 +250,25 @@ function bakeEquirect(
   return texture
 }
 
-export function bakePlanetTextures(planet: Planet): PlanetTextureSet {
+/** @param baseWidth 등장방형 베이스 가로 텍셀 수 (세로는 절반) — 품질 티어 프리셋 값. */
+export function bakePlanetTextures(planet: Planet, baseWidth: number): PlanetTextureSet {
+  const baseHeight = baseWidth / 2
   const painter = planet.kind === 'rocky' ? rockyPainter(planet) : gasPainter(planet)
   const surface = bakeEquirect(
-    SURFACE_BASE_WIDTH,
-    SURFACE_BASE_HEIGHT,
+    baseWidth,
+    baseHeight,
     SURFACE_UPSCALE_FACTOR,
     SURFACE_BLUR_PX,
     painter,
   )
   const clouds = planet.hasLife
-    ? bakeEquirect(CLOUD_BASE_WIDTH, CLOUD_BASE_HEIGHT, CLOUD_UPSCALE_FACTOR, CLOUD_BLUR_PX, cloudPainter(planet))
+    ? bakeEquirect(
+        baseWidth / CLOUD_BASE_DIVISOR,
+        baseHeight / CLOUD_BASE_DIVISOR,
+        CLOUD_UPSCALE_FACTOR,
+        CLOUD_BLUR_PX,
+        cloudPainter(planet),
+      )
     : null
   return { surface, clouds }
 }
