@@ -257,15 +257,17 @@ body {
 .warp-flash {
   position: absolute;
   inset: 0;
-  background: #ffffff;
+  background: #f2f6ff; /* 스트리크의 한색 톤을 잇는 청백 — 순백보다 차갑게 */
   opacity: 0;
   pointer-events: none;
-  transition: opacity 450ms ease-out; /* 페이드아웃 (WARP_FLASH_OUT_MS) */
+  /* 페이드아웃 (WARP_FLASH_OUT_MS) — 초반에 빠르게 걷혀 별계가 일찍 드러난다 */
+  transition: opacity 450ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .warp-flash-on {
   opacity: 1;
-  transition: opacity 300ms ease-in; /* 차오름 (WARP_FLASH_IN_MS) */
+  /* 차오름 (WARP_FLASH_IN_MS) — 막판 스냅으로 FOV 서지와 박자를 맞춘다 */
+  transition: opacity 300ms cubic-bezier(0.6, 0.04, 0.98, 0.34);
 }
 
 /* ── 토스트 (z-30) ─────────────────────────────────── */
