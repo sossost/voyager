@@ -408,6 +408,66 @@ body {
   transform-origin: top right;
 }
 
+/* ── 별계 진입 함교 리드아웃 (백로그 G-a-4) ───────────────
+   어느 항성계인지 진입 직후 잠깐 알려주고 사라진다 — 수명은 JS 타이머,
+   애니메이션은 페이드 연출만 (reduced-motion에서도 소멸 보장). */
+
+.system-readout {
+  position: absolute;
+  top: 4.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+  font-family: var(--font-console);
+  letter-spacing: 0.14em;
+  color: var(--color-holo-strong);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--color-holo) 65%, transparent);
+  pointer-events: none;
+  animation: readout-cycle 5s ease-out both;
+}
+
+.system-readout-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.system-readout-name::before {
+  content: '▸ ';
+  color: color-mix(in srgb, var(--color-holo) 70%, transparent);
+}
+
+.system-readout-spectral {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--color-holo) 80%, var(--color-text-dim));
+}
+
+/* 진입 줌인(0.9s)의 중반쯤 떠올라 한 호흡 머물고 잦아든다 */
+@keyframes readout-cycle {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  10% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* 우주선 캐노피 프레임 — 우주선 뷰/워프 전용 시점 표지 (장식, 포인터 통과) */
 .ship-frame {
   position: absolute;
@@ -1124,6 +1184,11 @@ body {
   }
 
   .hud-panel {
+    animation: none;
+  }
+
+  /* 페이드 없이 정적 표시 — 소멸은 JS 타이머가 보장한다 */
+  .system-readout {
     animation: none;
   }
 }
