@@ -222,6 +222,82 @@ body {
   border-color: var(--color-accent);
 }
 
+/* 우주선 캐노피 프레임 — 우주선 뷰/워프 전용 시점 표지 (장식, 포인터 통과) */
+.ship-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 캐노피 비네트 — 가장자리가 살짝 어두워 "안에서 내다보는" 깊이를 만든다 */
+.ship-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 115% 105% at 50% 46%,
+    transparent 58%,
+    rgba(4, 7, 16, 0.72) 100%
+  );
+}
+
+/* 하단 콘솔 밴드 — 계기판 실루엣이 "함교 안"임을 가장 강하게 말해준다 */
+.ship-frame::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(44px, 9vh, 88px);
+  background: linear-gradient(
+    to top,
+    rgba(7, 12, 26, 0.92),
+    rgba(7, 12, 26, 0.4) 55%,
+    transparent
+  );
+  border-top: 1px solid color-mix(in srgb, #52f5d0 25%, transparent);
+}
+
+.ship-frame-corner {
+  position: absolute;
+  width: clamp(44px, 8vw, 84px);
+  height: clamp(44px, 8vw, 84px);
+  border: 3px solid color-mix(in srgb, #52f5d0 70%, transparent);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, #52f5d0 45%, transparent));
+}
+
+.ship-frame-corner-tl {
+  top: 10px;
+  left: 10px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 12px;
+}
+
+.ship-frame-corner-tr {
+  top: 10px;
+  right: 10px;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 12px;
+}
+
+.ship-frame-corner-bl {
+  bottom: 10px;
+  left: 10px;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 12px;
+}
+
+.ship-frame-corner-br {
+  bottom: 10px;
+  right: 10px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 12px;
+}
+
 .hud-button-primary {
   width: 100%;
   background: color-mix(in srgb, var(--color-accent) 45%, var(--color-surface));
