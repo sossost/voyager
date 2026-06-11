@@ -6,6 +6,7 @@ import { CameraRig } from '@/scenes/shared/CameraRig'
 import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import { StarSurface } from '@/scenes/system/StarSurface'
 import { SystemBackdropStars } from '@/scenes/system/SystemBackdropStars'
 import { SystemEntryTransition } from '@/scenes/system/SystemEntryTransition'
 import { SystemStarfield } from '@/scenes/system/SystemStarfield'
@@ -53,10 +54,7 @@ export function SystemScene() {
       <ambientLight intensity={0.25} />
       <pointLight position={[0, 0, 0]} intensity={1_200} decay={1.6} color={starColor} />
 
-      <mesh>
-        <sphereGeometry args={[STAR_VISUAL_RADIUS, 48, 48]} />
-        <meshBasicMaterial color={starColor} />
-      </mesh>
+      <StarSurface radius={STAR_VISUAL_RADIUS} color={starColor} />
 
       {planets.map((planet) => (
         <group key={planet.id}>

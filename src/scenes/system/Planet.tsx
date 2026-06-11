@@ -1,8 +1,11 @@
 import { useFrame } from '@react-three/fiber'
-import { useRef } from 'react'
-import type { Group } from 'three'
+import { useEffect, useMemo, useRef } from 'react'
+import type { Group, Mesh } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
+import { QUALITY_PRESETS } from '@/quality/presets'
+import { PlanetAtmosphere } from '@/scenes/system/PlanetAtmosphere'
+import { bakePlanetTextures, disposePlanetTextures } from '@/scenes/system/planetTexture'
 import { useGameStore } from '@/store'
 
 export const ORBIT_BASE_RADIUS = 10
@@ -18,14 +21,21 @@ const PLANET_VISUAL_SCALE = 0.4
 const BASE_ANGULAR_SPEED = 0.22
 const FULL_TURN = Math.PI * 2
 
+/** 자전 속도 (rad/s) — paletteSeed 파생 변주, 방향도 시드 따라 갈린다. */
+const SPIN_BASE_SPEED = 0.05
+const SPIN_SPEED_SPAN = 0.09
+/** 구름층은 표면보다 약간 빨리 돌아 살아있는 느낌을 만든다. */
+const CLOUD_SPIN_FACTOR = 1.55
+const CLOUD_LAYER_SCALE = 1.035
+/** 대기(renderOrder 2)보다 먼저 그린다. */
+const CLOUD_RENDER_ORDER = 1
+
 export function orbitRadiusOf(planet: PlanetData): number {
   return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE
 }
 
-/** paletteSeed → 시각 색상 (게임플레이 무관 — 시각 연출 전용). */
-function planetColor(planet: PlanetData): string {
-  const hue = planet.paletteSeed % 360
-  return planet.kind === 'rocky' ? `hsl(${hue}, 32%, 52%)` : `hsl(${hue}, 58%, 62%)`
+function fract(value: number): number {
+  return value - Math.floor(value)
 }
 
 interface PlanetProps {
@@ -34,47 +44,71 @@ interface PlanetProps {
 
 /**
  * 공전하는 행성 — 위치는 시간 t에서 계산하며 상태로 저장하지 않는다 (R3F 성능 규율).
- * 클릭하면 행성 패널이 열린다.
+ * 표면은 paletteSeed 결정론 베이크 텍스처(결정 29), 조명은 항성 포인트라이트가
+ * 만드는 낮/밤 경계를 그대로 쓴다. 클릭하면 행성 패널이 열린다.
  */
 export function Planet({ planet }: PlanetProps) {
   const groupRef = useRef<Group>(null)
+  const surfaceRef = useRef<Mesh>(null)
+  const cloudsRef = useRef<Mesh>(null)
   const selectPlanet = useGameStore((state) => state.selectPlanet)
   const isSelected = useGameStore((state) => state.selectedPlanetId === planet.id)
+  const qualityTier = useGameStore((state) => state.qualityTier)
+  const segments = QUALITY_PRESETS[qualityTier].planetSegments
+
+  const textures = useMemo(() => bakePlanetTextures(planet), [planet])
+  useEffect(() => () => disposePlanetTextures(textures), [textures])
 
   const orbitRadius = orbitRadiusOf(planet)
   const initialPhase = ((planet.paletteSeed % 360) / 360) * FULL_TURN
   const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(planet.orbitAu, 1.5)
   const visualRadius = PLANET_VISUAL_BASE + planet.radius * PLANET_VISUAL_SCALE
+  const spinSpeed = SPIN_BASE_SPEED + SPIN_SPEED_SPAN * fract(planet.paletteSeed * 0.0173)
+  const spinDirection = planet.paletteSeed % 2 === 0 ? 1 : -1
 
   useFrame((state) => {
     const group = groupRef.current
     if (group == null) return
-    const angle = initialPhase + state.clock.elapsedTime * angularSpeed
+    const elapsed = state.clock.elapsedTime
+    const angle = initialPhase + elapsed * angularSpeed
     group.position.set(Math.cos(angle) * orbitRadius, 0, Math.sin(angle) * orbitRadius)
+
+    const spin = initialPhase + elapsed * spinSpeed * spinDirection
+    if (surfaceRef.current != null) surfaceRef.current.rotation.y = spin
+    if (cloudsRef.current != null) cloudsRef.current.rotation.y = spin * CLOUD_SPIN_FACTOR
   })
 
   return (
     <group ref={groupRef}>
       <mesh
+        ref={surfaceRef}
         onClick={(event) => {
           event.stopPropagation()
           selectPlanet(planet.id)
         }}
       >
-        <sphereGeometry args={[visualRadius, 32, 32]} />
+        <sphereGeometry args={[visualRadius, segments, segments]} />
         <meshStandardMaterial
-          color={planetColor(planet)}
+          map={textures.surface}
           roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
           metalness={0.05}
         />
       </mesh>
 
-      {planet.hasLife ? (
-        <mesh>
-          <sphereGeometry args={[visualRadius * 1.18, 24, 24]} />
-          <meshBasicMaterial color="#57ffb0" transparent opacity={0.14} depthWrite={false} />
+      {textures.clouds != null ? (
+        <mesh ref={cloudsRef} renderOrder={CLOUD_RENDER_ORDER}>
+          <sphereGeometry args={[visualRadius * CLOUD_LAYER_SCALE, segments, segments]} />
+          <meshStandardMaterial
+            map={textures.clouds}
+            transparent
+            depthWrite={false}
+            roughness={1}
+            metalness={0}
+          />
         </mesh>
       ) : null}
+
+      <PlanetAtmosphere planet={planet} radius={visualRadius} />
 
       {isSelected ? (
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
