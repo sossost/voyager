@@ -40,7 +40,9 @@ export function SystemScene() {
       <SystemEntryTransition restDistance={CAMERA_MAX_DISTANCE} />
       <SystemStarfield />
       <SystemBackdropStars seed={seed} starId={starId} />
-      <ambientLight intensity={0.25} />
+      {/* 주변광은 밤면 가독성 담당 — 물리 광원 모드는 알베도/π 페널티가 있어 1 이상이어야
+          카메라 쪽 위상(밤면)의 행성이 시커멓게 묻히지 않는다 */}
+      <ambientLight intensity={1.2} />
       <pointLight position={[0, 0, 0]} intensity={1_200} decay={1.6} color={starColor} />
 
       <StarSurface radius={STAR_VISUAL_RADIUS} color={starColor} />

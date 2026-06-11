@@ -106,14 +106,19 @@ export function Planet({ planet }: PlanetProps) {
         }}
       >
         <sphereGeometry args={[visualRadius, segments, segments]} />
+        {/* key로 머티리얼 리마운트 강제 — 같은 위치 조건 분기는 인스턴스가 재사용되어
+            제거된 color prop이 리셋(검정)되고 map 셰이더 재컴파일도 빠진다 */}
         {textures == null ? (
           <meshStandardMaterial
+            key="placeholder"
             color={placeholderColor(planet)}
             roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
             metalness={0.05}
           />
         ) : (
           <meshStandardMaterial
+            key="baked"
+            color="#ffffff"
             map={textures.surface}
             roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
             metalness={0.05}

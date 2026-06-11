@@ -120,11 +120,13 @@ function rockyPainter(planet: Planet): SurfacePainter {
   const capStrength = planet.hasLife ? 1 : smoothstep(0.35, 0.75, seedVariant(seed, 2))
   const bandLow = 0.4 + 0.08 * seedVariant(seed, 3)
 
-  const deepOcean = hslToRgb(196 + 18 * seedVariant(seed, 4), 66, 26)
-  const shallowOcean = hslToRgb(188, 56, 41)
-  const lowTerrain = hslToRgb(hue, planet.hasLife ? 36 : 30, planet.hasLife ? 36 : 28)
-  const midTerrain = hslToRgb(hue, 34, 46)
-  const highTerrain = hslToRgb(hue + 16, 24, planet.hasLife ? 58 : 62)
+  // 명도는 플레이스홀더 단색(L 52%)과 평균이 비슷하게 — 어두운 팔레트는 행성이
+  // 우주 배경에 묻히고, 텍스처 팝인 때 갑자기 시커매진다 ("너무 어둡다" 피드백)
+  const deepOcean = hslToRgb(196 + 18 * seedVariant(seed, 4), 62, 35)
+  const shallowOcean = hslToRgb(188, 56, 48)
+  const lowTerrain = hslToRgb(hue, planet.hasLife ? 38 : 32, planet.hasLife ? 46 : 40)
+  const midTerrain = hslToRgb(hue, 36, 52)
+  const highTerrain = hslToRgb(hue + 16, 26, planet.hasLife ? 62 : 66)
   const polarCap = hslToRgb(hue, 12, 88)
 
   return (px, py, pz, lat) => {
@@ -166,10 +168,11 @@ function gasPainter(planet: Planet): SurfacePainter {
   const bandFrequency = 3.2 + 3.4 * seedVariant(seed, 2)
   const bandPhase = seedVariant(seed, 3) * FULL_TURN
 
-  const bandDark = hslToRgb(hueA, 52, 42)
-  const bandLight = hslToRgb(hueA, 58, 63)
-  const zoneTint = hslToRgb(hueB, 48, 52)
-  const stormShade = hslToRgb(hueB, 58, 30)
+  // 명도는 플레이스홀더 단색(L 62%)과 평균이 비슷하게 (암석형과 같은 이유)
+  const bandDark = hslToRgb(hueA, 54, 50)
+  const bandLight = hslToRgb(hueA, 60, 68)
+  const zoneTint = hslToRgb(hueB, 50, 58)
+  const stormShade = hslToRgb(hueB, 58, 38)
 
   return (px, py, pz, lat) => {
     // 위도를 노이즈로 뒤틀어 소용돌이치는 줄무늬를 만든다
