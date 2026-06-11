@@ -11,6 +11,12 @@ export interface QualityPreset {
   /** 별 필드 점 크기 캡 (px) — 근접 별이 거대 블롭이 되는 것을 막는 fill-rate 캡. */
   readonly maxPointSize: number
   readonly planetSegments: number
+  /**
+   * 행성 표면 베이크 베이스 가로 해상도 (세로는 절반, 결정 33).
+   * 베이크는 CPU 작업이지만 프레임당 1장 큐(bakeQueue)로 분산되어 히치가 없다 —
+   * 실측(M계열 데스크톱): 512=36ms/장, 256=9ms, 192=5ms. 해상도는 화질만 정한다.
+   */
+  readonly planetTextureBaseWidth: number
   readonly postFx: boolean
 }
 
@@ -19,18 +25,21 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     dprMax: 2,
     maxPointSize: 12,
     planetSegments: 64,
+    planetTextureBaseWidth: 512,
     postFx: true,
   },
   medium: {
     dprMax: 1.5,
     maxPointSize: 10,
     planetSegments: 32,
+    planetTextureBaseWidth: 256,
     postFx: false,
   },
   low: {
     dprMax: 1,
     maxPointSize: 8,
     planetSegments: 16,
+    planetTextureBaseWidth: 192,
     postFx: false,
   },
 }

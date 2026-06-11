@@ -26,51 +26,61 @@ export function StarInfoPanel() {
   const isCurrentStar = selectedStarId === currentStarId
 
   return (
-    <section className="hud-panel star-info-panel" aria-label="별 정보">
-      <header className="hud-panel-header">
-        <h2 className="hud-panel-title">{star.name}</h2>
-        <button
-          type="button"
-          className="hud-icon-button"
-          aria-label="패널 닫기"
-          onClick={() => selectStar(null)}
-        >
-          ×
-        </button>
-      </header>
+    // 홀로그램 콜아웃 (결정 37) — StarCalloutProjector가 매 프레임 항성의 화면
+    // 좌표로 transform을 갱신한다. 투영 전 첫 프레임 깜빡임 방지로 기본 hidden.
+    <div className="star-callout" data-star-callout>
+      <span className="star-callout-dot" aria-hidden="true" />
+      <span className="star-callout-line" aria-hidden="true" />
+      <section className="hud-panel star-info-panel" aria-label="별 정보">
+        <header className="hud-panel-header">
+          <h2 className="hud-panel-title">{star.name}</h2>
+          <button
+            type="button"
+            className="hud-icon-button"
+            aria-label="패널 닫기"
+            onClick={() => selectStar(null)}
+          >
+            ×
+          </button>
+        </header>
 
-      <dl className="hud-panel-facts">
-        <div className="hud-fact">
-          <dt>분광형</dt>
-          <dd>{SPECTRAL_LABELS[star.spectral]}</dd>
-        </div>
-        <div className="hud-fact">
-          <dt>상태</dt>
-          <dd>
-            {isCurrentStar ? (
-              <span className="badge badge-current">현재 위치</span>
-            ) : isVisited ? (
-              <span className="badge badge-visited">방문함</span>
-            ) : (
-              <span className="badge badge-unknown">미탐사</span>
-            )}
-          </dd>
-        </div>
-      </dl>
+        <dl className="hud-panel-facts">
+          <div className="hud-fact">
+            <dt>분광형</dt>
+            <dd>{SPECTRAL_LABELS[star.spectral]}</dd>
+          </div>
+          <div className="hud-fact">
+            <dt>상태</dt>
+            <dd>
+              {isCurrentStar ? (
+                <span className="badge badge-current">현재 위치</span>
+              ) : isVisited ? (
+                <span className="badge badge-visited">방문함</span>
+              ) : (
+                <span className="badge badge-unknown">미탐사</span>
+              )}
+            </dd>
+          </div>
+        </dl>
 
-      {isCurrentStar ? (
-        <button type="button" className="hud-button hud-button-primary" onClick={enterCurrentSystem}>
-          별계 진입
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="hud-button hud-button-primary"
-          onClick={() => warpTo(selectedStarId)}
-        >
-          항행
-        </button>
-      )}
-    </section>
+        {isCurrentStar ? (
+          <button
+            type="button"
+            className="hud-button hud-button-primary"
+            onClick={enterCurrentSystem}
+          >
+            별계 진입
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="hud-button hud-button-primary"
+            onClick={() => warpTo(selectedStarId)}
+          >
+            항행
+          </button>
+        )}
+      </section>
+    </div>
   )
 }

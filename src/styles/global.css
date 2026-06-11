@@ -8,6 +8,14 @@
   --color-text-dim: #9aa0b8;
   --color-accent: #7c5cff;
 
+  /* SF 함교 콘솔 스킨 — 홀로그램 청록이 UI 크롬, 보라(accent)는 선택 강조 전용 */
+  --color-holo: #5eead4;
+  --color-holo-strong: #8ffbe6;
+  --color-warn: #ffd166;
+  --font-console: 'SF Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  /* 패널 모따기 크기 — SF 패널의 사선 컷 */
+  --chamfer: 16px;
+
   /* 희귀도 (02-decisions.md 결정 9) */
   --rarity-common: #9aa0b8;
   --rarity-rare: #4da3ff;
@@ -114,16 +122,48 @@ body {
 
 .top-bar-title {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-text);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--color-holo) 35%, transparent);
+}
+
+/* 가동 상태 표시등 — 함교 콘솔이 "켜져 있다"는 신호 */
+.top-bar-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-holo);
+  box-shadow: 0 0 8px var(--color-holo);
+  animation: status-blink 2.4s ease-in-out infinite;
+}
+
+@keyframes status-blink {
+  0%,
+  88%,
+  100% {
+    opacity: 1;
+  }
+  94% {
+    opacity: 0.35;
+  }
 }
 
 .top-bar-seed {
-  font-size: 0.8rem;
-  color: var(--color-text-dim);
+  font-family: var(--font-console);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-holo) 75%, var(--color-text-dim));
+  padding: 0.25rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--color-holo) 30%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
 }
 
 .hud-panel {
@@ -132,11 +172,44 @@ body {
   top: 3.5rem;
   width: min(20rem, calc(100vw - 2rem));
   padding: 1rem;
-  border-radius: 0.75rem;
   background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-holo) 35%, transparent);
   backdrop-filter: blur(8px);
   pointer-events: auto;
+  /* SF 패널 모따기 — 우상·좌하 사선 컷 */
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--chamfer)) 0,
+    100% var(--chamfer),
+    100% 100%,
+    var(--chamfer) 100%,
+    0 calc(100% - var(--chamfer))
+  );
+  animation: panel-in 180ms ease-out;
+}
+
+/* 홀로스크린 스캔라인 — 콘솔 화면 질감 (장식, 포인터 통과) */
+.hud-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--color-holo) 4%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hud-panel-header {
@@ -144,11 +217,22 @@ body {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-holo) 25%, transparent);
 }
 
 .hud-panel-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-holo-strong);
+}
+
+/* 콘솔 출력 프롬프트 — 제목 앞 채널 마커 */
+.hud-panel-title::before {
+  content: '▸ ';
+  color: color-mix(in srgb, var(--color-holo) 70%, transparent);
 }
 
 .hud-panel-facts {
@@ -165,18 +249,24 @@ body {
 
 .hud-fact dt {
   color: var(--color-text-dim);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
 }
 
 .hud-fact dd {
   margin: 0;
+  font-family: var(--font-console);
   font-size: 0.85rem;
+  color: color-mix(in srgb, var(--color-holo-strong) 40%, var(--color-text));
 }
 
 .badge {
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
+  border-radius: 2px;
+  font-size: 0.72rem;
+  font-family: var(--font-console);
+  letter-spacing: 0.05em;
+  border: 1px solid currentColor;
 }
 
 .badge-current {
@@ -198,28 +288,209 @@ body {
   pointer-events: auto;
   min-height: 44px;
   padding: 0.5rem 1.1rem;
-  border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-holo) 45%, transparent);
   background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   color: var(--color-text);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   cursor: pointer;
+  /* 우상단 사선 컷 — 콘솔 키 모양 */
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  transition: background 120ms ease-out, box-shadow 120ms ease-out;
 }
 
 .hud-button:hover,
 .hud-button:focus-visible {
-  background: color-mix(in srgb, var(--color-accent) 25%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-holo) 18%, var(--color-surface));
+  box-shadow: inset 0 0 12px color-mix(in srgb, var(--color-holo) 18%, transparent);
 }
 
 .hud-button:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  /* clip-path가 바깥 아웃라인을 잘라내므로 안쪽으로 그린다 */
+  outline: 2px solid var(--color-holo);
+  outline-offset: -4px;
+}
+
+/* 토글 버튼 눌림 상태 — 여정 경로 등 켜짐을 시각으로도 구분한다 */
+.hud-button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--color-holo) 30%, var(--color-surface));
+  border-color: var(--color-holo);
+  color: var(--color-holo-strong);
+}
+
+/* ── 별 정보 홀로그램 콜아웃 (결정 37) ───────────────────
+   항성의 화면 좌표(StarCalloutProjector가 transform 갱신)에 점을 찍고,
+   사선 리더 라인으로 패널을 들어 올린다 — 홀로그램 주석처럼. */
+
+.star-callout {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden; /* 투영기가 첫 프레임에 켠다 — 초기 깜빡임 방지 */
+  pointer-events: none; /* 점·선은 통과, 패널만 상호작용 */
+}
+
+.star-callout-dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid var(--color-holo);
+  background: color-mix(in srgb, var(--color-holo) 35%, transparent);
+  box-shadow: 0 0 10px var(--color-holo);
+}
+
+/* 리더 라인 — 길이 90px(=64√2), 끝점이 (64, -64): 패널의 모서리에 닿는다 */
+.star-callout-line {
+  position: absolute;
+  width: 90px;
+  height: 2px;
+  transform-origin: 0 50%;
+  transform: rotate(-45deg);
+  background: linear-gradient(
+    90deg,
+    var(--color-holo),
+    color-mix(in srgb, var(--color-holo) 20%, transparent)
+  );
+}
+
+.star-callout .hud-panel {
+  position: absolute;
+  top: auto;
+  right: auto;
+  left: 60px;
+  bottom: 60px;
+  width: min(19rem, calc(100vw - 3rem));
+  pointer-events: auto;
+  transform-origin: bottom left;
+  animation: callout-in 170ms ease-out;
+}
+
+@keyframes callout-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 가장자리 플립 — 패널이 화면 밖으로 나가지 않게 반대쪽으로 편다 */
+.star-callout-flip-x .star-callout-line {
+  transform: rotate(-135deg);
+}
+
+.star-callout-flip-x .hud-panel {
+  left: auto;
+  right: 60px;
+  transform-origin: bottom right;
+}
+
+.star-callout-flip-y .star-callout-line {
+  transform: rotate(45deg);
+}
+
+.star-callout-flip-y .hud-panel {
+  bottom: auto;
+  top: 60px;
+  transform-origin: top left;
+}
+
+.star-callout-flip-x.star-callout-flip-y .star-callout-line {
+  transform: rotate(135deg);
+}
+
+.star-callout-flip-x.star-callout-flip-y .hud-panel {
+  transform-origin: top right;
+}
+
+/* 우주선 캐노피 프레임 — 우주선 뷰/워프 전용 시점 표지 (장식, 포인터 통과) */
+.ship-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 캐노피 비네트 — 가장자리가 살짝 어두워 "안에서 내다보는" 깊이를 만든다 */
+.ship-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 115% 105% at 50% 46%,
+    transparent 58%,
+    rgba(4, 7, 16, 0.72) 100%
+  );
+}
+
+/* 하단 콘솔 밴드 — 계기판 실루엣이 "함교 안"임을 가장 강하게 말해준다 */
+.ship-frame::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(44px, 9vh, 88px);
+  background: linear-gradient(
+    to top,
+    rgba(7, 12, 26, 0.92),
+    rgba(7, 12, 26, 0.4) 55%,
+    transparent
+  );
+  border-top: 1px solid color-mix(in srgb, var(--color-holo) 25%, transparent);
+}
+
+.ship-frame-corner {
+  position: absolute;
+  width: clamp(44px, 8vw, 84px);
+  height: clamp(44px, 8vw, 84px);
+  border: 3px solid color-mix(in srgb, var(--color-holo) 70%, transparent);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-holo) 45%, transparent));
+}
+
+.ship-frame-corner-tl {
+  top: 10px;
+  left: 10px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 12px;
+}
+
+.ship-frame-corner-tr {
+  top: 10px;
+  right: 10px;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 12px;
+}
+
+.ship-frame-corner-bl {
+  bottom: 10px;
+  left: 10px;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 12px;
+}
+
+.ship-frame-corner-br {
+  bottom: 10px;
+  right: 10px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 12px;
 }
 
 .hud-button-primary {
   width: 100%;
-  background: color-mix(in srgb, var(--color-accent) 45%, var(--color-surface));
-  font-weight: 600;
+  background: color-mix(in srgb, var(--color-holo) 32%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-holo) 80%, transparent);
+  color: var(--color-holo-strong);
+  font-weight: 700;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-holo) 45%, transparent);
 }
 
 .hud-icon-button {
@@ -287,13 +558,17 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem 0.6rem 1rem;
-  border-radius: 0.6rem;
   background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text-dim) 30%, transparent);
+  /* 함내 통신 메시지 — 경고 호박색 좌측 바 + 사선 컷 */
+  border-left: 3px solid var(--color-warn);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
 }
 
 .toast-message {
-  font-size: 0.875rem;
+  font-size: 0.85rem;
+  font-family: var(--font-console);
+  letter-spacing: 0.01em;
 }
 
 /* ── 조우 오버레이 (z-20) ───────────────────────────── */
@@ -348,9 +623,10 @@ body {
 }
 
 .scan-label {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  font-family: var(--font-console);
   color: var(--color-text-dim);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 
 .encounter-reveal {
@@ -461,8 +737,10 @@ body {
 .boot-title {
   margin: 0;
   font-size: 1.6rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
+  color: var(--color-holo-strong);
+  text-shadow: 0 0 24px color-mix(in srgb, var(--color-holo) 45%, transparent);
 }
 
 .boot-subtitle {
@@ -510,7 +788,7 @@ body {
 }
 
 .seed-input:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-holo);
   outline-offset: 1px;
 }
 
@@ -535,7 +813,13 @@ body {
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-holo) 2%, transparent) 0 1px,
+      transparent 1px 4px
+    ),
+    color-mix(in srgb, var(--color-bg) 92%, transparent);
   backdrop-filter: blur(6px);
   pointer-events: auto;
 }
@@ -545,12 +829,21 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.9rem 1.25rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-text-dim) 20%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-holo) 30%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 45%, transparent);
 }
 
 .overlay-title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--color-holo-strong);
+}
+
+.overlay-title::before {
+  content: '◤ ';
+  color: color-mix(in srgb, var(--color-holo) 65%, transparent);
 }
 
 .overlay-body {
@@ -595,7 +888,7 @@ body {
 }
 
 .codex-slot:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-holo);
   outline-offset: 2px;
 }
 
@@ -686,8 +979,9 @@ body {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.6rem 0.9rem;
-  border-radius: 0.6rem;
   background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--color-holo) 45%, transparent);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
 }
 
 .visit-entry-star {
@@ -704,7 +998,8 @@ body {
 
 .visit-entry-time {
   color: var(--color-text-dim);
-  font-size: 0.8rem;
+  font-family: var(--font-console);
+  font-size: 0.75rem;
   white-space: nowrap;
 }
 
@@ -738,11 +1033,12 @@ body {
 .quality-select {
   min-height: 36px;
   padding: 0.3rem 0.5rem;
-  border-radius: 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--color-text-dim) 35%, transparent);
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--color-holo) 30%, transparent);
   background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   color: var(--color-text);
-  font-size: 0.82rem;
+  font-family: var(--font-console);
+  font-size: 0.78rem;
   pointer-events: auto;
   cursor: pointer;
 }
@@ -782,15 +1078,23 @@ body {
     flex-wrap: wrap;
   }
 
-  /* 정보 패널은 바텀 시트로 */
-  .hud-panel {
+  /* 행성 패널은 바텀 시트로 — 화면 가장자리에 붙으므로 모따기는 상단만.
+     별 패널은 콜아웃(결정 37)이라 제외 — 항성 위치에 떠 있어야 한다 */
+  .planet-panel {
     top: auto;
     bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
-    border-radius: 1rem 1rem 0 0;
     border-bottom: none;
+    clip-path: polygon(
+      0 var(--chamfer),
+      var(--chamfer) 0,
+      calc(100% - var(--chamfer)) 0,
+      100% var(--chamfer),
+      100% 100%,
+      0 100%
+    );
   }
 
   .navigation-controls {
@@ -809,5 +1113,17 @@ body {
 
   .overlay-body {
     padding: 0.9rem;
+  }
+}
+
+/* ── 모션 감수성 — 장식 애니메이션만 끈다 (스캔 연출은 게임플레이 신호라 유지) */
+
+@media (prefers-reduced-motion: reduce) {
+  .top-bar-title::before {
+    animation: none;
+  }
+
+  .hud-panel {
+    animation: none;
   }
 }

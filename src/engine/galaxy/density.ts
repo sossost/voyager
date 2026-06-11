@@ -7,8 +7,10 @@ export const SECTOR_SIZE = 100
 
 /** 은하 원반 반경 (섹터 단위) — 이 밖은 별이 없다. */
 export const GALAXY_RADIUS_SECTORS = 48
-/** 은하 원반 절반 두께 (섹터 단위). */
+/** 은하 원반 절반 두께 최대값 (섹터 단위) — 중심 벌지 기준. 섹터 순회 상한으로도 쓰인다. */
 export const GALAXY_HALF_THICKNESS_SECTORS = 5
+/** 원반 가장자리의 절반 두께 — 날개 끝으로 갈수록 얇아지는 렌즈형 측면 실루엣 (결정 32). */
+const RIM_HALF_THICKNESS_SECTORS = 1.2
 
 /** 나선팔 개수 — 그랜드 디자인 2팔 나선. */
 const ARM_COUNT = 2
@@ -32,18 +34,28 @@ function clamp01(value: number): number {
 }
 
 /**
- * 섹터의 별 밀도 [0, 1] — 원반 감쇠 × 수직 감쇠 × 나선팔 변조 × 덩어리 질감 + 중앙 벌지.
+ * 섹터의 별 밀도 [0, 1] — 원반 감쇠 × 수직 감쇠(렌즈형) × 나선팔 변조 × 덩어리 질감 + 중앙 벌지.
  *
  * +, -, *, /, Math.sqrt, Math.abs와 그것만으로 만든 유리 근사(trig.ts)만 사용한다
  * (크로스 엔진 결정론 — 결정 14). 나선팔은 아르키메데스 나선 위상의 cos 파동으로 만들고,
  * 중심 섹터 (0,0,0)의 밀도는 항상 1이므로 originStar는 모든 시드에서 0:0:0:0을 얻는다
  * (시드 LIFE1의 시작 별계 보장이 여기에 기댄다 — 깨뜨리지 말 것).
+ * 수직 프로파일 변경은 sy=0 평면의 밀도를 절대 바꾸지 않는다 (|0|/두께 = 0) —
+ * originStar 순회와 LIFE1 시작 별계가 sy=0에 있기 때문에 이 불변식이 안전판이다.
  */
 export function sectorDensity(sector: SectorCoords): number {
   const radialDistance = Math.sqrt(sector.sx * sector.sx + sector.sz * sector.sz)
   const radialFalloff = clamp01(1 - radialDistance / GALAXY_RADIUS_SECTORS)
-  const verticalFalloff = clamp01(1 - Math.abs(sector.sy) / GALAXY_HALF_THICKNESS_SECTORS)
-  if (radialFalloff === 0 || verticalFalloff === 0) return 0
+  if (radialFalloff === 0) return 0
+
+  // 렌즈형 수직 프로파일 (결정 32): 절반 두께가 중심에서 5섹터, 가장자리에서 1.2섹터로
+  // t^1.5 테이퍼 — Math.pow 금지라 t·sqrt(t)로 표현 (결정 14 허용 연산만)
+  const taper = radialFalloff * Math.sqrt(radialFalloff)
+  const halfThickness =
+    RIM_HALF_THICKNESS_SECTORS +
+    (GALAXY_HALF_THICKNESS_SECTORS - RIM_HALF_THICKNESS_SECTORS) * taper
+  const verticalFalloff = clamp01(1 - Math.abs(sector.sy) / halfThickness)
+  if (verticalFalloff === 0) return 0
 
   // 나선팔: 팔 능선에서 1, 팔 사이에서 ARM_FLOOR — 세제곱으로 능선을 좁힌다
   const angle = atan2Approx(sector.sz, sector.sx)
