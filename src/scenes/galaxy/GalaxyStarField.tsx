@@ -13,6 +13,14 @@ import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMate
  */
 const STAR_MIN_POINT_SIZE_PER_UNIT = 1.2
 
+/**
+ * 샤프 → 소프트 글로우 전환 카메라 거리 (월드 단위).
+ * 별계 항행 거리(~400)에서는 또렷한 점광원, 은하 조망(최대 6,000)에서는
+ * 부드러운 글로우로 — 확대할수록 초점이 맞는 느낌을 만든다.
+ */
+const SOFT_NEAR_DISTANCE = 800
+const SOFT_FAR_DISTANCE = 3_200
+
 /** 별 개성 변주 폭 — 같은 분광형 안에서도 밝기·크기가 이만큼 갈린다. */
 const BRIGHTNESS_BASE = 0.55
 const BRIGHTNESS_SPAN = 0.6
@@ -76,8 +84,9 @@ export function GalaxyStarField({ stars, maxPointSize }: GalaxyStarFieldProps) {
       createStarGlowMaterial({
         maxPointSize,
         initialOpacity: 1,
-        profile: 'star',
         minPointSizePerUnit: STAR_MIN_POINT_SIZE_PER_UNIT,
+        softNear: SOFT_NEAR_DISTANCE,
+        softFar: SOFT_FAR_DISTANCE,
       }),
     [maxPointSize],
   )
