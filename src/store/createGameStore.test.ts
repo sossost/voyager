@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Seed, StarId } from '@/engine'
 import { originStar, parseSeed, starsInSector } from '@/engine'
+import { MemoryDriver } from '@/persistence/memoryDriver'
 import type { GameStoreApi } from './createGameStore'
 import { createGameStore } from './createGameStore'
 
@@ -27,9 +28,11 @@ function otherStarId(): StarId {
 const target = otherStarId()
 
 let store: GameStoreApi
+let driver: MemoryDriver
 
 beforeEach(() => {
-  store = createGameStore({ seed, startStarId })
+  driver = new MemoryDriver()
+  store = createGameStore({ seed, startStarId, driver, now: () => 12_345, createdAt: 1_000 })
 })
 
 describe('초기 상태', () => {
@@ -125,6 +128,37 @@ describe('불변성', () => {
     store.getState().warpTo(target)
     expect(store.getState().visitedStars).not.toBe(before)
     expect(before.has(target)).toBe(false)
+  })
+})
+
+describe('write-through 영속화', () => {
+  it('워프 시 방문 기록과 프로필이 드라이버에 저장된다', async () => {
+    store.getState().backToGalaxy()
+    store.getState().warpTo(target)
+
+    await vi.waitFor(async () => {
+      const { visits } = await driver.loadAll()
+      expect(visits.map((visit) => visit.starId)).toContain(target)
+    })
+    expect((await driver.loadProfile())?.currentStarId).toBe(target)
+  })
+
+  it('같은 별 왕복 재방문은 기록을 중복 생성하지 않는다 (멱등)', async () => {
+    const roundTrip = (to: StarId) => {
+      store.getState().backToGalaxy()
+      store.getState().warpTo(to)
+      store.getState().onWarpComplete()
+    }
+
+    roundTrip(target)
+    roundTrip(startStarId)
+    roundTrip(target)
+
+    await vi.waitFor(async () => {
+      const { visits } = await driver.loadAll()
+      expect(visits.filter((visit) => visit.starId === target)).toHaveLength(1)
+      expect(visits.filter((visit) => visit.starId === startStarId)).toHaveLength(1)
+    })
   })
 })
 

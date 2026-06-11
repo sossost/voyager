@@ -1,5 +1,6 @@
 import type { Seed } from '@/engine'
 import { originStar, parseSeed } from '@/engine'
+import { MemoryDriver } from '@/persistence/memoryDriver'
 import { createGameStore } from '@/store/createGameStore'
 
 /**
@@ -19,10 +20,19 @@ function resolveBootSeed(): Seed {
 
 const bootSeed = resolveBootSeed()
 
-/** 앱 전역 게임 스토어 — Canvas 안팎이 같은 인스턴스를 공유한다. */
+/**
+ * 앱 전역 게임 스토어 — Canvas 안팎이 같은 인스턴스를 공유한다.
+ * 임시로 MemoryDriver 사용 — Phase 6에서 probeStorage(Dexie/Memory 자동 선택)로 대체.
+ */
 export const useGameStore = createGameStore({
   seed: bootSeed,
   startStarId: originStar(bootSeed),
+  driver: new MemoryDriver(),
 })
+
+// 개발/E2E 전용 — 상태 단언용 (Playwright는 픽셀 비교 대신 상태를 단언한다, 결정: 테스트 전략)
+if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+  ;(window as unknown as Record<string, unknown>)['__gameStore'] = useGameStore
+}
 
 export type { GameStore, SceneState } from '@/store/types'

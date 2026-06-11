@@ -25,7 +25,7 @@ export { originStar } from './galaxy/origin'
 export { starById, starWorldPosition } from './galaxy/position'
 
 export type { Planet, PlanetKind } from './system/planets'
-export { LIFE_PROBABILITY, planetsOf } from './system/planets'
+export { LIFE_PROBABILITY, planetById, planetsOf } from './system/planets'
 
 export type { Rarity } from './alien/rarity'
 export { RARITIES, RARITY_WEIGHTS } from './alien/rarity'

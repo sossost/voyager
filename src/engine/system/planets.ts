@@ -1,5 +1,5 @@
 import type { PlanetId, Seed, StarId } from '../coords'
-import { makePlanetId } from '../coords'
+import { makePlanetId, parsePlanetId } from '../coords'
 import { planetName } from '../naming/names'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
@@ -65,4 +65,11 @@ export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
     planets.push({ id, starId, index, kind, radius, orbitAu, hasLife, name, paletteSeed })
   }
   return planets
+}
+
+/** PlanetId → 행성 데이터. 형식이 깨졌거나 존재하지 않는 인덱스면 null. */
+export function planetById(seed: Seed, planetId: PlanetId): Planet | null {
+  const parsed = parsePlanetId(planetId)
+  if (parsed == null) return null
+  return planetsOf(seed, parsed.starId)[parsed.planetIndex] ?? null
 }

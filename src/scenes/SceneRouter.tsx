@@ -1,25 +1,13 @@
-import { useEffect } from 'react'
-
 import { GalaxyScene } from '@/scenes/galaxy/GalaxyScene'
-import { SystemScenePlaceholder } from '@/scenes/system/SystemScenePlaceholder'
+import { SystemScene } from '@/scenes/system/SystemScene'
+import { WarpStreaks } from '@/scenes/warp/WarpStreaks'
 import { useGameStore } from '@/store'
 
-/** Phase 4의 WarpEffect 3단 타임라인이 들어오기 전까지의 임시 연출 시간. */
-const PLACEHOLDER_WARP_DURATION_MS = 400
-
-/** Phase 3 임시 워프 — 짧은 지연 후 도착 처리한다. Phase 4에서 WarpEffect로 대체. */
-function WarpPlaceholder() {
-  const onWarpComplete = useGameStore((state) => state.onWarpComplete)
-
-  useEffect(() => {
-    const timer = setTimeout(onWarpComplete, PLACEHOLDER_WARP_DURATION_MS)
-    return () => clearTimeout(timer)
-  }, [onWarpComplete])
-
-  return <GalaxyScene />
-}
-
-/** scene.kind → 씬 컴포넌트. 전이 로직은 전부 store 가드 액션에 있다 (결정 15). */
+/**
+ * scene.kind → 씬 컴포넌트. 전이 로직은 전부 store 가드 액션에 있다 (결정 15).
+ * 'warping'은 은하 씬 위에 스트리크가 얹힌 전이 상태 — 도착(씬 스왑) 타이밍은
+ * WarpFlashOverlay(DOM)가 플래시 피크에 맞춰 호출한다 (결정 16).
+ */
 export function SceneRouter() {
   const sceneKind = useGameStore((state) => state.scene.kind)
 
@@ -27,9 +15,14 @@ export function SceneRouter() {
     case 'galaxy':
       return <GalaxyScene />
     case 'warping':
-      return <WarpPlaceholder />
+      return (
+        <>
+          <GalaxyScene />
+          <WarpStreaks />
+        </>
+      )
     case 'system':
-      return <SystemScenePlaceholder />
+      return <SystemScene />
     default: {
       const _exhaustive: never = sceneKind
       throw new Error(`처리되지 않은 씬: ${String(_exhaustive)}`)

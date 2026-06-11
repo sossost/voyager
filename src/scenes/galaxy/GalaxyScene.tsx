@@ -7,6 +7,7 @@ import { SectorPoints } from '@/scenes/galaxy/SectorPoints'
 import { SelectedStarMarker } from '@/scenes/galaxy/SelectedStarMarker'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
 import { useVisibleSectors } from '@/scenes/galaxy/useVisibleSectors'
+import { VisitedStarMarkers } from '@/scenes/galaxy/VisitedStarMarkers'
 import { CameraRig } from '@/scenes/shared/CameraRig'
 import { useGameStore } from '@/store'
 
@@ -34,6 +35,7 @@ export function GalaxyScene() {
       {sectors.map((sector) => (
         <SectorPoints key={sector.key} sector={sector} maxPointSize={preset.maxPointSize} />
       ))}
+      <VisitedStarMarkers sectors={sectors} />
       <SelectedStarMarker />
     </>
   )

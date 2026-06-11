@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useRef, useState } from 'react'
 
 import { SceneRouter } from '@/scenes/SceneRouter'
 import { ContextLossGuard } from '@/scenes/shared/ContextLossGuard'
+import { useGameStore } from '@/store'
 
 const Perf = lazy(() =>
   import('r3f-perf').then((module) => ({ default: module.Perf })),
@@ -42,6 +43,7 @@ export function CanvasLayer() {
         key={canvasGeneration}
         camera={{ position: [0, 180, 320], fov: 60, near: 0.5, far: 30_000 }}
         dpr={[1, 2]}
+        onPointerMissed={() => useGameStore.getState().selectPlanet(null)}
       >
         <ContextLossGuard
           onContextLost={handleContextLost}

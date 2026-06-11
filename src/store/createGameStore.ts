@@ -2,11 +2,18 @@ import { create } from 'zustand'
 
 import type { IndividualId, PlanetId, Seed, StarId } from '@/engine'
 import { GEN_VERSION } from '@/engine'
+import { persist } from '@/persistence/persist'
+import type { Profile, StorageDriver } from '@/persistence/types'
+import { SAVE_VERSION } from '@/persistence/types'
 import type { GameStore, QualityMode, QualityTier, SceneState } from '@/store/types'
 
 export interface CreateGameStoreOptions {
   readonly seed: Seed
   readonly startStarId: StarId
+  readonly driver: StorageDriver
+  /** 테스트에서 시각을 고정할 수 있도록 주입 가능. */
+  readonly now?: () => number
+  readonly createdAt?: number
 }
 
 let nextToastId = 1
@@ -19,7 +26,25 @@ let nextToastId = 1
  * persist 호출을 함께 수행하는 명시적 write-through만 허용한다.
  */
 export function createGameStore(options: CreateGameStoreOptions) {
-  return create<GameStore>()((set, get) => ({
+  const { driver } = options
+  const now = options.now ?? Date.now
+  const createdAt = options.createdAt ?? now()
+
+  return create<GameStore>()((set, get) => {
+    const buildProfile = (): Profile => ({
+      id: 1,
+      seed: get().seed,
+      saveVersion: SAVE_VERSION,
+      genVersion: get().genVersion,
+      currentStarId: get().currentStarId,
+      createdAt,
+    })
+
+    const reportPersistFailure = () => {
+      get().pushToast('저장에 실패했어요 — 게임은 계속 진행됩니다')
+    }
+
+    return {
     // ── universe (부트 후 불변) ──────────────────────────────
     seed: options.seed,
     genVersion: GEN_VERSION,
@@ -53,6 +78,12 @@ export function createGameStore(options: CreateGameStoreOptions) {
         currentStarId: target,
         visitedStars: nextVisited,
       })
+
+      // write-through: 캐시 갱신과 영속화를 같은 액션에서 (결정 20)
+      void persist(async () => {
+        await driver.addVisit({ starId: target, visitedAt: now() })
+        await driver.saveProfile(buildProfile())
+      }, reportPersistFailure)
     },
 
     onWarpComplete() {
@@ -110,7 +141,8 @@ export function createGameStore(options: CreateGameStoreOptions) {
     setQuality(tier, mode) {
       set({ qualityTier: tier, qualityMode: mode })
     },
-  }))
+    }
+  })
 }
 
 export type GameStoreApi = ReturnType<typeof createGameStore>

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Seed } from '../coords'
-import { makeStarId, parseSeed } from '../coords'
-import { LIFE_PROBABILITY, planetsOf } from './planets'
+import type { PlanetId, Seed } from '../coords'
+import { makePlanetId, makeStarId, parseSeed } from '../coords'
+import { LIFE_PROBABILITY, planetById, planetsOf } from './planets'
 
 function seedOf(value: string): Seed {
   const seed = parseSeed(value)
@@ -62,6 +62,17 @@ describe('planetsOf', () => {
     expect(planetCount).toBeGreaterThan(10_000)
     expect(ratio).toBeGreaterThan(LIFE_PROBABILITY - 0.01)
     expect(ratio).toBeLessThan(LIFE_PROBABILITY + 0.01)
+  })
+
+  it('planetById는 planetsOf의 해당 행성과 동일한 객체를 만든다', () => {
+    const starId = makeStarId({ sx: 2, sy: 0, sz: 2 }, 1)
+    const planets = planetsOf(seed, starId)
+    const second = planets[1]
+    if (second != null) {
+      expect(planetById(seed, second.id)).toEqual(second)
+    }
+    expect(planetById(seed, makePlanetId(starId, 99))).toBeNull()
+    expect(planetById(seed, 'broken' as PlanetId)).toBeNull()
   })
 
   it('몬테카를로: 암석형/가스형 비율이 60/40에 수렴한다', () => {
