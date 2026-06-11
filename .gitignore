@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+*.local
+.env
+.env.*
+
+# editor/os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# logs
+npm-debug.log*
+*.log
+
+# test artifacts
+playwright-report/
+test-results/

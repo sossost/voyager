@@ -1,0 +1,99 @@
+:root {
+  color-scheme: dark;
+
+  /* 팔레트 */
+  --color-bg: #05060f;
+  --color-surface: #11142a;
+  --color-text: #e8eaf6;
+  --color-text-dim: #9aa0b8;
+  --color-accent: #7c5cff;
+
+  /* 희귀도 (02-decisions.md 결정 9) */
+  --rarity-common: #9aa0b8;
+  --rarity-rare: #4da3ff;
+  --rarity-epic: #b05cff;
+  --rarity-legendary: #ffb340;
+
+  /* z-레이어 계약 (02-decisions.md 결정 15) */
+  --z-canvas: 0;
+  --z-hud: 10;
+  --z-overlay: 20;
+  --z-system: 30;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+.app-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.layer-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-canvas);
+}
+
+.layer-hud {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-hud);
+  pointer-events: none; /* 패널 등 자식이 개별적으로 pointer-events를 켠다 */
+}
+
+.layer-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
+.layer-system {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-system);
+  pointer-events: none;
+}
+
+.reconnect-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+  font-size: 1.1rem;
+}
+
+.webgl-blocked {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.webgl-blocked-hint {
+  color: var(--color-text-dim);
+  max-width: 28rem;
+}
