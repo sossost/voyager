@@ -324,7 +324,7 @@ src/
 ├── scenes/                   # R3F — 게임 규칙 없음, store 액션 호출만
 │   ├── SceneRouter.tsx       # scene.kind switch
 │   ├── shared/               # CameraRig(마우스+터치), ContextLossGuard
-│   ├── galaxy/               # GalaxyScene, SectorPoints, useVisibleSectors, useStarPicking
+│   ├── galaxy/               # GalaxyScene, GalaxyStarField(전수 별, 결정 22), GalaxyBackdrop, useGalaxyStars, useStarPicking, VisitedStarMarkers
 │   ├── system/               # SystemScene, Planet, Orbits
 │   └── warp/WarpEffect.tsx   # 3단 타임라인
 ├── quality/useQualityTier.ts # detect-gpu 초기 티어 + PerformanceMonitor 사후 하향
@@ -352,8 +352,8 @@ main():
   loadAll() → store 하이드레이트(Set/Map 캐시) → 현재 별 태양계 뷰로 시작
   driver.mode == 'memory' → 상시 경고 배너
 
-# 결정론 생성 (engine/* 순수함수 — 저장 안 함, LRU 캐시만)
-starsInSector(seed, sector) → rngFor(seed,'sector',...)로 별 0~80개
+# 결정론 생성 (engine/* 순수함수 — 저장 안 함, 은하 전수는 useGalaxyStars 시드당 1회 캐시)
+starsInSector(seed, sector) → rngFor(seed,'sector',...)로 별 0~24개 (나선 밀도, 결정 21)
 planetsOf(seed, starId)     → 행성마다 독립 스트림(스트림 격리 = 호환성 1차 방어)
 alienAt(seed, planetId)     → 희귀도(70/22/7/1) → 종족 → fixedParts+allowedParts pick
                               individualId = hash128(...) — 결정론 PK, 중복 등록 DB 제약 차단
@@ -370,7 +370,7 @@ explore(planetId): guard(hasLife && !encounter)
 
 # 수명주기/품질
 탭 비활성·풀스크린 오버레이 → frameloop='never'
-detect-gpu 초기 티어 → decline 시 DPR → 별 예산 → postFx 순 하향
+detect-gpu 초기 티어 → decline 시 DPR → 점 크기 캡·백드롭 간격 → postFx 순 하향 (별 수는 전수 고정, 결정 22)
 ```
 
 ### Key Interfaces
