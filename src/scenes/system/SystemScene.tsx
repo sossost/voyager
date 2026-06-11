@@ -3,12 +3,12 @@ import { useMemo } from 'react'
 import { planetsOf, starById } from '@/engine'
 import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { CameraRig } from '@/scenes/shared/CameraRig'
+import { DecorativeStarfield } from '@/scenes/shared/DecorativeStarfield'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { StarSurface } from '@/scenes/system/StarSurface'
 import { SystemBackdropStars } from '@/scenes/system/SystemBackdropStars'
 import { SystemEntryTransition } from '@/scenes/system/SystemEntryTransition'
-import { SystemStarfield } from '@/scenes/system/SystemStarfield'
 import { useGameStore } from '@/store'
 
 /** 태양계 씬은 항상 자기 원점(0,0,0)에 항성을 둔다 — 플로팅 오리진 (결정 15). */
@@ -18,6 +18,8 @@ const STAR_VISUAL_RADIUS = 5
 /** 카메라 줌 한계 — 진입 트랜지션의 안착 거리로도 쓰인다. */
 const CAMERA_MIN_DISTANCE = 10
 const CAMERA_MAX_DISTANCE = 180
+/** 장식 별밭 천구 반경 — 실이웃 별 셸(4,000) 바깥 (가산이라 순서 무관, far 안). */
+const STARFIELD_RADIUS = 4_100
 
 export function SystemScene() {
   const seed = useGameStore((state) => state.seed)
@@ -38,7 +40,7 @@ export function SystemScene() {
         maxDistance={CAMERA_MAX_DISTANCE}
       />
       <SystemEntryTransition restDistance={CAMERA_MAX_DISTANCE} />
-      <SystemStarfield />
+      <DecorativeStarfield radius={STARFIELD_RADIUS} />
       <SystemBackdropStars seed={seed} starId={starId} />
       {/* 주변광은 밤면 가독성 담당 — 물리 광원 모드는 알베도/π 페널티가 있어 1 이상이어야
           카메라 쪽 위상(밤면)의 행성이 시커멓게 묻히지 않는다 */}
