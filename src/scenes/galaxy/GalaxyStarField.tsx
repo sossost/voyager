@@ -43,7 +43,7 @@ interface GalaxyStarFieldProps {
 }
 
 /**
- * 은하 전체 별 필드 — 모든 별(약 3.5만)을 Points 1개 = 드로콜 1로 그린다 (결정 22).
+ * 은하 전체 별 필드 — 모든 별(약 1.7만)을 Points 1개 = 드로콜 1로 그린다 (결정 22).
  * 화면에 보이는 별이 곧 클릭 가능한 별이다 — 별도 원경 점은 색 보조용 백드롭뿐.
  */
 export function GalaxyStarField({ stars, maxPointSize }: GalaxyStarFieldProps) {

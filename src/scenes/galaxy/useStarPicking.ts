@@ -47,7 +47,7 @@ function pickNearestStar(
 
 /**
  * 화면공간 최근접 별 피킹 — click/tap 시점에만 O(n) 수행 (결정 20).
- * n = 은하 전체 별(약 3.5만, 결정 22) — 클릭 1회당 수 ms로 충분히 싸다.
+ * n = 은하 전체 별(약 1.7만, 결정 22) — 클릭 1회당 수 ms로 충분히 싸다.
  * 화면에 보이는 모든 별이 후보이므로 '보이는 것 = 클릭 가능한 것'이 항상 성립한다.
  */
 export function useStarPicking(stars: readonly Star[]) {

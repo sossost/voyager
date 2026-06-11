@@ -9,6 +9,6 @@
  * 버전 불일치 시 부트에서 안내 모달을 띄운다. 마이그레이션은 v2 비범위.
  * tests/golden/의 스냅샷이 바뀌면 이 값을 올렸는지 반드시 확인할 것.
  *
- * v2 (2026-06-11): 나선팔 밀도 함수 + MAX_STARS_PER_SECTOR 80→24 (결정 21).
+ * v2 (2026-06-11): 나선팔 밀도 함수 + MAX_STARS_PER_SECTOR 80→12 (결정 21).
  */
 export const GEN_VERSION = 2
