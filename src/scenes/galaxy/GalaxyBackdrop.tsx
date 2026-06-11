@@ -19,7 +19,8 @@ import { useGameStore } from '@/store'
 
 /** 이 밀도 미만은 점을 만들지 않는다 — 팔 사이 공간이 어두워야 나선 레인이 읽힌다. */
 const MIN_VISIBLE_DENSITY = 0.03
-const BACKDROP_OPACITY = 0.7
+/** 실제 별(GalaxyStarField)이 주인공 — 백드롭은 그 뒤의 옅은 성운 색감만 담당한다. */
+const BACKDROP_OPACITY = 0.35
 /**
  * 최대 줌아웃(6,000 유닛)에서 이웃 샘플(화면 ~16px 간격)과 글로우가 겹치는 크기 —
  * 원근 계수 700/6000 ≈ 0.12라 size 100이 화면 ~18px이다. 근접 시에는 uMaxPointSize가 캡.
@@ -41,7 +42,7 @@ const VERTICAL_SPREAD_RATIO = 0.5
 
 /**
  * 카메라 근접 페이드인 반경 (월드 단위) — 이 안의 백드롭 글로우는 숨긴다.
- * 근경(SectorPoints)이 담당하는 영역에서 원경 블롭이 별밭을 가리는 것을 막는다.
+ * 줌인 시 성운 블롭이 실제 별밭을 가리는 것을 막는다.
  */
 const NEAR_FADE_INNER = 500
 const NEAR_FADE_OUTER = 1_800

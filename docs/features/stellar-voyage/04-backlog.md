@@ -6,12 +6,12 @@
 
 1. **`nextToastId` 모듈 레벨 가변 변수** — `store/createGameStore.ts`: 팩토리 클로저 안으로 이동 (테스트 격리).
 2. **`__gameStore` 노출 가드 불일치** — `store/index.ts`: `MODE !== 'production'` 대신 `import.meta.env.DEV` 또는 의도 주석 + Window 타입 보강.
-3. **GalaxyBackdrop uPixelRatio** — `useEffect` 설정이라 리사이즈 후 다음 렌더까지 이전 값. SectorPoints와 패턴 통일 (마운트 1회 + 조건부 갱신).
-4. **CameraRig 카메라/타깃 비동기** — focus 변경 시 `controls.target`과 `camera.position`을 동일 프레임에 일괄 적용.
-5. **매직 넘버** — `planets.ts`의 `2147483647` → `INT32_MAX` 상수, SelectedStarMarker 링 반지름 상수화.
-6. **ScanSequence 셀렉터 분리** — EncounterOverlay 내부 함수 매 렌더 재생성 (성능 영향 미미, 스타일).
-7. **WarpFlashOverlay 암묵적 falsy** — early-return 패턴으로 재구성.
-8. **구형 페이드 중심과 로드 큐브의 기하 불일치** (결정 21 리뷰 MEDIUM) — uFadeCenter는 연속값 `controls.target`인데 로드 큐브는 섹터 그리드에 스냅되어, focus가 섹터 면에 붙으면 low 티어에서 별이 최대 ~83% 알파로 팝인할 수 있다 (0.3s 페이드인이 일부 마스킹, main의 100% 팝인 대비는 개선). 수정 옵션: fadeOuter를 `R×SECTOR_SIZE`로 보수화(가시 반경 축소 트레이드오프) 또는 uFadeCenter를 focus 섹터 중심으로 스냅(경계 통과 시 점프 트레이드오프) — `src/scenes/galaxy/GalaxyScene.tsx`, `SectorPoints.tsx`.
+3. **CameraRig 카메라/타깃 비동기** — focus 변경 시 `controls.target`과 `camera.position`을 동일 프레임에 일괄 적용.
+4. **매직 넘버** — `planets.ts`의 `2147483647` → `INT32_MAX` 상수, SelectedStarMarker 링 반지름 상수화.
+5. **ScanSequence 셀렉터 분리** — EncounterOverlay 내부 함수 매 렌더 재생성 (성능 영향 미미, 스타일).
+6. **WarpFlashOverlay 암묵적 falsy** — early-return 패턴으로 재구성.
+
+> 해소됨 (결정 22): GalaxyBackdrop uPixelRatio 지연 갱신(useFrame 전환), 구형 페이드 기하 불일치(페이드 자체 제거).
 
 ## B. 출시 전 수동 체크 (자동화 불가 — 03-plan 구현 노트 참조)
 

@@ -10,8 +10,7 @@ import {
   Vector3,
 } from 'three'
 
-import { SECTOR_SIZE } from '@/engine'
-import type { LoadedSector } from '@/scenes/galaxy/useVisibleSectors'
+import { starWorldPosition } from '@/engine/galaxy/position'
 import { useGameStore } from '@/store'
 
 /** 방문 마커는 누적 성장한다 — 인스턴스 예산 상한으로 드로콜·비용을 캡 (코드 리뷰 지적). */
@@ -20,15 +19,13 @@ const RING_INNER = 1.5
 const RING_OUTER = 1.9
 const RING_SEGMENTS = 32
 
-interface VisitedStarMarkersProps {
-  readonly sectors: readonly LoadedSector[]
-}
-
 /**
  * 방문한 별 링 마커 — 방문 별 전체를 InstancedMesh 1개(드로콜 1)로,
  * 현재 위치만 강조색 단일 메시로 그린다. 빌보드 회전은 매 프레임 행렬 갱신.
+ * 위치는 방문 기록(StarId)에서 직접 재생성한다 — 섹터 가상화 의존 없음 (결정 22).
  */
-export function VisitedStarMarkers({ sectors }: VisitedStarMarkersProps) {
+export function VisitedStarMarkers() {
+  const seed = useGameStore((state) => state.seed)
   const visitedStars = useGameStore((state) => state.visitedStars)
   const currentStarId = useGameStore((state) => state.currentStarId)
 
@@ -55,26 +52,20 @@ export function VisitedStarMarkers({ sectors }: VisitedStarMarkersProps) {
   useEffect(() => () => visitedMaterial.dispose(), [visitedMaterial])
 
   const { visitedPositions, currentPosition } = useMemo(() => {
-    const positions: [number, number, number][] = []
-    let current: [number, number, number] | null = null
+    const positions: (readonly [number, number, number])[] = []
+    let current: readonly [number, number, number] | null = null
 
-    for (const sector of sectors) {
-      for (const star of sector.stars) {
-        if (!visitedStars.has(star.id)) continue
-        const worldPosition: [number, number, number] = [
-          star.sector.sx * SECTOR_SIZE + star.localPos[0],
-          star.sector.sy * SECTOR_SIZE + star.localPos[1],
-          star.sector.sz * SECTOR_SIZE + star.localPos[2],
-        ]
-        if (star.id === currentStarId) {
-          current = worldPosition
-        } else if (positions.length < MAX_VISIBLE_MARKERS) {
-          positions.push(worldPosition)
-        }
+    for (const starId of visitedStars) {
+      const worldPosition = starWorldPosition(seed, starId)
+      if (worldPosition == null) continue
+      if (starId === currentStarId) {
+        current = worldPosition
+      } else if (positions.length < MAX_VISIBLE_MARKERS) {
+        positions.push(worldPosition)
       }
     }
     return { visitedPositions: positions, currentPosition: current }
-  }, [sectors, visitedStars, currentStarId])
+  }, [seed, visitedStars, currentStarId])
 
   useFrame((state) => {
     const instanced = instancedRef.current
