@@ -6,6 +6,7 @@ import { CameraRig } from '@/scenes/shared/CameraRig'
 import { DecorativeStarfield } from '@/scenes/shared/DecorativeStarfield'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
 import { SystemBackdropStars } from '@/scenes/system/SystemBackdropStars'
 import { SystemEntryTransition } from '@/scenes/system/SystemEntryTransition'
@@ -55,6 +56,8 @@ export function SystemScene() {
           <Planet planet={planet} />
         </group>
       ))}
+
+      <PlanetCalloutProjector />
     </>
   )
 }

@@ -28,9 +28,9 @@ export function StarInfoPanel() {
   return (
     // 홀로그램 콜아웃 (결정 37) — StarCalloutProjector가 매 프레임 항성의 화면
     // 좌표로 transform을 갱신한다. 투영 전 첫 프레임 깜빡임 방지로 기본 hidden.
-    <div className="star-callout" data-star-callout>
-      <span className="star-callout-dot" aria-hidden="true" />
-      <span className="star-callout-line" aria-hidden="true" />
+    <div className="callout" data-star-callout>
+      <span className="callout-dot" aria-hidden="true" />
+      <span className="callout-line" aria-hidden="true" />
       <section className="hud-panel star-info-panel" aria-label="별 정보">
         <header className="hud-panel-header">
           <h2 className="hud-panel-title">{star.name}</h2>
