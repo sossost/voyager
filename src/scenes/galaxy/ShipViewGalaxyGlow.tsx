@@ -28,7 +28,12 @@ import { GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
 const BAND_RADIUS = 10_500
 /** 밴드 절반 높이 (월드) — 반경 대비 약 ±9°, 하늘을 삼키지 않는 차분한 띠 폭. */
 const BAND_HALF_HEIGHT = 1_700
+const BAND_HEIGHT = BAND_HALF_HEIGHT * 2
+/** 실린더 둘레 분할 — 반경 10,500에서 다각형 모서리가 보이지 않는 최소선 (지오메트리 1회 업로드). */
 const BAND_RADIAL_SEGMENTS = 96
+const BAND_HEIGHT_SEGMENTS = 1
+/** 뚜껑 없는 열린 실린더 — 안쪽 면(BackSide)만 쓴다. */
+const BAND_OPEN_ENDED = true
 const BAND_OPACITY = 0.42
 
 /** 방위각 해상도 — 팔 단면 굴곡이 살아 있되 베이크(워프 도착 프레임)가 짧아야 한다. */
@@ -148,17 +153,25 @@ function buildBandTexture(anchorX: number, anchorZ: number): CanvasTexture {
 
 /**
  * 밴드 텍스처 단일 캐시 — 같은 정박 별이면 씬 전환(은하↔별계) 리마운트에도 재베이크하지
- * 않는다 (DistantGalaxies 캐시와 같은 트레이드오프). 정박이 바뀌면 이전 것을 폐기한다.
+ * 않는다 (DistantGalaxies 캐시와 같은 트레이드오프). 정박이 바뀌어 밀려난 텍스처는
+ * 즉시 dispose하지 않고 적치한다 — 렌더 단계(useMemo)에서 파괴적 부수효과를 일으키면
+ * 동시성 재렌더에서 표시 중인 텍스처를 폐기할 수 있어, 폐기는 커밋 시점(useEffect)에 한다.
  */
 let cachedBand: { readonly key: string; readonly texture: CanvasTexture } | null = null
+const evictedBandTextures: CanvasTexture[] = []
 
 function getBandTexture(anchorX: number, anchorZ: number): CanvasTexture {
   const key = `${anchorX}:${anchorZ}`
   if (cachedBand != null && cachedBand.key === key) return cachedBand.texture
 
-  cachedBand?.texture.dispose()
+  if (cachedBand != null) evictedBandTextures.push(cachedBand.texture)
   cachedBand = { key, texture: buildBandTexture(anchorX, anchorZ) }
   return cachedBand.texture
+}
+
+function disposeEvictedBandTextures(): void {
+  for (const texture of evictedBandTextures) texture.dispose()
+  evictedBandTextures.length = 0
 }
 
 /** 코어 글로우 — 밝은 난색 심 + 옅은 외곽 헤이즈의 라디얼 스머지 (앱 수명 캐시). */
@@ -224,6 +237,8 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
 
   useEffect(() => () => bandMaterial.dispose(), [bandMaterial])
   useEffect(() => () => coreMaterial.dispose(), [coreMaterial])
+  // 캐시에서 밀려난 이전 정박의 텍스처를 커밋 후 폐기 — 새 텍스처가 화면에 붙은 뒤라 안전
+  useEffect(() => disposeEvictedBandTextures(), [bandTexture])
 
   // 코어 빌보드 — 카메라 응시 + 각크기 클램프 + 근접 페이드 (연속 값은 ref, 철칙 6)
   useFrame((state) => {
@@ -245,10 +260,10 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
           args={[
             BAND_RADIUS,
             BAND_RADIUS,
-            BAND_HALF_HEIGHT * 2,
+            BAND_HEIGHT,
             BAND_RADIAL_SEGMENTS,
-            1,
-            true,
+            BAND_HEIGHT_SEGMENTS,
+            BAND_OPEN_ENDED,
           ]}
         />
       </mesh>
