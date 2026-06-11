@@ -389,6 +389,41 @@
 
 ---
 
+### 29. 천체 디테일 — 항성 절차 셰이더 + 행성 텍스처 베이크 (백로그 F-1)
+
+**Date:** 2026-06-11 (비주얼 3차 패스 — 항성·행성이 단색 구라 근접 시 밋밋함)
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 텍스처 에셋 (행성 스킨 이미지) | 아트 품질 상한 높음 | 에셋 파이프라인 추가, paletteSeed 다양성(~21억) 살릴 수 없음 |
+| B: 항성 = GLSL 절차 셰이더, 행성 = paletteSeed 결정론 CanvasTexture 베이크 | 에셋 0, 시드당 고유 무늬, GalaxyNebula에서 검증된 베이크 패턴 재사용 | 셰이더/베이크 코드 직접 관리 |
+
+**Chosen:** B —
+- **항성** `StarSurface`: 시간 애니메이션 value noise 입상반(두 위상 노이즈 장 교차 = 끓는 표면) + 림 다크닝 + 가산 빌보드 코로나(텍스처 없는 라디얼 셰이더, 느린 호흡 맥동). 뜨거운 입상반은 1을 넘는 백색으로 출력해 high 티어 Bloom(임계 0.3)이 증폭하고, 코로나는 Bloom 없는 티어에서도 빛무리를 보장한다. 색은 SPECTRAL_RENDER 재사용.
+- **행성** `planetTexture.ts` + `Planet` 재작업: 등장방형 베이크(베이스 192×96 → ×2 블러 업스케일, 구름은 96×48 → ×4)를 마운트 시 1회 수행하고 언마운트 시 dispose. 노이즈는 단위 구 3D 좌표에서 샘플링(엔진 valueNoise3 재사용, paletteSeed가 솔트)하므로 가로 이음매가 없다. 암석형 = fbm 고도 → 지형 색 밴드 + 시드 변주 극관, 생명체 = 바다/대륙 + 구름층(별도 구, 1.55배속 자전), 가스형 = 노이즈로 뒤튼 위도 밴드 + 폭풍 반점. 공통 = paletteSeed 파생 자전(속도·방향) + `PlanetAtmosphere` 프레넬 림(생명체 = 청록 강화 — hasLife의 시각 신호). 조명은 기존 meshStandardMaterial + 항성 포인트라이트 유지(낮/밤 경계 공짜). 미사용이던 품질 프리셋 planetSegments를 이번에 실제 연결.
+**Consequences:** 렌더 전용 — 엔진 draw 소비 없음, GEN_VERSION·골든 불변. 같은 paletteSeed = 같은 무늬(시각 결정론). 베이크는 계당 1~8장 × 수 ms로 진입 트랜지션(0.9s)에 가려진다.
+
+---
+
+### 30. 위치 가시화 — 방문 틴트·현재 비콘·여정 경로선 (백로그 F-2)
+
+**Date:** 2026-06-11 (비주얼 3차 패스 — 7.3천 별 줌아웃에서 방문 링이 묻히고 "여기"가 안 보임)
+
+정보 위계 **현재 > 선택 > 방문 > 미방문**을 색·모션으로 분리한다:
+
+| Option (방문 표시) | Pros | Cons |
+|--------|------|------|
+| A: 링 마커 유지 + 캡 상향 | 변경 최소 | 줌아웃에서 링이 별과 분리되어 떠 보임, 인스턴스 캡(512) 잔존 |
+| B: GalaxyStarField starColor/size 어트리뷰트 갱신 — 별 자체가 켜진다 | 줌 무관 가시성, 드로콜·캡 추가 0, "지도의 점 = 진짜 별" 원칙(결정 22) 유지 | 어트리뷰트 갱신 경로 관리 |
+
+**Chosen:** B + 비콘 + 토글 경로선 —
+- **방문 틴트**: 방문 별의 색을 청록(#52f5d0)으로 60% 섞고 밝기 1.45×·크기 1.18× — 별 자체가 "켜진" 느낌. 기본 변주를 재계산 후 틴트를 얹는 멱등 이펙트라 방문 집합 증가·지오메트리 재생성 모두 안전. `VisitedStarMarkers` 삭제 (대체).
+- **현재 비콘** `CurrentStarBeacon`: 호박색(#ffd166 — 한색 별밭·보라 선택 링·청록 틴트와 모두 구분) 펄스 링 + 소나 확장 링 2개. 수직 FOV 역산으로 화면 고정 크기(반지름 17px) 클램프 — 어떤 줌에서도 "여기"가 같은 크기. 워프 중엔 currentStarId가 이미 목적지(결정 16)라 자연히 착륙 비콘이 된다.
+- **여정 경로선** `JourneyPath`: visitedStars Set 순회 순서를 잇는 폴리라인. createGameStore가 hydration.visits를 visitedAt 오름차순으로 정렬해 Set을 구성하므로(드라이버 loadAll 정렬은 구현마다 달라 스토어에서 보장) Set 순서 = 타임라인. 오래된 구간은 정점 색 페이드. 취향 타는 요소라 HUD 토글(`isJourneyPathVisible`, 기본 off). 방문 기록은 starId 업서트(별당 1레코드)라 재방문 구간은 "최근 방문 순"으로 단순화된다 — 코스메틱 라인에 충분.
+**Consequences:** 렌더 전용 + uiSlice 토글 1개 — GEN_VERSION·저장 포맷 무관. 후순위 ④ 오프스크린 화살표는 백로그 잔류.
+
+---
+
 ## Architecture
 
 ### Structure
@@ -413,8 +448,8 @@ src/
 ├── scenes/                   # R3F — 게임 규칙 없음, store 액션 호출만
 │   ├── SceneRouter.tsx       # scene.kind switch
 │   ├── shared/               # CameraRig(마우스+터치), ContextLossGuard
-│   ├── galaxy/               # GalaxyScene, GalaxyStarField(전수 별, 결정 22), useGalaxyStars, useStarPicking, VisitedStarMarkers
-│   ├── system/               # SystemScene, Planet, Orbits
+│   ├── galaxy/               # GalaxyScene, GalaxyStarField(전수 별+방문 틴트, 결정 22·30), useGalaxyStars, useStarPicking, CurrentStarBeacon, JourneyPath
+│   ├── system/               # SystemScene, StarSurface(결정 29), Planet(+planetTexture·PlanetAtmosphere), Orbits
 │   └── warp/WarpEffect.tsx   # 3단 타임라인
 ├── quality/useQualityTier.ts # detect-gpu 초기 티어 + PerformanceMonitor 사후 하향
 ├── ui/                       # DOM 레이어 — 키보드/포커스/반응형 전부 여기
