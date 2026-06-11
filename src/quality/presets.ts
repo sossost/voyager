@@ -13,8 +13,8 @@ export interface QualityPreset {
   readonly planetSegments: number
   /**
    * 행성 표면 베이크 베이스 가로 해상도 (세로는 절반, 결정 33).
-   * 베이크는 마운트 시 동기 CPU 작업이라 해상도가 곧 진입 비용이다 — 실측(M계열 데스크톱):
-   * 384=20ms/장(8행성 164ms, 워프 플래시 페이드 650ms 뒤에 숨음), 256=9ms, 192=5ms.
+   * 베이크는 CPU 작업이지만 프레임당 1장 큐(bakeQueue)로 분산되어 히치가 없다 —
+   * 실측(M계열 데스크톱): 512=36ms/장, 256=9ms, 192=5ms. 해상도는 화질만 정한다.
    */
   readonly planetTextureBaseWidth: number
   readonly postFx: boolean
@@ -25,7 +25,7 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     dprMax: 2,
     maxPointSize: 12,
     planetSegments: 64,
-    planetTextureBaseWidth: 384,
+    planetTextureBaseWidth: 512,
     postFx: true,
   },
   medium: {

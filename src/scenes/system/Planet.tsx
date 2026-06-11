@@ -1,11 +1,16 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Group, Mesh } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
-import { bakePlanetTextures, disposePlanetTextures } from '@/scenes/system/planetTexture'
+import { enqueueBake } from '@/scenes/system/bakeQueue'
+import {
+  bakePlanetTextures,
+  disposePlanetTextures,
+  type PlanetTextureSet,
+} from '@/scenes/system/planetTexture'
 import { useGameStore } from '@/store'
 
 export const ORBIT_BASE_RADIUS = 10
@@ -32,14 +37,21 @@ export function orbitRadiusOf(planet: PlanetData): number {
   return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE
 }
 
+/** 베이크가 도착하기 전의 플레이스홀더 색 — paletteSeed 파생 (텍스처로 교체된다). */
+function placeholderColor(planet: PlanetData): string {
+  const hue = planet.paletteSeed % 360
+  return planet.kind === 'rocky' ? `hsl(${hue}, 32%, 52%)` : `hsl(${hue}, 58%, 62%)`
+}
+
 interface PlanetProps {
   readonly planet: PlanetData
 }
 
 /**
  * 공전하는 행성 — 위치는 시간 t에서 계산하며 상태로 저장하지 않는다 (R3F 성능 규율).
- * 표면은 paletteSeed 결정론 베이크 텍스처(결정 29), 조명은 항성 포인트라이트가
- * 만드는 낮/밤 경계를 그대로 쓴다. 클릭하면 행성 패널이 열린다.
+ * 표면은 paletteSeed 결정론 베이크 텍스처(결정 29·33) — 베이크는 프레임 분산 큐로
+ * 비동기 수행되어 진입 히치가 없고, 도착 전에는 플레이스홀더 단색을 쓴다.
+ * 조명은 항성 포인트라이트가 만드는 낮/밤 경계를 그대로 쓴다. 클릭하면 행성 패널이 열린다.
  */
 export function Planet({ planet }: PlanetProps) {
   const groupRef = useRef<Group>(null)
@@ -50,11 +62,20 @@ export function Planet({ planet }: PlanetProps) {
   const qualityTier = useGameStore((state) => state.qualityTier)
   const { planetSegments: segments, planetTextureBaseWidth } = QUALITY_PRESETS[qualityTier]
 
-  const textures = useMemo(
-    () => bakePlanetTextures(planet, planetTextureBaseWidth),
-    [planet, planetTextureBaseWidth],
-  )
-  useEffect(() => () => disposePlanetTextures(textures), [textures])
+  const [textures, setTextures] = useState<PlanetTextureSet | null>(null)
+
+  useEffect(() => {
+    let bakedSet: PlanetTextureSet | null = null
+    const cancelBake = enqueueBake(() => {
+      bakedSet = bakePlanetTextures(planet, planetTextureBaseWidth)
+      setTextures(bakedSet)
+    })
+    return () => {
+      cancelBake()
+      if (bakedSet != null) disposePlanetTextures(bakedSet)
+      setTextures(null)
+    }
+  }, [planet, planetTextureBaseWidth])
 
   const orbitRadius = orbitRadiusOf(planet)
   const initialPhase = ((planet.paletteSeed % 360) / 360) * FULL_TURN
@@ -85,14 +106,22 @@ export function Planet({ planet }: PlanetProps) {
         }}
       >
         <sphereGeometry args={[visualRadius, segments, segments]} />
-        <meshStandardMaterial
-          map={textures.surface}
-          roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
-          metalness={0.05}
-        />
+        {textures == null ? (
+          <meshStandardMaterial
+            color={placeholderColor(planet)}
+            roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
+            metalness={0.05}
+          />
+        ) : (
+          <meshStandardMaterial
+            map={textures.surface}
+            roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
+            metalness={0.05}
+          />
+        )}
       </mesh>
 
-      {textures.clouds != null ? (
+      {textures?.clouds != null ? (
         <mesh ref={cloudsRef}>
           <sphereGeometry args={[visualRadius * CLOUD_LAYER_SCALE, segments, segments]} />
           <meshStandardMaterial

@@ -61,17 +61,18 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
     return mix(bottom, top, f.z);
   }
 
-  // 3옥타브 fbm — 가중치 합 = 1, 주파수 배율은 격자 정렬 아티팩트를 피해 2/4에서 살짝 비튼 값
+  // 4옥타브 fbm — 가중치 합 = 1, 주파수 배율은 격자 정렬 아티팩트를 피해 2/4/8에서 살짝 비튼 값
   float fbm(vec3 p) {
-    float sum = 0.55 * noise3(p);
-    sum += 0.27 * noise3(p * 2.13 + vec3(31.7));
-    sum += 0.18 * noise3(p * 4.41 + vec3(11.3));
+    float sum = 0.48 * noise3(p);
+    sum += 0.26 * noise3(p * 2.13 + vec3(31.7));
+    sum += 0.16 * noise3(p * 4.41 + vec3(11.3));
+    sum += 0.10 * noise3(p * 8.93 + vec3(57.2));
     return sum;
   }
 
   void main() {
     // 끓는 표면: 위상이 다른 두 노이즈 장을 교차 — 입상반이 일렁인다
-    vec3 p = vUnit * 5.5;
+    vec3 p = vUnit * 8.0;
     float fieldA = fbm(p + vec3(0.0, uTime * 0.055, 0.0));
     float fieldB = fbm(p * 1.7 + vec3(uTime * 0.04, 0.0, -uTime * 0.047));
     float granulation = 0.6 * fieldA + 0.4 * fieldB;
