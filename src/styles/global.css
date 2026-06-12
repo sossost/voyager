@@ -606,6 +606,24 @@ body {
 
 /* ── 워프 플래시 (z-20) ─────────────────────────────── */
 
+/* ── 현재 별 오프스크린 방향 화살표 (백로그 F-2 ④) ───────────────────────── */
+
+.current-star-arrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none; /* CurrentStarArrowProjector가 on/off 제어 */
+  width: 22px;
+  height: 18px;
+  pointer-events: none;
+  background: #ffd166; /* --color-warn (beacon과 동일 amber) */
+  clip-path: polygon(0 0, 0 100%, 100% 50%); /* 오른쪽 방향 삼각형 — JS rotate로 조향 */
+  filter: drop-shadow(0 0 5px #ffd16699);
+  opacity: 0.9;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+
 .warp-flash {
   position: absolute;
   inset: 0;

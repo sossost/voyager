@@ -1,6 +1,7 @@
 import { OrbitControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 
 /** 초점이 은하 중심급일 때의 기본 진입 오프셋 (나선 전체 조망). */
 const DEFAULT_OFFSET_Y = 180
@@ -28,21 +29,26 @@ export function CameraRig({
   offsetZ = DEFAULT_OFFSET_Z,
 }: CameraRigProps) {
   const camera = useThree((state) => state.camera)
+  const controlsRef = useRef<OrbitControlsImpl>(null)
   // 좌표 값 기준 의존성 — focus 배열의 참조가 바뀌어도 값이 같으면 스냅하지 않는다
   // (워프 중 GalaxyScene 리렌더가 플레이어의 궤도 포즈를 초기화하면 안 된다)
   const [focusX, focusY, focusZ] = focus
 
   useEffect(() => {
     camera.position.set(focusX, focusY + offsetY, focusZ + offsetZ)
+    if (controlsRef.current != null) {
+      controlsRef.current.target.set(focusX, focusY, focusZ)
+      controlsRef.current.update()
+    }
   }, [camera, focusX, focusY, focusZ, offsetY, offsetZ])
 
   return (
     <OrbitControls
+      ref={controlsRef}
       makeDefault
       enableDamping
       dampingFactor={0.08}
       enablePan
-      target={[focusX, focusY, focusZ]}
       minDistance={minDistance}
       maxDistance={maxDistance}
     />

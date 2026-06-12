@@ -7,6 +7,9 @@ import { useGameStore } from '@/store'
 
 const PULSE_SPEED = 4
 const PULSE_AMPLITUDE = 0.12
+const RING_INNER_RADIUS = 2.4
+const RING_OUTER_RADIUS = 3.0
+const RING_SEGMENTS = 48
 
 /** 선택한 별 주위의 맥동하는 링 — 항상 카메라를 향한다. */
 export function SelectedStarMarker() {
@@ -33,7 +36,7 @@ export function SelectedStarMarker() {
   return (
     <group ref={groupRef} position={[position[0], position[1], position[2]]}>
       <mesh>
-        <ringGeometry args={[2.4, 3.0, 48]} />
+        <ringGeometry args={[RING_INNER_RADIUS, RING_OUTER_RADIUS, RING_SEGMENTS]} />
         <meshBasicMaterial color="#7c5cff" transparent opacity={0.9} side={DoubleSide} />
       </mesh>
     </group>

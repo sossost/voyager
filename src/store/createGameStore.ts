@@ -40,8 +40,6 @@ function buildSpeciesCounts(collection: readonly CollectionEntry[]): Map<string,
   return counts
 }
 
-let nextToastId = 1
-
 /**
  * 게임 스토어 팩토리 — 테스트는 이 팩토리로 격리된 스토어를 만든다.
  *
@@ -50,6 +48,7 @@ let nextToastId = 1
  * persist 호출을 함께 수행하는 명시적 write-through만 허용한다.
  */
 export function createGameStore(options: CreateGameStoreOptions) {
+  let nextToastId = 1
   const { driver } = options
   const now = options.now ?? Date.now
   const createdAt = options.createdAt ?? now()

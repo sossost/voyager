@@ -19,7 +19,7 @@ export function WarpFlashOverlay() {
   const [isFlashOn, setIsFlashOn] = useState(false)
 
   useEffect(() => {
-    if (!isWarping) {
+    if (isWarping === false) {
       setIsFlashOn(false) // 도착 — CSS transition으로 페이드아웃
       return
     }

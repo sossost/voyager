@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { QUALITY_PRESETS } from '@/quality/presets'
+import { CurrentStarArrowProjector } from '@/scenes/galaxy/CurrentStarArrowProjector'
 import { CurrentStarBeacon } from '@/scenes/galaxy/CurrentStarBeacon'
 import { GalaxyNebula } from '@/scenes/galaxy/GalaxyNebula'
 import { GalaxyStarField } from '@/scenes/galaxy/GalaxyStarField'
@@ -108,6 +109,7 @@ export function GalaxyScene() {
       {scene.kind === 'warping' ? <CurrentStarBeacon /> : null}
       <SelectedStarMarker />
       <StarCalloutProjector />
+      <CurrentStarArrowProjector />
     </>
   )
 }
