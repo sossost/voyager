@@ -6,6 +6,7 @@ import { persist } from '@/persistence/persist'
 import type {
   CollectionEntry,
   ExplorationRecord,
+  HintKey,
   Profile,
   StorageDriver,
   VisitRecord,
@@ -30,6 +31,8 @@ export interface CreateGameStoreOptions {
   /** 테스트에서 시각을 고정할 수 있도록 주입 가능. */
   readonly now?: () => number
   readonly createdAt?: number
+  /** 이미 표시된 힌트 목록 — 없으면 빈 배열. */
+  readonly initialSeenHints?: readonly HintKey[]
 }
 
 function buildSpeciesCounts(collection: readonly CollectionEntry[]): Map<string, number> {
@@ -69,6 +72,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
       genVersion: get().genVersion,
       currentStarId: get().currentStarId,
       createdAt,
+      seenHints: [...get().seenHints],
     })
 
     const reportPersistFailure = () => {
@@ -216,6 +220,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
     storageMode: driver.mode,
     toasts: [],
     isJourneyPathVisible: false,
+    seenHints: new Set<HintKey>(options.initialSeenHints ?? []),
 
     openOverlay(overlay) {
       set({ overlay })
@@ -246,6 +251,17 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     dismissToast(id) {
       set({ toasts: get().toasts.filter((toast) => toast.id !== id) })
+    },
+
+    markHintSeen(key) {
+      const { seenHints } = get()
+      if (seenHints.has(key)) return
+      const nextSeen = new Set(seenHints)
+      nextSeen.add(key)
+      set({ seenHints: nextSeen })
+      void persist(async () => {
+        await driver.saveProfile(buildProfile())
+      }, reportPersistFailure)
     },
 
     // ── settingsSlice ───────────────────────────────────────

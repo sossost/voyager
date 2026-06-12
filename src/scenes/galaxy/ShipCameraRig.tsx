@@ -1,6 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 
+import { cameraActions } from '@/scenes/shared/cameraActions'
 import { useGameStore } from '@/store'
 
 /**
@@ -72,6 +73,19 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
   const currentYaw = useRef(0)
   const currentPitch = useRef(INITIAL_PITCH)
   const dragPointer = useRef<{ id: number; x: number; y: number } | null>(null)
+
+  // 복귀 버튼 — 시선을 현재 별 방향(초기 포즈)으로 즉시 리셋한다
+  useEffect(() => {
+    cameraActions.reset = () => {
+      targetYaw.current = 0
+      targetPitch.current = INITIAL_PITCH
+    }
+    cameraActions.zoomIn = null
+    cameraActions.zoomOut = null
+    return () => {
+      cameraActions.reset = null
+    }
+  }, [])
 
   // 도착 확대 — 마운트가 워프 도착이면(pendingArrival) 줌인을 시작하고 플래그를 소비한다.
   // 뷰 토글로 마운트했으면 작동하지 않는다 (pendingArrival=false → 즉시 정박).

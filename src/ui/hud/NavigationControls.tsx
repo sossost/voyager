@@ -1,3 +1,4 @@
+import { cameraActions } from '@/scenes/shared/cameraActions'
 import { useGameStore } from '@/store'
 
 /** 경로선은 구간이 1개는 있어야 의미가 있다 — 그 전에는 토글을 숨긴다. */
@@ -17,19 +18,48 @@ export function NavigationControls() {
   if (scene.view === 'perspective') {
     return (
       <nav className="navigation-controls" aria-label="화면 컨트롤">
-        <button type="button" className="hud-button" onClick={returnToShip}>
-          ← 우주선
-        </button>
-        {hasJourney ? (
+        <div className="nav-row">
+          <button type="button" className="hud-button" onClick={returnToShip}>
+            ← 우주선
+          </button>
+          {hasJourney ? (
+            <button
+              type="button"
+              className="hud-button"
+              aria-pressed={isJourneyPathVisible}
+              onClick={toggleJourneyPath}
+            >
+              여정 경로
+            </button>
+          ) : null}
+        </div>
+        <div className="nav-row nav-secondary-row">
           <button
             type="button"
-            className="hud-button"
-            aria-pressed={isJourneyPathVisible}
-            onClick={toggleJourneyPath}
+            className="hud-button hud-button-icon"
+            aria-label="현재 위치로 복귀"
+            title="현재 위치로 복귀"
+            onClick={() => cameraActions.reset?.()}
           >
-            여정 경로
+            ⟳
           </button>
-        ) : null}
+          <button
+            type="button"
+            className="hud-button hud-button-icon nav-zoom-button"
+            aria-label="축소"
+            onClick={() => cameraActions.zoomOut?.()}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="hud-button hud-button-icon nav-zoom-button"
+            aria-label="확대"
+            onClick={() => cameraActions.zoomIn?.()}
+          >
+            ＋
+          </button>
+        </div>
       </nav>
     )
   }
@@ -37,9 +67,20 @@ export function NavigationControls() {
   // 우주선 뷰 (1인칭, 현재 항성계 안) — 은하 항법 뷰로 전환
   return (
     <nav className="navigation-controls" aria-label="화면 컨트롤">
-      <button type="button" className="hud-button" onClick={openPerspective}>
-        은하 항법
-      </button>
+      <div className="nav-row">
+        <button type="button" className="hud-button" onClick={openPerspective}>
+          은하 항법
+        </button>
+        <button
+          type="button"
+          className="hud-button hud-button-icon"
+          aria-label="별 방향으로 시선 복귀"
+          title="별 방향으로 시선 복귀"
+          onClick={() => cameraActions.reset?.()}
+        >
+          ⟳
+        </button>
+      </div>
     </nav>
   )
 }

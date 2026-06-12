@@ -1,7 +1,10 @@
 import { OrbitControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
+import { Vector3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+
+import { cameraActions } from '@/scenes/shared/cameraActions'
 
 /** 초점이 은하 중심급일 때의 기본 진입 오프셋 (나선 전체 조망). */
 const DEFAULT_OFFSET_Y = 180
@@ -35,12 +38,36 @@ export function CameraRig({
   const [focusX, focusY, focusZ] = focus
 
   useEffect(() => {
-    camera.position.set(focusX, focusY + offsetY, focusZ + offsetZ)
-    if (controlsRef.current != null) {
-      controlsRef.current.target.set(focusX, focusY, focusZ)
-      controlsRef.current.update()
+    const snapToFocus = () => {
+      camera.position.set(focusX, focusY + offsetY, focusZ + offsetZ)
+      if (controlsRef.current != null) {
+        controlsRef.current.target.set(focusX, focusY, focusZ)
+        controlsRef.current.update()
+      }
     }
-  }, [camera, focusX, focusY, focusZ, offsetY, offsetZ])
+    snapToFocus()
+
+    const stepZoom = (factor: number) => {
+      const controls = controlsRef.current
+      if (controls == null) return
+      const fromCamToTarget = new Vector3().subVectors(controls.target, camera.position)
+      const dist = fromCamToTarget.length()
+      const dir = fromCamToTarget.normalize()
+      const newDist = Math.max(minDistance, Math.min(maxDistance, dist * factor))
+      camera.position.copy(controls.target).addScaledVector(dir, -newDist)
+      controls.update()
+    }
+
+    cameraActions.reset = snapToFocus
+    cameraActions.zoomIn = () => stepZoom(0.75)
+    cameraActions.zoomOut = () => stepZoom(1.33)
+
+    return () => {
+      cameraActions.reset = null
+      cameraActions.zoomIn = null
+      cameraActions.zoomOut = null
+    }
+  }, [camera, focusX, focusY, focusZ, offsetY, offsetZ, minDistance, maxDistance])
 
   return (
     <OrbitControls
