@@ -86,6 +86,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
     scene: { kind: 'galaxy', view: 'ship' } satisfies SceneState,
     selectedStarId: null,
     selectedPlanetId: null,
+    pendingArrival: false,
 
     selectStar(starId) {
       if (get().scene.kind !== 'galaxy') return // ship·perspective 양쪽에서 별 선택 가능 (결정 41-f)
@@ -123,13 +124,14 @@ export function createGameStore(options: CreateGameStoreOptions) {
     onWarpComplete() {
       const { scene } = get()
       if (scene.kind !== 'warping') return
-      // 도착 = 새 별의 우주선 뷰 (항성계가 우주선 뷰에 통합됨, 결정 41-b)
-      set({ scene: { kind: 'galaxy', view: 'ship' } })
+      // 도착 = 새 별의 우주선 뷰 (항성계가 우주선 뷰에 통합됨, 결정 41-b).
+      // pendingArrival로 우주선 카메라의 도착 확대 연출을 1회 트리거한다.
+      set({ scene: { kind: 'galaxy', view: 'ship' }, pendingArrival: true })
     },
 
     openPerspective() {
       if (get().scene.kind !== 'galaxy') return
-      // 퍼스펙티브 뷰엔 행성이 안 보이므로 행성 선택을 해제한다
+      // 퍼스펙티브 뷰는 행성을 클릭하지 않으므로 행성 선택을 해제한다
       set({ scene: { kind: 'galaxy', view: 'perspective' }, selectedPlanetId: null })
     },
 
@@ -137,6 +139,11 @@ export function createGameStore(options: CreateGameStoreOptions) {
       if (get().scene.kind !== 'galaxy') return
       // 별 선택은 유지 — 우주선 뷰에서도 StarInfoPanel·항행이 동작한다
       set({ scene: { kind: 'galaxy', view: 'ship' } })
+    },
+
+    consumeArrival() {
+      if (!get().pendingArrival) return
+      set({ pendingArrival: false })
     },
 
     // ── playerSlice (영속 기록의 O(1) 캐시) ──────────────────

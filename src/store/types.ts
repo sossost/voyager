@@ -40,14 +40,21 @@ export interface SceneSlice {
   readonly scene: SceneState
   readonly selectedStarId: StarId | null
   readonly selectedPlanetId: PlanetId | null
+  /**
+   * 워프 도착 직후 한 번만 true — 우주선 뷰 진입 시 도착 확대 연출을 트리거한다 (결정 41-c 보강).
+   * 뷰 토글(perspective↔ship)이 아니라 워프 도착만 표지하도록 onWarpComplete만 set, 카메라가 소비.
+   */
+  readonly pendingArrival: boolean
   selectStar(starId: StarId | null): void
   selectPlanet(planetId: PlanetId | null): void
   warpTo(target: StarId): void
   onWarpComplete(): void
-  /** 우주선 뷰 → 퍼스펙티브 뷰 (은하 뷰에서만). 행성 선택은 해제된다 (행성 비표시). */
+  /** 우주선 뷰 → 퍼스펙티브 뷰 (은하 뷰에서만). 행성 선택은 해제된다. */
   openPerspective(): void
   /** 퍼스펙티브 뷰 → 우주선 뷰 (은하 뷰에서만). 별 선택은 유지된다. */
   returnToShip(): void
+  /** 도착 확대 연출이 카메라에 소비됐음을 표시 — 1회성 플래그를 끈다. */
+  consumeArrival(): void
 }
 
 export interface PlayerSlice {

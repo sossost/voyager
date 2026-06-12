@@ -6,12 +6,12 @@ import { starWorldPosition } from '@/engine/galaxy/position'
 import { useGameStore } from '@/store'
 
 /**
- * 퍼스펙티브(3인칭) 뷰의 우주선 모델 (결정 41-e) — 현재 별의 은하 좌표에 떠 있는 내 배.
+ * 퍼스펙티브(3인칭) 뷰의 우주선 모델 (결정 41-e) — 현재 항성계 곁에 떠 있는 내 배.
  * 퍼스펙티브 뷰에서만 렌더하며 CurrentStarBeacon을 대체한다(현재 위치 = 우주선 위치).
  *
  * 기하 도형 플레이스홀더 — 나중에 실아트로 교체 가능하게 이 컴포넌트로 캡슐화한다.
- * 조명 없는 퍼스펙티브 씬이라 자체 hemisphereLight로 입체감을 주고, 콕핏·엔진은
- * 가산/기본 머티리얼로 항상 빛난다. 렌더 전용 — GEN_VERSION·저장 포맷 무관.
+ * 항성과 겹치지 않게 궤도면 위로 띄우고, 항성계(CurrentSystem)의 주변광·항성 포인트라이트로
+ * 셰이딩한다(자체 광원 없음). 약한 emissive로 위쪽 면도 묻히지 않게 한다. 렌더 전용 — GEN 무관.
  */
 
 /** 선체 색 — 한색 별밭·보라 선택과 갈리는 차가운 강철. */
@@ -20,6 +20,11 @@ const WING_COLOR = '#8590a6'
 /** 콕핏·엔진 액센트 — 비콘과 같은 호박색(현재 위치 표지의 연속성). */
 const ACCENT_COLOR = '#ffd166'
 const ENGINE_COLOR = '#7cf2e0'
+
+/** 모델 스케일 — 항성계 프레이밍 거리(~138)에서 곁의 3인칭 요소로 읽히는 크기. */
+const SHIP_SCALE = 1.5
+/** 항성 위로 띄우는 높이 — 궤도면(행성) 위라 별·행성과 겹치지 않는다. */
+const SHIP_ABOVE_STAR = 18
 
 /** 가벼운 아이들 — 천천히 요잉하며 미세하게 부유한다 (살아있는 느낌). */
 const IDLE_YAW_SPEED = 0.25
@@ -47,23 +52,42 @@ export function SpaceshipModel() {
   })
 
   return (
-    <group ref={anchorRef} position={[position[0], position[1], position[2]]}>
-      {/* 우주선 전용 광원 — 퍼스펙티브 씬엔 조명이 없어 표준 머티리얼에 입체감을 준다 */}
-      <hemisphereLight args={['#bcd0ff', '#1a2030', 1.4]} />
-      <group ref={shipRef} scale={1.4}>
+    <group
+      ref={anchorRef}
+      position={[position[0], position[1] + SHIP_ABOVE_STAR, position[2]]}
+    >
+      <group ref={shipRef} scale={SHIP_SCALE}>
         {/* 선체 — +Z를 향하는 원뿔 (cone 기본 +Y를 +90° 회전) */}
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <coneGeometry args={[1, 3.6, 12]} />
-          <meshStandardMaterial color={HULL_COLOR} roughness={0.45} metalness={0.5} />
+          <meshStandardMaterial
+            color={HULL_COLOR}
+            emissive={HULL_COLOR}
+            emissiveIntensity={0.18}
+            roughness={0.45}
+            metalness={0.5}
+          />
         </mesh>
         {/* 날개 — 뒤로 스윕된 얇은 박스 2장 */}
         <mesh position={[1.15, 0, -0.7]} rotation={[0, 0, -0.32]}>
           <boxGeometry args={[2.2, 0.12, 1.1]} />
-          <meshStandardMaterial color={WING_COLOR} roughness={0.5} metalness={0.45} />
+          <meshStandardMaterial
+            color={WING_COLOR}
+            emissive={WING_COLOR}
+            emissiveIntensity={0.15}
+            roughness={0.5}
+            metalness={0.45}
+          />
         </mesh>
         <mesh position={[-1.15, 0, -0.7]} rotation={[0, 0, 0.32]}>
           <boxGeometry args={[2.2, 0.12, 1.1]} />
-          <meshStandardMaterial color={WING_COLOR} roughness={0.5} metalness={0.45} />
+          <meshStandardMaterial
+            color={WING_COLOR}
+            emissive={WING_COLOR}
+            emissiveIntensity={0.15}
+            roughness={0.5}
+            metalness={0.45}
+          />
         </mesh>
         {/* 콕핏 — 앞쪽 상단의 호박색 캐노피 */}
         <mesh position={[0, 0.35, 0.9]}>

@@ -97,8 +97,6 @@ interface GalaxyStarFieldProps {
   readonly maxPointSize: number
   readonly visitedStars: ReadonlySet<StarId>
   readonly currentStarId: StarId
-  /** 현재 별 구체(StarSurface)가 렌더 중인가 — 그럴 때만 포인트를 거리로 페이드 (결정 41-c). */
-  readonly isSystemVisible: boolean
 }
 
 /**
@@ -111,7 +109,6 @@ export function GalaxyStarField({
   maxPointSize,
   visitedStars,
   currentStarId,
-  isSystemVisible,
 }: GalaxyStarFieldProps) {
   const geometry = useMemo(() => buildGeometry(stars), [stars])
   const currentStarScratch = useMemo(() => new Vector3(), [])
@@ -179,20 +176,18 @@ export function GalaxyStarField({
   useFrame((state) => {
     setUniform(material, 'uPixelRatio', state.gl.getPixelRatio())
 
-    // 현재 별 포인트 크로스페이드 — 구체가 보일 때만 카메라 거리로 페이드 (결정 41-c).
-    // 구체가 없는 뷰(퍼스펙티브)에선 포인트를 그대로 보인다.
+    // 현재 별 포인트 크로스페이드 — 구체(StarSurface)는 항상 렌더되므로 카메라 거리로
+    // 항상 핸드오프한다. 가까우면 구체, 멀면(퍼스펙티브 줌아웃) 포인트로 (결정 41-c).
     let currentFade = 1
-    if (isSystemVisible) {
-      const index = indexByStarId.get(currentStarId)
-      const star = index == null ? null : stars[index]
-      if (star != null) {
-        currentStarScratch.set(
-          star.sector.sx * SECTOR_SIZE + star.localPos[0],
-          star.sector.sy * SECTOR_SIZE + star.localPos[1],
-          star.sector.sz * SECTOR_SIZE + star.localPos[2],
-        )
-        currentFade = crossfadeProgress(state.camera.position.distanceTo(currentStarScratch))
-      }
+    const index = indexByStarId.get(currentStarId)
+    const star = index == null ? null : stars[index]
+    if (star != null) {
+      currentStarScratch.set(
+        star.sector.sx * SECTOR_SIZE + star.localPos[0],
+        star.sector.sy * SECTOR_SIZE + star.localPos[1],
+        star.sector.sz * SECTOR_SIZE + star.localPos[2],
+      )
+      currentFade = crossfadeProgress(state.camera.position.distanceTo(currentStarScratch))
     }
     setUniform(material, 'uCurrentFade', currentFade)
   })

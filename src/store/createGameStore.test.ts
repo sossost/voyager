@@ -94,6 +94,21 @@ describe('씬 전이 가드', () => {
     expect(store.getState().currentStarId).toBe(target)
   })
 
+  it('워프 도착은 pendingArrival을 켜고, consumeArrival이 1회성으로 끈다 (도착 확대 연출)', () => {
+    expect(store.getState().pendingArrival).toBe(false)
+
+    store.getState().warpTo(target)
+    expect(store.getState().pendingArrival).toBe(false) // 발동 시점엔 아직
+    store.getState().onWarpComplete()
+    expect(store.getState().pendingArrival).toBe(true) // 도착 = 트리거
+
+    store.getState().consumeArrival()
+    expect(store.getState().pendingArrival).toBe(false) // 카메라가 소비
+
+    store.getState().consumeArrival()
+    expect(store.getState().pendingArrival).toBe(false) // 멱등 — 변화 없음
+  })
+
   it('퍼스펙티브 뷰를 열고 우주선 뷰로 돌아온다 (결정 41)', () => {
     expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
 
