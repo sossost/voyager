@@ -55,7 +55,7 @@ describe('explore 가드', () => {
     expect(store.getState().encounter).toBeNull()
   })
 
-  it('다른 별계의 행성은 탐사할 수 없다', () => {
+  it('다른 항성계의 행성은 탐사할 수 없다', () => {
     warpToStar(barrenStar) // lifePlanet은 lifeStar 소속
     store.getState().explore(lifePlanet)
     expect(store.getState().encounter).toBeNull()

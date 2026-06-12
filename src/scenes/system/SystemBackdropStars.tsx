@@ -10,11 +10,11 @@ import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMate
 import { starVariance } from '@/scenes/shared/starVariance'
 
 /**
- * 별계 씬 배경 별 — 은하의 실제 이웃 별을 천구 셸에 투영한다 (백로그 E-6, 결정 25).
+ * 항성계 씬 배경 별 — 은하의 실제 이웃 별을 천구 셸에 투영한다 (백로그 E-6, 결정 25).
  *
  * generateGalaxyStars의 시드당 캐시를 재사용하므로 생성 비용 0에 가깝고,
  * 방향이 실제 은하 좌표 그대로라 "은하 지도에서 보이던 그 별이 그 방향 하늘에 떠 있다".
- * 별계 씬은 플로팅 오리진(현재 별 = 0,0,0, 결정 15)이므로 현재 별 기준 상대 방향을
+ * 항성계 씬은 플로팅 오리진(현재 별 = 0,0,0, 결정 15)이므로 현재 별 기준 상대 방향을
  * 고정 반경 셸로 정규화한다 — 가장 가까운 이웃도 행성 궤도(~53)와 절대 겹치지 않는다.
  * 렌더 전용 — Points 1드로콜, 시드 결정론 유지, GEN_VERSION 무관.
  */

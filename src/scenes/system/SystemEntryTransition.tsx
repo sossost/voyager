@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Vector3 } from 'three'
 
 /**
- * 별계 진입 트랜지션 — 기본 시점보다 멀리서 시작해 부드럽게 줌인으로 안착한다.
+ * 항성계 진입 트랜지션 — 기본 시점보다 멀리서 시작해 부드럽게 줌인으로 안착한다.
  * 띡 하고 뜨는 즉시 스왑 대신 "다가가는" 한 호흡을 만든다 (결정 27).
  * 이징 동안 OrbitControls를 멈추고, 안착하면 되돌린다 — ref 기반, store 쓰기 없음 (철칙 6).
  */

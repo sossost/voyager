@@ -10,6 +10,13 @@ import {
 } from 'three'
 
 import { GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
+import {
+  NEBULA_ROSE_RGB,
+  NEBULA_TEAL_RGB,
+  NEBULA_TINT_MAX_BLEND,
+  nebulaTintAt,
+  nebulaTintShift,
+} from '@/scenes/galaxy/galaxyNebulae'
 
 /**
  * 은하 성운 헤이즈 — 밀도 함수를 텍스처로 구워 은하면에 깐 평면 1장 (드로콜 1).
@@ -45,6 +52,7 @@ const COLOR_BLEND_RADIUS_SECTORS = 10
 const CORE_GLOW_RADIUS_SECTORS = 14
 const CORE_GLOW_ALPHA = 0.85
 
+
 function clamp01(value: number): number {
   if (value < 0) return 0
   if (value > 1) return 1
@@ -76,10 +84,25 @@ function buildNebulaTexture(): CanvasTexture {
       // 어두운 영역을 더 어둡게 — 팔 사이 공간이 비어 보여야 나선이 산다
       const brightness = Math.pow(density, 1.2)
 
+      // 성운 색조 — 우주선 뷰 파노라마와 같은 필드 (galaxyNebulae, 우주 일관성)
+      const tint = nebulaTintAt(sx, 0, sz)
+      const roseShift = nebulaTintShift(tint.rose) * NEBULA_TINT_MAX_BLEND
+      const tealShift = nebulaTintShift(tint.teal) * NEBULA_TINT_MAX_BLEND
+
+      let red = ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth
+      let green = ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth
+      let blue = ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth
+      red += (NEBULA_ROSE_RGB[0] - red) * roseShift
+      green += (NEBULA_ROSE_RGB[1] - green) * roseShift
+      blue += (NEBULA_ROSE_RGB[2] - blue) * roseShift
+      red += (NEBULA_TEAL_RGB[0] - red) * tealShift
+      green += (NEBULA_TEAL_RGB[1] - green) * tealShift
+      blue += (NEBULA_TEAL_RGB[2] - blue) * tealShift
+
       const offset = (texelZ * BASE_TEXELS + texelX) * 4
-      image.data[offset] = (ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth) * brightness
-      image.data[offset + 1] = (ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth) * brightness
-      image.data[offset + 2] = (ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth) * brightness
+      image.data[offset] = red * brightness
+      image.data[offset + 1] = green * brightness
+      image.data[offset + 2] = blue * brightness
       image.data[offset + 3] = 255 // 가산 블렌딩 — 검정 = 투명
     }
   }

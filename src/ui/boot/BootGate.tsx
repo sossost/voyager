@@ -55,7 +55,7 @@ function startGame(
 /**
  * 부트 시퀀스 (01-spec.md Happy Path 1):
  * WebGL 프로브 → 저장소 프로브 → 프로필 복원(없으면 SeedSetup) →
- * genVersion 검사 → 하이드레이트 → 현재 별계 직행.
+ * genVersion 검사 → 하이드레이트 → 현재 항성계 직행.
  */
 export function BootGate() {
   const [bootState, setBootState] = useState<BootState>({ status: 'checking' })

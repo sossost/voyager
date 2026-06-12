@@ -14,7 +14,7 @@ function seedOf(value: string): Seed {
   return seed
 }
 
-describe('SystemReadout (별계 진입 함교 리드아웃)', () => {
+describe('SystemReadout (항성계 진입 함교 리드아웃)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     const seed = seedOf('READOUT1')
@@ -26,7 +26,7 @@ describe('SystemReadout (별계 진입 함교 리드아웃)', () => {
     vi.useRealTimers()
   })
 
-  it('별계 씬에서 마운트되면 항성 이름과 분광형을 표시한다', () => {
+  it('항성계 씬에서 마운트되면 항성 이름과 분광형을 표시한다', () => {
     render(<SystemReadout />)
 
     const readout = screen.getByRole('status')
@@ -44,7 +44,7 @@ describe('SystemReadout (별계 진입 함교 리드아웃)', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('별계를 떠났다가 재진입하면 다시 표시된다', () => {
+  it('항성계를 떠났다가 재진입하면 다시 표시된다', () => {
     render(<SystemReadout />)
 
     act(() => {
