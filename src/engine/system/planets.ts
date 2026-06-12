@@ -22,6 +22,8 @@ export interface Planet {
   readonly paletteSeed: number
   /** 인류의 고향 — hasLife이지만 외계 생명체 없음 (지구 전용 예외). */
   readonly isHomeWorld?: boolean
+  /** 행성 적도 고리 — Sol 토성 전용 시각 효과. */
+  readonly hasRings?: boolean
 }
 
 const MAX_PLANETS_PER_SYSTEM = 8

@@ -12,6 +12,10 @@ export const SOL_LOCAL_POS = [50, 0, 50] as const
  * 태양계 8행성 — RNG 미사용 상수. planetsOf의 Sol 분기에서 반환된다.
  * 이름·분광형·행성 수는 실제 반영, 궤도 반경은 게임 스케일(0.4~6.0 AU).
  * append-only 규칙 적용: 새 필드는 항상 마지막에 추가.
+ *
+ * paletteSeed 선택 기준: seed % 360 = 목표 색조(hue).
+ *   수성(25: 회갈색), 금성(42: 황토색), 지구(100: 녹지), 화성(12: 붉은빛),
+ *   목성(28: 주황갈색), 토성(48: 황금색), 천왕성(195: 청록), 해왕성(220: 짙은 파랑).
  */
 export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
   {
@@ -23,7 +27,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     orbitAu: 0.4,
     hasLife: false,
     name: '수성',
-    paletteSeed: 0x1a2b3c,
+    paletteSeed: 6145,   // hue 25 — 회갈색 암석 지형
   },
   {
     id: makePlanetId(SOL_STAR_ID, 1),
@@ -34,7 +38,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     orbitAu: 0.7,
     hasLife: false,
     name: '금성',
-    paletteSeed: 0x4d5e6f,
+    paletteSeed: 8322,   // hue 42 — 황토·주황 (두꺼운 대기)
   },
   {
     id: makePlanetId(SOL_STAR_ID, 2),
@@ -46,7 +50,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     hasLife: true,
     isHomeWorld: true,
     name: '지구',
-    paletteSeed: 0x2a7fb2,
+    paletteSeed: 11260,  // hue 100 — 녹지(대륙) + 고정 파란 바다
   },
   {
     id: makePlanetId(SOL_STAR_ID, 3),
@@ -57,7 +61,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     orbitAu: 1.5,
     hasLife: false,
     name: '화성',
-    paletteSeed: 0xad1a2b,
+    paletteSeed: 16932,  // hue 12 — 붉은빛 암석
   },
   {
     id: makePlanetId(SOL_STAR_ID, 4),
@@ -68,7 +72,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     orbitAu: 3.0,
     hasLife: false,
     name: '목성',
-    paletteSeed: 0xde9b3c,
+    paletteSeed: 19108,  // hue 28 — 갈색·주황 줄무늬
   },
   {
     id: makePlanetId(SOL_STAR_ID, 5),
@@ -79,7 +83,8 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     orbitAu: 4.0,
     hasLife: false,
     name: '토성',
-    paletteSeed: 0xf5d898,
+    paletteSeed: 22008,  // hue 48 — 황금·크림 줄무늬
+    hasRings: true,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 6),
@@ -90,7 +95,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     orbitAu: 5.0,
     hasLife: false,
     name: '천왕성',
-    paletteSeed: 0x8ecadc,
+    paletteSeed: 26475,  // hue 195 — 청록 얼음 행성
   },
   {
     id: makePlanetId(SOL_STAR_ID, 7),
@@ -101,6 +106,6 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     orbitAu: 6.0,
     hasLife: false,
     name: '해왕성',
-    paletteSeed: 0x3a6bca,
+    paletteSeed: 32260,  // hue 220 — 짙은 파랑
   },
 ] satisfies readonly Planet[]

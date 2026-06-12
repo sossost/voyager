@@ -1,5 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
+import { DoubleSide } from 'three'
 import type { Group, Mesh, Vector3 } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
@@ -161,6 +162,13 @@ export function Planet({ planet }: PlanetProps) {
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[visualRadius * 1.5, visualRadius * 1.7, 48]} />
           <meshBasicMaterial color="#7c5cff" transparent opacity={0.95} depthWrite={false} />
+        </mesh>
+      ) : null}
+
+      {planet.hasRings === true ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[visualRadius * 1.45, visualRadius * 2.65, 64]} />
+          <meshBasicMaterial color="#d4c097" transparent opacity={0.82} side={DoubleSide} depthWrite={false} />
         </mesh>
       ) : null}
 
