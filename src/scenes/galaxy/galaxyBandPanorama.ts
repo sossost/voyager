@@ -5,7 +5,13 @@ import {
   sectorDensity,
 } from '@/engine'
 
-import { GALAXY_NEBULAE } from '@/scenes/galaxy/galaxyNebulae'
+import {
+  NEBULA_ROSE_RGB,
+  NEBULA_TEAL_RGB,
+  NEBULA_TINT_MAX_BLEND,
+  nebulaTintAt,
+  nebulaTintShift,
+} from '@/scenes/galaxy/galaxyNebulae'
 
 /**
  * 은하 밴드 파노라마 베이크 (결정 38 고도화) — 정박 위치에서 본 은하 원반의
@@ -111,15 +117,12 @@ const BAND_PRIOR_SIGMA_WORLD = 650
 const BAND_PRIOR_FLOOR = 0.22
 
 /**
- * 성운 노출 — 가우시안 정관통 선적분(√π·σ ≈ 3~7.5)이 이 값이면 발광 1로 포화.
- * 밴드의 자동 노출과 분리된 고정 기준 — 성운 밝기가 정박 위치에 따라 출렁이면 안 된다.
+ * 성운 틴트 샘플 보폭 — 색조 노이즈는 파장이 길어(~11섹터) 3샘플에 1회로 충분하다.
+ * 노이즈 호출이 적분의 지배 비용이라 보폭이 정련 시간을 직접 줄인다.
  */
-const NEBULA_SATURATION = 4.5
-/** 성운 최대 표시 레벨 — 띠를 침범하지 않는 보조 발광의 상한 (실측 0.55는 띠를 삼켰다). */
-const NEBULA_MAX_LEVEL = 0.32
-/** 이 미만 기여는 계산을 건너뛴다 (대부분의 광선은 성운을 비껴간다). */
-const NEBULA_NEGLIGIBLE_FALLOFF = 1e-3
-const SQRT_PI = Math.sqrt(Math.PI)
+const TINT_SAMPLE_STRIDE = 3
+/** 발광 가스 패치의 밝기 보정 — 색만 바뀌면 죽은 얼룩, 살짝 밝아야 "빛나는 가스". */
+const TINT_BRIGHTNESS_LIFT = 0.35
 
 function clamp01(value: number): number {
   if (value < 0) return 0
@@ -154,10 +157,9 @@ interface RayGrid {
   readonly localIntegrals: Float32Array
   /** 밀도 가중 벌지 근접도 [0, 1] — 색 보간용. */
   readonly warmths: Float32Array
-  /** 성운 발광 선적분 (색 선곱) — 밴드와 별도 노출로 톤매핑된다. */
-  readonly nebulaRed: Float32Array
-  readonly nebulaGreen: Float32Array
-  readonly nebulaBlue: Float32Array
+  /** 밀도 가중 성운 색조 비율 [0, 1] — 광선이 지나온 가스의 평균 색조. */
+  readonly tintRose: Float32Array
+  readonly tintTeal: Float32Array
 }
 
 function createRayGrid(columns: number, rows: number): RayGrid {
@@ -167,9 +169,8 @@ function createRayGrid(columns: number, rows: number): RayGrid {
     integrals: new Float32Array(columns * rows),
     localIntegrals: new Float32Array(columns * rows),
     warmths: new Float32Array(columns * rows),
-    nebulaRed: new Float32Array(columns * rows),
-    nebulaGreen: new Float32Array(columns * rows),
-    nebulaBlue: new Float32Array(columns * rows),
+    tintRose: new Float32Array(columns * rows),
+    tintTeal: new Float32Array(columns * rows),
   }
 }
 
@@ -214,6 +215,10 @@ function bakeColumns(
       let integral = 0
       let localIntegral = 0
       let warmthIntegral = 0
+      let tintRose = 0
+      let tintTeal = 0
+      let tintWeight = 0
+      let sampleIndex = 0
       for (let distance = stepSectors * 0.5; distance <= rayEnd; distance += stepSectors) {
         const sx = originSx + directionX * distance
         const sy = originSy + directionY * distance
@@ -229,42 +234,23 @@ function bakeColumns(
         const radiusFromCore = Math.sqrt(sx * sx + sz * sz)
         warmthIntegral +=
           weighted * clamp01(1 - radiusFromCore / COLOR_BLEND_RADIUS_SECTORS)
-      }
 
-      // 성운 — 구형 가우시안의 선적분 닫힌형(√π·σ·exp(-(d⊥/σ)²)): 샘플링 없이 광선당 O(성운 수)
-      let nebulaRed = 0
-      let nebulaGreen = 0
-      let nebulaBlue = 0
-      for (const blob of GALAXY_NEBULAE) {
-        const toX = blob.sx - originSx
-        const toY = blob.sy - originSy
-        const toZ = blob.sz - originSz
-        let closest = toX * directionX + toY * directionY + toZ * directionZ
-        if (closest < 0) continue // 등 뒤
-        if (closest > rayEnd) closest = rayEnd
-
-        const gapX = originSx + directionX * closest - blob.sx
-        const gapY = originSy + directionY * closest - blob.sy
-        const gapZ = originSz + directionZ * closest - blob.sz
-        const sigma = blob.sigmaSectors
-        const falloff = Math.exp(
-          -(gapX * gapX + gapY * gapY + gapZ * gapZ) / (sigma * sigma),
-        )
-        if (falloff < NEBULA_NEGLIGIBLE_FALLOFF) continue
-
-        const lineIntegral = SQRT_PI * sigma * falloff
-        nebulaRed += lineIntegral * blob.color[0]
-        nebulaGreen += lineIntegral * blob.color[1]
-        nebulaBlue += lineIntegral * blob.color[2]
+        // 성운 색조 — 지나온 가스의 색을 밀도 가중 평균 (광원이 아니라 배경 성질, 결정 40 2차)
+        if (sampleIndex % TINT_SAMPLE_STRIDE === 0) {
+          const tint = nebulaTintAt(sx, sy, sz)
+          tintRose += weighted * tint.rose
+          tintTeal += weighted * tint.teal
+          tintWeight += weighted
+        }
+        sampleIndex++
       }
 
       const offset = row * grid.columns + column
       grid.integrals[offset] = integral
       grid.localIntegrals[offset] = localIntegral
       grid.warmths[offset] = integral > 0 ? warmthIntegral / integral : 0
-      grid.nebulaRed[offset] = nebulaRed
-      grid.nebulaGreen[offset] = nebulaGreen
-      grid.nebulaBlue[offset] = nebulaBlue
+      grid.tintRose[offset] = tintWeight > 0 ? tintRose / tintWeight : 0.5
+      grid.tintTeal[offset] = tintWeight > 0 ? tintTeal / tintWeight : 0.5
     }
   }
 }
@@ -318,21 +304,28 @@ function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
       const edgeFade = 1 - smoothstep(EDGE_FADE_START, 1, Math.abs(verticalRatio))
       const level = brightness * patch * rift * edgeFade
 
-      // 성운은 밴드 위에 얹는 보조 발광 — 고정 노출(정박 무관)에 가장자리 페이드만 공유
-      const nebulaRed = clamp01((grid.nebulaRed[offset] ?? 0) / NEBULA_SATURATION)
-      const nebulaGreen = clamp01((grid.nebulaGreen[offset] ?? 0) / NEBULA_SATURATION)
-      const nebulaBlue = clamp01((grid.nebulaBlue[offset] ?? 0) / NEBULA_SATURATION)
+      // 성운 색조 — 띠의 빛 자체가 로즈/청록으로 물든다 (더해지는 광원 없음, 결정 40 2차)
+      const roseShift =
+        nebulaTintShift(grid.tintRose[offset] ?? 0.5) * NEBULA_TINT_MAX_BLEND
+      const tealShift =
+        nebulaTintShift(grid.tintTeal[offset] ?? 0.5) * NEBULA_TINT_MAX_BLEND
+
+      let red = ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth
+      let green = ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth
+      let blue = ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth
+      red += (NEBULA_ROSE_RGB[0] - red) * roseShift
+      green += (NEBULA_ROSE_RGB[1] - green) * roseShift
+      blue += (NEBULA_ROSE_RGB[2] - blue) * roseShift
+      red += (NEBULA_TEAL_RGB[0] - red) * tealShift
+      green += (NEBULA_TEAL_RGB[1] - green) * tealShift
+      blue += (NEBULA_TEAL_RGB[2] - blue) * tealShift
+
+      const tintedLevel = level * (1 + (roseShift + tealShift) * TINT_BRIGHTNESS_LIFT)
 
       const pixel = offset * 4
-      image.data[pixel] =
-        (ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth) * level +
-        nebulaRed * NEBULA_MAX_LEVEL * edgeFade * 255
-      image.data[pixel + 1] =
-        (ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth) * level +
-        nebulaGreen * NEBULA_MAX_LEVEL * edgeFade * 255
-      image.data[pixel + 2] =
-        (ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth) * level +
-        nebulaBlue * NEBULA_MAX_LEVEL * edgeFade * 255
+      image.data[pixel] = red * tintedLevel
+      image.data[pixel + 1] = green * tintedLevel
+      image.data[pixel + 2] = blue * tintedLevel
       image.data[pixel + 3] = 255 // 가산 블렌딩 — 검정 = 투명 (GalaxyNebula와 같은 규약)
     }
   }

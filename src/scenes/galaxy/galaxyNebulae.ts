@@ -1,88 +1,52 @@
-import { sectorDensity } from '@/engine'
+import { valueNoise3 } from '@/engine/noise/valueNoise'
 
 /**
- * 장식 성운 필드 — 은하 군데군데 떠 있는 발광 가스 패치 (백로그 G-b-6 후속 피드백).
+ * 성운 틴트 필드 — 배경 은하광의 색조 변주 (결정 40 2차).
  *
- * 은하 매크로 형상(sectorDensity)이 시드 무관이므로 성운도 시드 무관 결정론으로
- * 고정한다 — 모든 플레이어가 같은 자리의 같은 성운을 본다. 결정론 거부 샘플링으로
- * 나선팔 위(밀도 있는 곳)에만 앉혀 "아무 데나 뿌린 구름"(결정 28 기각 패턴)이 아니라
- * 은하 구조에 속한 가스로 읽히게 한다.
+ * 1차(가우시안 블롭 광원)는 블롭 근처 항성계에서 하늘을 덮는 "오로라 커튼"이 되어
+ * 기각됐다. 성운은 **광원이 아니라 배경의 성질**이어야 한다 — 실제 은하수 사진처럼
+ * 띠 안에 H-알파(로즈)·반사성운(청록) 기운이 군데군데 배어 있는 색조 패치.
  *
- * 소비처 둘이 같은 목록을 공유한다 (우주 일관성, 결정 24와 같은 원칙):
- * - 우주선 뷰 파노라마(galaxyBandPanorama) — 광선마다 가우시안 선적분(닫힌형)
- * - 은하 전도(GalaxyNebula) — 평면도 텍스처에 라디얼 그라디언트로 투영
+ * 구현: 적분되는 은하광 자체의 색을 위치 노이즈로 변조한다. 더해지는 빛이 없으므로
+ * 어느 정박에서 봐도 항상 띠의 일부로만 읽히고, 가까이 가도 커튼이 생길 수 없다.
+ * 노이즈는 시드 무관 결정론 — 모든 플레이어가 같은 색조의 하늘을 본다.
+ *
+ * 소비처 둘이 같은 필드를 공유한다 (우주 일관성, 결정 24 원칙):
+ * - 우주선 뷰 파노라마(galaxyBandPanorama) — 광선 적분 중 밀도 가중 색조 누적
+ * - 은하 전도(GalaxyNebula) — 평면도 텍셀 색에 같은 변조
  */
 
-export interface GalaxyNebulaBlob {
-  /** 중심 (섹터 좌표) — 원반면 근처. */
-  readonly sx: number
-  readonly sy: number
-  readonly sz: number
-  /** 구형 가우시안 σ (섹터). */
-  readonly sigmaSectors: number
-  /** 발광색 (0..1 선형) — 가산 블렌딩 전제. */
-  readonly color: readonly [number, number, number]
+/** 색조 패치의 공간 주파수 — 파장 ~11섹터, 클럼프 노이즈(0.18)보다 굵은 가스 구름 스케일. */
+const TINT_FREQUENCY = 0.09
+/** 노이즈 솔트 — 엔진 클럼프(7)·행성 텍스처와 겹치지 않게. */
+const ROSE_SALT = 11
+const TEAL_SALT = 12
+
+/** 색조 목표색 — 발광 성운(로즈)·반사 성운(청록). 가산 띠 위에서 자연스러운 천체 색. */
+export const NEBULA_ROSE_RGB = [255, 122, 142] as const
+export const NEBULA_TEAL_RGB = [112, 228, 208] as const
+/** 색조 최대 혼합률 — 띠 고유색(한색 팔·난색 벌지)을 잃지 않는 상한. */
+export const NEBULA_TINT_MAX_BLEND = 0.58
+
+export interface NebulaTint {
+  /** 로즈(발광 가스) 노이즈 [0, 1]. */
+  readonly rose: number
+  /** 청록(반사 가스) 노이즈 [0, 1]. */
+  readonly teal: number
 }
 
-const NEBULA_COUNT = 11
-/** 배치 환대 — 벌지(코어 글로우 영역) 밖, 림 페이드 안. */
-const MIN_RADIUS_SECTORS = 9
-const MAX_RADIUS_SECTORS = 42
-/** 이 미만 밀도엔 놓지 않는다 — 팔 사이 공허에 뜬 성운은 구조 없는 구름으로 읽힌다. */
-const MIN_DENSITY = 0.12
-/** 원반면 수직 산포 (섹터) — 가스는 별보다 얇게 깔린다. */
-const VERTICAL_SPREAD_SECTORS = 0.9
-/** σ는 작게 — 크면 띠 전체를 물들이는 워시가 된다 (실측 1.6~4.2는 과했다). */
-const SIGMA_MIN_SECTORS = 1.0
-const SIGMA_SPAN_SECTORS = 1.4
-/** 거부 샘플링 시도 상한 — 결정론 안전판 (밀도 조건이 빡빡해도 무한 루프 없음). */
-const MAX_CANDIDATES = 400
-
-/**
- * 성운 팔레트 — 발광(로즈)·반사(청록)·이온화(보라) 가스. 청록은 UI 홀로 색 언어와
- * 잇닿고, 로즈/보라는 밴드의 한색·벌지 난색 어느 쪽과도 겹치지 않아 "성운"으로 읽힌다.
- */
-const NEBULA_PALETTE: readonly (readonly [number, number, number])[] = [
-  [1.0, 0.42, 0.62],
-  [0.38, 0.95, 0.85],
-  [0.58, 0.5, 1.0],
-]
-const FALLBACK_COLOR: readonly [number, number, number] = [1, 1, 1]
-
-/** 결정론 해시 — DecorativeStarfield와 같은 계열 (전역 난수 금지). */
-function hash01(n: number): number {
-  const value = Math.sin(n) * 43758.5453
-  return value - Math.floor(value)
-}
-
-function buildNebulae(): readonly GalaxyNebulaBlob[] {
-  const blobs: GalaxyNebulaBlob[] = []
-  for (
-    let candidate = 0;
-    blobs.length < NEBULA_COUNT && candidate < MAX_CANDIDATES;
-    candidate++
-  ) {
-    const angle = hash01(candidate * 7 + 1) * Math.PI * 2
-    // √균등 — 면적 기준 고른 산포 (안쪽 과밀 방지)
-    const radius =
-      MIN_RADIUS_SECTORS +
-      (MAX_RADIUS_SECTORS - MIN_RADIUS_SECTORS) * Math.sqrt(hash01(candidate * 7 + 2))
-    const sx = Math.cos(angle) * radius
-    const sz = Math.sin(angle) * radius
-    const sy = (hash01(candidate * 7 + 3) - 0.5) * 2 * VERTICAL_SPREAD_SECTORS
-
-    if (sectorDensity({ sx, sy, sz }) < MIN_DENSITY) continue
-
-    blobs.push({
-      sx,
-      sy,
-      sz,
-      sigmaSectors: SIGMA_MIN_SECTORS + SIGMA_SPAN_SECTORS * hash01(candidate * 7 + 4),
-      color: NEBULA_PALETTE[blobs.length % NEBULA_PALETTE.length] ?? FALLBACK_COLOR,
-    })
+/** 섹터 좌표의 성운 색조 — 순수·결정론. */
+export function nebulaTintAt(sx: number, sy: number, sz: number): NebulaTint {
+  return {
+    rose: valueNoise3(sx * TINT_FREQUENCY, sy * TINT_FREQUENCY, sz * TINT_FREQUENCY, ROSE_SALT),
+    teal: valueNoise3(sx * TINT_FREQUENCY, sy * TINT_FREQUENCY, sz * TINT_FREQUENCY, TEAL_SALT),
   }
-  return blobs
 }
 
-/** 모듈 로드 시 1회 생성 — 순수 수학이라 import 시점 평가가 안전하다. */
-export const GALAXY_NEBULAE: readonly GalaxyNebulaBlob[] = buildNebulae()
+/** 노이즈 평균(0.5) 위 꼬리만 강도로 — 패치가 "군데군데"에만 맺히게 하는 문턱. */
+export function nebulaTintShift(noiseValue: number): number {
+  const shifted = (noiseValue - 0.55) * 2.2
+  if (shifted < 0) return 0
+  if (shifted > 1) return 1
+  return shifted
+}

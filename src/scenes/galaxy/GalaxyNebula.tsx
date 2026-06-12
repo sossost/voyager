@@ -10,7 +10,13 @@ import {
 } from 'three'
 
 import { GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
-import { GALAXY_NEBULAE } from '@/scenes/galaxy/galaxyNebulae'
+import {
+  NEBULA_ROSE_RGB,
+  NEBULA_TEAL_RGB,
+  NEBULA_TINT_MAX_BLEND,
+  nebulaTintAt,
+  nebulaTintShift,
+} from '@/scenes/galaxy/galaxyNebulae'
 
 /**
  * 은하 성운 헤이즈 — 밀도 함수를 텍스처로 구워 은하면에 깐 평면 1장 (드로콜 1).
@@ -46,9 +52,6 @@ const COLOR_BLEND_RADIUS_SECTORS = 10
 const CORE_GLOW_RADIUS_SECTORS = 14
 const CORE_GLOW_ALPHA = 0.85
 
-/** 성운 패치 — 우주선 뷰 파노라마와 같은 위치 (galaxyNebulae, 우주 일관성). */
-const NEBULA_RADIUS_SCALE = 2.2
-const NEBULA_CORE_ALPHA = 0.4
 
 function clamp01(value: number): number {
   if (value < 0) return 0
@@ -81,10 +84,25 @@ function buildNebulaTexture(): CanvasTexture {
       // 어두운 영역을 더 어둡게 — 팔 사이 공간이 비어 보여야 나선이 산다
       const brightness = Math.pow(density, 1.2)
 
+      // 성운 색조 — 우주선 뷰 파노라마와 같은 필드 (galaxyNebulae, 우주 일관성)
+      const tint = nebulaTintAt(sx, 0, sz)
+      const roseShift = nebulaTintShift(tint.rose) * NEBULA_TINT_MAX_BLEND
+      const tealShift = nebulaTintShift(tint.teal) * NEBULA_TINT_MAX_BLEND
+
+      let red = ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth
+      let green = ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth
+      let blue = ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth
+      red += (NEBULA_ROSE_RGB[0] - red) * roseShift
+      green += (NEBULA_ROSE_RGB[1] - green) * roseShift
+      blue += (NEBULA_ROSE_RGB[2] - blue) * roseShift
+      red += (NEBULA_TEAL_RGB[0] - red) * tealShift
+      green += (NEBULA_TEAL_RGB[1] - green) * tealShift
+      blue += (NEBULA_TEAL_RGB[2] - blue) * tealShift
+
       const offset = (texelZ * BASE_TEXELS + texelX) * 4
-      image.data[offset] = (ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth) * brightness
-      image.data[offset + 1] = (ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth) * brightness
-      image.data[offset + 2] = (ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth) * brightness
+      image.data[offset] = red * brightness
+      image.data[offset + 1] = green * brightness
+      image.data[offset + 2] = blue * brightness
       image.data[offset + 3] = 255 // 가산 블렌딩 — 검정 = 투명
     }
   }
@@ -112,25 +130,6 @@ function buildNebulaTexture(): CanvasTexture {
   context.globalCompositeOperation = 'lighter'
   context.fillStyle = gradient
   context.fillRect(center - glowRadius, center - glowRadius, glowRadius * 2, glowRadius * 2)
-
-  // 4) 성운 패치 — 파노라마(함내 하늘)에서 보이는 그 성운이 지도에도 같은 자리에 뜬다
-  for (const blob of GALAXY_NEBULAE) {
-    const blobX = (blob.sx + GALAXY_RADIUS_SECTORS) * UPSCALE_FACTOR
-    const blobY = (blob.sz + GALAXY_RADIUS_SECTORS) * UPSCALE_FACTOR
-    const blobRadius = blob.sigmaSectors * NEBULA_RADIUS_SCALE * UPSCALE_FACTOR
-    const [red, green, blue] = blob.color
-    const blobGradient = context.createRadialGradient(blobX, blobY, 0, blobX, blobY, blobRadius)
-    blobGradient.addColorStop(
-      0,
-      `rgba(${Math.round(red * 255)}, ${Math.round(green * 255)}, ${Math.round(blue * 255)}, ${NEBULA_CORE_ALPHA})`,
-    )
-    blobGradient.addColorStop(
-      1,
-      `rgba(${Math.round(red * 255)}, ${Math.round(green * 255)}, ${Math.round(blue * 255)}, 0)`,
-    )
-    context.fillStyle = blobGradient
-    context.fillRect(blobX - blobRadius, blobY - blobRadius, blobRadius * 2, blobRadius * 2)
-  }
 
   const texture = new CanvasTexture(upscaled)
   texture.colorSpace = 'srgb'
