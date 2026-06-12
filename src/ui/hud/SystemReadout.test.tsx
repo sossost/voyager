@@ -2,8 +2,8 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Seed } from '@/engine'
-import { originStar, parseSeed } from '@/engine'
+import type { Seed, StarId } from '@/engine'
+import { originStar, parseSeed, starsInSector } from '@/engine'
 import { MemoryDriver } from '@/persistence/memoryDriver'
 import { initializeGameStore, useGameStore } from '@/store'
 import { SystemReadout } from './SystemReadout'
@@ -14,11 +14,23 @@ function seedOf(value: string): Seed {
   return seed
 }
 
+const seed = seedOf('READOUT1')
+const startStarId = originStar(seed)
+
+/** 시작 별과 다른 실제 별 하나 — 워프 도착(새 항성계 진입)을 흉내내는 데 쓴다. */
+function otherStarId(): StarId {
+  for (let sx = 0; sx < 16; sx++) {
+    for (const star of starsInSector(seed, { sx, sy: 0, sz: 1 })) {
+      if (star.id !== startStarId) return star.id
+    }
+  }
+  throw new Error('테스트용 별을 찾지 못했습니다')
+}
+
 describe('SystemReadout (항성계 진입 함교 리드아웃)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    const seed = seedOf('READOUT1')
-    initializeGameStore({ seed, startStarId: originStar(seed), driver: new MemoryDriver() })
+    initializeGameStore({ seed, startStarId, driver: new MemoryDriver() })
   })
 
   afterEach(() => {
@@ -26,7 +38,7 @@ describe('SystemReadout (항성계 진입 함교 리드아웃)', () => {
     vi.useRealTimers()
   })
 
-  it('항성계 씬에서 마운트되면 항성 이름과 분광형을 표시한다', () => {
+  it('우주선 뷰에서 마운트되면 항성 이름과 분광형을 표시한다', () => {
     render(<SystemReadout />)
 
     const readout = screen.getByRole('status')
@@ -44,7 +56,7 @@ describe('SystemReadout (항성계 진입 함교 리드아웃)', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('항성계를 떠났다가 재진입하면 다시 표시된다', () => {
+  it('다른 별에 워프 도착하면(우주선 뷰 전이) 다시 표시된다 (결정 41)', () => {
     render(<SystemReadout />)
 
     act(() => {
@@ -52,15 +64,31 @@ describe('SystemReadout (항성계 진입 함교 리드아웃)', () => {
     })
     expect(screen.queryByRole('status')).toBeNull()
 
-    // 이탈과 재진입은 별개 렌더 — 같은 배치로 묶으면 starId가 동일 값으로 끝나
-    // 변화 자체가 사라진다 (실제 UI 흐름도 항상 분리되어 있다)
+    // 새 별로 워프 → onWarpComplete = 우주선 뷰로 새 항성계 진입 → 재안내
     act(() => {
-      useGameStore.getState().backToGalaxy()
+      useGameStore.getState().warpTo(otherStarId())
     })
     act(() => {
-      useGameStore.getState().selectStar(useGameStore.getState().currentStarId)
-      useGameStore.getState().enterCurrentSystem()
+      useGameStore.getState().onWarpComplete()
     })
     expect(screen.getByRole('status')).toBeTruthy()
+  })
+
+  it('같은 별 재진입(퍼스펙티브↔우주선 토글)에는 다시 뜨지 않는다 (결정 41)', () => {
+    render(<SystemReadout />)
+
+    act(() => {
+      vi.advanceTimersByTime(6_000)
+    })
+    expect(screen.queryByRole('status')).toBeNull()
+
+    // 항법 뷰로 나갔다 돌아와도 같은 항성계 — 재안내는 새 별 진입에만 (lastAnnounced 가드)
+    act(() => {
+      useGameStore.getState().openPerspective()
+    })
+    act(() => {
+      useGameStore.getState().returnToShip()
+    })
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })

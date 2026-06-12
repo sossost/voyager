@@ -684,6 +684,30 @@
 - `SystemEntryTransition` 삭제 (역할이 워프 중 자연 확대로 흡수)  
 - GEN_VERSION·저장 포맷 무관, 렌더+상태 전용 변경
 
+#### 41-g. 구현 아키텍처 (plan 보강, 2026-06-12)
+
+**상태 모델 붕괴 (4상태 → 3상태).** 기존 `galaxy/ship` + `system` 두 상태가 신규 `galaxy/ship` 하나로 합쳐진다. 우주선 뷰가 곧 "현재 항성계 안" — 별 구체·행성이 항상 렌더된다.
+
+| 기존 | 신규 | 의미 |
+|------|------|------|
+| `{kind:'galaxy', view:'ship'}` (별=점, 행성 없음) + `{kind:'system', starId}` (행성 뷰) | `{kind:'galaxy', view:'ship'}` | 1인칭 함교 — 현재 별 구체 + 행성 + 은하 배경 |
+| `{kind:'galaxy', view:'map'}` (은하 중심 공전) | `{kind:'galaxy', view:'perspective'}` | 3인칭 — 우주선 모델 + 우주선 중심 공전, 항행 목적지 선택 |
+| `{kind:'warping', from, to}` | `{kind:'warping', from, to}` | 구조 불변 |
+
+**액션 재매핑** (씬 스왑 액션 → 뷰 전환 액션):
+- `enterCurrentSystem()` → 삭제. 우주선 뷰가 이미 현재 항성계라 "진입"이 무의미. 퍼스펙티브에서 현재 별 선택 시 버튼은 `closeGalaxyMap`(함교 복귀)로 갈음.
+- `backToGalaxy()` → 삭제. "항성계 이탈" 버튼은 `openGalaxyMap`(퍼스펙티브 전환)으로 의미 이동. 별도 이탈 워프는 목표 선택 후 `warpTo` 재사용(결정 41-d).
+- `openGalaxyMap()`/`closeGalaxyMap()` → 유지하되 `view: 'map'` → `'perspective'`. 별칭 리네임 권장(`openPerspective`/`closeToShip`)은 plan에서 확정.
+- `onWarpComplete()` → `{kind:'galaxy', view:'ship'}`로 전이 (기존 `{kind:'system'}` 대체). 초기 상태도 동일.
+- `selectStar`/`warpTo` 가드: `kind !== 'galaxy'` 유지 — ship·perspective 양쪽에서 별 선택·항행 가능(결정 41-f).
+- `selectPlanet`/`explore` 가드: `kind === 'system'` → `view === 'ship'`로 교체.
+
+**좌표 전략 — 오프셋 그룹.** 항성계 오브젝트를 `<group position={starWorldPosition(seed, currentStarId)}>`로 감싸면 내부 궤도 수식(`planetOrbitPosition`·`orbitRadiusOf`·`OrbitRing`)이 원점 상대(0,0,0 = 별)로 **불변**. 그룹 안 `pointLight`/`StarSurface`도 로컬 원점 유지. 유일한 명시적 오프셋: `PlanetCalloutProjector.computeWorldPosition`이 씬그래프 밖에서 절대 좌표를 계산하므로 `+ starWorldPosition`을 더한다.
+
+**포인트 크로스페이드 (41-c 구현).** `GalaxyStarField`는 전수 별 Points 1개. `currentStarId` 포인트만 카메라 거리 임계값(≈600u)에서 알파를 역페이드 — 같은 임계값에서 `StarSurface`가 페이드인. 단일 포인트 alpha는 `starColor`/`size` 어트리뷰트를 0으로 끌어내리는 방식(드로콜 추가 없음, 결정 22 준수). 매 프레임 카메라 거리로 갱신하되 변화 없으면 `needsUpdate` 생략.
+
+**핵심 리스크 — 우주선 뷰 프레이밍.** 기존 `ShipCameraRig`는 별을 *점*으로 보는 근접 정박(≈37u). 통합 후엔 행성계 전체(외곽 궤도 반경 ≤98u, 지름 ~200u)를 담아야 한다. 정박 거리를 시스템을 프레이밍하는 값(~180u, 기존 system 카메라 maxDistance와 정합)으로 늘리되 회전 전용 규율("줌 제거" 피드백) 유지. 은하 배경은 12,000u 천구라 여전히 배경으로 읽힘. → plan Phase 2에서 실측 튜닝, 확정 전 사용자 확인.
+
 ---
 
 ## Architecture

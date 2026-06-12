@@ -45,7 +45,7 @@ export function GalaxyScene() {
   // warpTo가 currentStarId를 즉시 목적지로 바꾸므로(결정 16: 저장 선행),
   // 워프 중 카메라 앵커는 출발 별(from)에 둔다 — 연출은 현 위치에서 시작해야 한다
   const anchorStarId = scene.kind === 'warping' ? scene.from : currentStarId
-  const isMapView = scene.kind === 'galaxy' && scene.view === 'map'
+  const isPerspectiveView = scene.kind === 'galaxy' && scene.view === 'perspective'
 
   const shipFocus = useMemo(
     () => starWorldPosition(seed, anchorStarId) ?? GALAXY_CENTER,
@@ -59,7 +59,7 @@ export function GalaxyScene() {
     <>
       <color attach="background" args={['#05060f']} />
       {/* 뷰별 카메라 리그 — 워프 중엔 어느 쪽도 마운트하지 않는다 (WarpCameraRig 전담) */}
-      {isMapView ? (
+      {isPerspectiveView ? (
         <CameraRig
           focus={GALAXY_CENTER}
           minDistance={MAP_MIN_DISTANCE}
@@ -69,9 +69,9 @@ export function GalaxyScene() {
       {scene.kind === 'galaxy' && scene.view === 'ship' ? (
         <ShipCameraRig anchor={shipFocus} />
       ) : null}
-      {/* 장식 배경 (백로그 G-a-2) — 전도는 원거리 은하 빌보드, 우주선 뷰·워프는
+      {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는
           균일 별밭 + 은하 광원감(원반 밴드·코어 글로우, 백로그 G-b-6)이 하늘을 채운다 */}
-      {isMapView ? (
+      {isPerspectiveView ? (
         <DistantGalaxies />
       ) : (
         <>
@@ -79,15 +79,15 @@ export function GalaxyScene() {
           <ShipViewGalaxyGlow anchor={shipFocus} />
         </>
       )}
-      {isMapView ? <GalaxyNebula /> : null}
+      {isPerspectiveView ? <GalaxyNebula /> : null}
       <GalaxyStarField
         stars={stars}
         maxPointSize={preset.maxPointSize}
         visitedStars={visitedStars}
       />
-      {/* 지도 정보 레이어 — 여정은 지도 전용, 비콘은 지도의 "여기" + 워프 중 목적지 표지 */}
-      {isMapView ? <JourneyPath /> : null}
-      {isMapView || scene.kind === 'warping' ? <CurrentStarBeacon /> : null}
+      {/* 정보 레이어 — 여정은 퍼스펙티브 전용, 비콘은 퍼스펙티브의 "여기" + 워프 중 목적지 표지 */}
+      {isPerspectiveView ? <JourneyPath /> : null}
+      {isPerspectiveView || scene.kind === 'warping' ? <CurrentStarBeacon /> : null}
       <SelectedStarMarker />
       <StarCalloutProjector />
     </>

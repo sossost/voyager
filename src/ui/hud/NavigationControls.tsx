@@ -5,29 +5,19 @@ const MIN_STARS_FOR_JOURNEY = 2
 
 export function NavigationControls() {
   const scene = useGameStore((state) => state.scene)
-  const backToGalaxy = useGameStore((state) => state.backToGalaxy)
-  const openGalaxyMap = useGameStore((state) => state.openGalaxyMap)
-  const closeGalaxyMap = useGameStore((state) => state.closeGalaxyMap)
+  const openPerspective = useGameStore((state) => state.openPerspective)
+  const returnToShip = useGameStore((state) => state.returnToShip)
   const isJourneyPathVisible = useGameStore((state) => state.isJourneyPathVisible)
   const toggleJourneyPath = useGameStore((state) => state.toggleJourneyPath)
   const hasJourney = useGameStore((state) => state.visitedStars.size >= MIN_STARS_FOR_JOURNEY)
 
   if (scene.kind === 'warping') return null
 
-  if (scene.kind === 'system') {
+  // 퍼스펙티브 뷰 (3인칭 항법) — 우주선 복귀 + 여정 경로 토글 (결정 41)
+  if (scene.view === 'perspective') {
     return (
       <nav className="navigation-controls" aria-label="화면 컨트롤">
-        <button type="button" className="hud-button" onClick={backToGalaxy}>
-          ← 항성계 이탈
-        </button>
-      </nav>
-    )
-  }
-
-  if (scene.view === 'map') {
-    return (
-      <nav className="navigation-controls" aria-label="화면 컨트롤">
-        <button type="button" className="hud-button" onClick={closeGalaxyMap}>
+        <button type="button" className="hud-button" onClick={returnToShip}>
           ← 우주선
         </button>
         {hasJourney ? (
@@ -44,10 +34,11 @@ export function NavigationControls() {
     )
   }
 
+  // 우주선 뷰 (1인칭, 현재 항성계 안) — 은하 항법 뷰로 전환
   return (
     <nav className="navigation-controls" aria-label="화면 컨트롤">
-      <button type="button" className="hud-button" onClick={openGalaxyMap}>
-        은하 지도
+      <button type="button" className="hud-button" onClick={openPerspective}>
+        은하 항법
       </button>
     </nav>
   )

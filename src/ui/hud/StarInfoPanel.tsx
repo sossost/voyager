@@ -14,7 +14,7 @@ export function StarInfoPanel() {
   )
   const selectStar = useGameStore((state) => state.selectStar)
   const warpTo = useGameStore((state) => state.warpTo)
-  const enterCurrentSystem = useGameStore((state) => state.enterCurrentSystem)
+  const returnToShip = useGameStore((state) => state.returnToShip)
 
   const star = useMemo(
     () => (selectedStarId == null ? null : starById(seed, selectedStarId)),
@@ -67,9 +67,9 @@ export function StarInfoPanel() {
           <button
             type="button"
             className="hud-button hud-button-primary"
-            onClick={enterCurrentSystem}
+            onClick={returnToShip}
           >
-            항성계 진입
+            함교 복귀
           </button>
         ) : (
           <button

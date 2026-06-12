@@ -10,7 +10,10 @@ const PLANET_KIND_LABELS = {
 
 export function PlanetPanel() {
   const seed = useGameStore((state) => state.seed)
-  const sceneKind = useGameStore((state) => state.scene.kind)
+  // 행성은 우주선 뷰에서만 보인다 — 항성계가 우주선 뷰에 통합됨 (결정 41)
+  const isShipView = useGameStore(
+    (state) => state.scene.kind === 'galaxy' && state.scene.view === 'ship',
+  )
   const selectedPlanetId = useGameStore((state) => state.selectedPlanetId)
   const isExplored = useGameStore(
     (state) => state.selectedPlanetId != null && state.exploredPlanets.has(state.selectedPlanetId),
@@ -23,7 +26,7 @@ export function PlanetPanel() {
     [seed, selectedPlanetId],
   )
 
-  if (sceneKind !== 'system' || planet == null) return null
+  if (!isShipView || planet == null) return null
 
   return (
     // 홀로그램 콜아웃 (백로그 G-a-5, 별 패널과 같은 패턴) — PlanetCalloutProjector가
