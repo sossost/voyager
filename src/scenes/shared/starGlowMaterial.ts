@@ -19,11 +19,13 @@ const SOFT_MAX_BLEND = 0.65
 const VERTEX_SHADER = /* glsl */ `
   attribute float size;
   attribute vec3 starColor;
+  attribute float aCurrent;
   uniform float uPixelRatio;
   uniform float uMaxPointSize;
   uniform float uMinPointSizePerUnit;
   uniform float uSoftNear;
   uniform float uSoftFar;
+  uniform float uCurrentFade;
   varying vec3 vColor;
   varying float vSoftness;
 
@@ -41,7 +43,10 @@ const VERTEX_SHADER = /* glsl */ `
     // 하한이 size에 비례 — 원거리에서도 거성/왜성의 크기 격차가 유지된다
     float minSize = uMinPointSizePerUnit * size * uPixelRatio;
     float clamped = clamp(pointSize, minSize, uMaxPointSize * uPixelRatio);
-    gl_PointSize = clamped * (1.0 + ${SOFT_SIZE_BOOST.toFixed(1)} * vSoftness);
+    // 현재 별(aCurrent=1)만 카메라가 가까우면 사라진다 — 구체로 핸드오프 (결정 41-c).
+    // 나머지 별(aCurrent=0)은 mix(1, fade, 0)=1로 무영향.
+    float currentScale = mix(1.0, uCurrentFade, aCurrent);
+    gl_PointSize = clamped * (1.0 + ${SOFT_SIZE_BOOST.toFixed(1)} * vSoftness) * currentScale;
     gl_Position = projectionMatrix * mvPosition;
   }
 `
@@ -99,6 +104,8 @@ export function createStarGlowMaterial({
       uMinPointSizePerUnit: { value: minPointSizePerUnit },
       uSoftNear: { value: softNear },
       uSoftFar: { value: softFar },
+      // 현재 별 포인트 페이드 (1 = 보임). aCurrent 어트리뷰트가 없는 지오메트리는 무영향.
+      uCurrentFade: { value: 1 },
     },
     transparent: true,
     depthWrite: false,

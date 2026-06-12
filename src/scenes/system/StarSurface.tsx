@@ -1,8 +1,9 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { AdditiveBlending, Color, type Group, ShaderMaterial } from 'three'
+import { AdditiveBlending, Color, type Group, type Mesh, ShaderMaterial, Vector3 } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
+import { crossfadeProgress } from '@/scenes/system/starCrossfade'
 
 /**
  * 항성 표면 — 절차 셰이더 구 + 가산 빌보드 코로나 (백로그 F-1, 결정 29).
@@ -34,6 +35,7 @@ const SURFACE_VERTEX_SHADER = /* glsl */ `
 const SURFACE_FRAGMENT_SHADER = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
+  uniform float uOpacity;
   varying vec3 vUnit;
   varying vec3 vNormal;
   varying vec3 vViewDir;
@@ -87,7 +89,7 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
     float hotness = smoothstep(0.72, 0.95, granulation) * facing;
     surface = mix(surface, vec3(1.45), hotness * 0.5);
 
-    gl_FragColor = vec4(surface, 1.0);
+    gl_FragColor = vec4(surface, uOpacity);
   }
 `
 
@@ -103,6 +105,7 @@ const CORONA_VERTEX_SHADER = /* glsl */ `
 const CORONA_FRAGMENT_SHADER = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
+  uniform float uOpacity;
   varying vec2 vUv;
 
   void main() {
@@ -113,7 +116,7 @@ const CORONA_FRAGMENT_SHADER = /* glsl */ `
     float glow = pow(falloff, 2.6);
     // 중심은 백색으로 뜨겁고 가장자리는 분광색으로 식는다
     vec3 color = mix(uColor, vec3(1.0), glow * 0.55);
-    gl_FragColor = vec4(color * glow, glow);
+    gl_FragColor = vec4(color * glow, glow * uOpacity);
   }
 `
 
@@ -125,6 +128,8 @@ interface StarSurfaceProps {
 
 export function StarSurface({ radius, color }: StarSurfaceProps) {
   const coronaRef = useRef<Group>(null)
+  const surfaceRef = useRef<Mesh>(null)
+  const worldScratch = useMemo(() => new Vector3(), [])
 
   const surfaceMaterial = useMemo(
     () =>
@@ -134,7 +139,10 @@ export function StarSurface({ radius, color }: StarSurfaceProps) {
         uniforms: {
           uColor: { value: new Color(color) },
           uTime: { value: 0 },
+          uOpacity: { value: 1 },
         },
+        // 워프 도착 크로스페이드 동안 반투명으로 차오른다 — 정박(근거리)에선 불투명 (결정 41-c)
+        transparent: true,
       }),
     [color],
   )
@@ -147,6 +155,7 @@ export function StarSurface({ radius, color }: StarSurfaceProps) {
         uniforms: {
           uColor: { value: new Color(color) },
           uTime: { value: 0 },
+          uOpacity: { value: 1 },
         },
         transparent: true,
         depthWrite: false,
@@ -164,13 +173,24 @@ export function StarSurface({ radius, color }: StarSurfaceProps) {
     setUniform(coronaMaterial, 'uTime', elapsed)
     // 코로나 빌보드 — 항상 카메라를 향한다 (구는 회전 불필요)
     coronaRef.current?.quaternion.copy(state.camera.quaternion)
+
+    // 포인트 ↔ 구체 크로스페이드 — 가까우면 1(불투명), 멀면 0. 포인트 페이드와 상보 (결정 41-c).
+    // 정박 거리(~138)는 NEAR 안쪽이라 우주선 뷰에선 항상 1 = 효과 없음.
+    if (surfaceRef.current != null) {
+      const distance = state.camera.position.distanceTo(
+        surfaceRef.current.getWorldPosition(worldScratch),
+      )
+      const opacity = 1 - crossfadeProgress(distance)
+      setUniform(surfaceMaterial, 'uOpacity', opacity)
+      setUniform(coronaMaterial, 'uOpacity', opacity)
+    }
   })
 
   const coronaSize = radius * CORONA_SIZE_FACTOR
 
   return (
     <>
-      <mesh material={surfaceMaterial}>
+      <mesh ref={surfaceRef} material={surfaceMaterial}>
         <sphereGeometry args={[radius, SPHERE_SEGMENTS, SPHERE_SEGMENTS]} />
       </mesh>
       <group ref={coronaRef}>

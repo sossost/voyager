@@ -48,6 +48,8 @@ export function GalaxyScene() {
   const anchorStarId = scene.kind === 'warping' ? scene.from : currentStarId
   const isPerspectiveView = scene.kind === 'galaxy' && scene.view === 'perspective'
   const isShipView = scene.kind === 'galaxy' && scene.view === 'ship'
+  // 현재 항성계(별 구체)가 보이는 상태 — 우주선 뷰 + 워프(도착 별로 크로스페이드). 결정 41-c.
+  const isSystemVisible = isShipView || scene.kind === 'warping'
 
   const shipFocus = useMemo(
     () => starWorldPosition(seed, anchorStarId) ?? GALAXY_CENTER,
@@ -84,9 +86,12 @@ export function GalaxyScene() {
         stars={stars}
         maxPointSize={preset.maxPointSize}
         visitedStars={visitedStars}
+        currentStarId={currentStarId}
+        isSystemVisible={isSystemVisible}
       />
-      {/* 현재 항성계 — 우주선 뷰에서 현재 별 구체·행성을 은하 좌표에 직접 렌더 (결정 41) */}
-      {isShipView ? <CurrentSystem /> : null}
+      {/* 현재 항성계 — 우주선 뷰 + 워프(도착 별로 자연 확대) 시 별 구체를 은하 좌표에
+          직접 렌더. 행성은 우주선 뷰에서만 (워프 중엔 별만, 결정 41) */}
+      {isSystemVisible ? <CurrentSystem /> : null}
       {/* 정보 레이어 — 여정은 퍼스펙티브 전용, 비콘은 퍼스펙티브의 "여기" + 워프 중 목적지 표지 */}
       {isPerspectiveView ? <JourneyPath /> : null}
       {isPerspectiveView || scene.kind === 'warping' ? <CurrentStarBeacon /> : null}

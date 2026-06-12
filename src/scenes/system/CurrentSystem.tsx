@@ -30,6 +30,11 @@ const AMBIENT_INTENSITY = 1.2
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
   const starId = useGameStore((state) => state.currentStarId)
+  // 행성은 우주선 뷰에서만 — 워프 중엔 별 구체만 렌더해 도착 크로스페이드에 집중하고
+  // 목적지 행성 텍스처 베이크를 워프 연출 동안 돌리지 않는다 (결정 41-c).
+  const showPlanets = useGameStore(
+    (state) => state.scene.kind === 'galaxy' && state.scene.view === 'ship',
+  )
 
   const star = useMemo(() => starById(seed, starId), [seed, starId])
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
@@ -53,15 +58,17 @@ export function CurrentSystem() {
         />
         <StarSurface radius={STAR_VISUAL_RADIUS} color={starColor} />
 
-        {planets.map((planet) => (
-          <group key={planet.id}>
-            <OrbitRing radius={orbitRadiusOf(planet)} />
-            <Planet planet={planet} />
-          </group>
-        ))}
+        {showPlanets
+          ? planets.map((planet) => (
+              <group key={planet.id}>
+                <OrbitRing radius={orbitRadiusOf(planet)} />
+                <Planet planet={planet} />
+              </group>
+            ))
+          : null}
       </group>
 
-      <PlanetCalloutProjector />
+      {showPlanets ? <PlanetCalloutProjector /> : null}
     </>
   )
 }
