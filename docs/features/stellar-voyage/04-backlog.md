@@ -4,12 +4,12 @@
 
 ## A. 코드 리뷰 LOW 메모 (검증 생략된 경미 항목 — 빠른 개선 후보)
 
-1. **`nextToastId` 모듈 레벨 가변 변수** — `store/createGameStore.ts`: 팩토리 클로저 안으로 이동 (테스트 격리).
-2. **`__gameStore` 노출 가드 불일치** — `store/index.ts`: `MODE !== 'production'` 대신 `import.meta.env.DEV` 또는 의도 주석 + Window 타입 보강.
-3. **CameraRig 카메라/타깃 비동기** — focus 변경 시 `controls.target`과 `camera.position`을 동일 프레임에 일괄 적용.
-4. **매직 넘버** — `planets.ts`의 `2147483647` → `INT32_MAX` 상수, SelectedStarMarker 링 반지름 상수화.
-5. **ScanSequence 셀렉터 분리** — EncounterOverlay 내부 함수 매 렌더 재생성 (성능 영향 미미, 스타일).
-6. **WarpFlashOverlay 암묵적 falsy** — early-return 패턴으로 재구성.
+~~1. **`nextToastId` 모듈 레벨 가변 변수**~~ — ✅ 완료 (2026-06-12): 팩토리 클로저 안으로 이동.
+~~2. **`__gameStore` 노출 가드 불일치**~~ — ✅ 완료 (2026-06-12): `import.meta.env.DEV` 교체 + Window 타입 보강.
+~~3. **CameraRig 카메라/타깃 비동기**~~ — ✅ 완료 (2026-06-12): OrbitControls ref 추가, 동일 useEffect에서 일괄 적용.
+~~4. **매직 넘버**~~ — ✅ 완료 (2026-06-12): `INT32_MAX` 상수화, SelectedStarMarker 링 반지름 상수화.
+5. **ScanSequence 셀렉터 분리** — ScanSequence가 이미 모듈 최상단에 분리되어 있어 실질적 문제 없음 — 해소됨.
+~~6. **WarpFlashOverlay 암묵적 falsy**~~ — ✅ 완료 (2026-06-12): `isWarping === false` 명시적 표현.
 
 > 해소됨 (결정 22): GalaxyBackdrop uPixelRatio 지연 갱신(useFrame 전환), 구형 페이드 기하 불일치(페이드 자체 제거).
 
@@ -55,7 +55,7 @@
 - ~~**기본 ① 현재 위치 비콘**~~ — `CurrentStarBeacon`: 호박색 펄스 링 + 소나 확장 링 2개, FOV 역산 화면 고정 크기(17px) 클램프.
 - ~~**기본 ② 방문 별 발광 틴트**~~ — `GalaxyStarField` starColor/size 어트리뷰트 갱신(청록 60% + 밝기 1.45× + 크기 1.18×). `VisitedStarMarkers` 삭제 — 512 캡 해소.
 - ~~**토글 ③ 여정 경로선**~~ — `JourneyPath`: visitedAt 오름차순 Set 순서 폴리라인 + 정점 색 페이드, HUD 토글(기본 off).
-- **후순위 ④ 오프스크린 화살표**: 현재 별이 화면 밖이면 가장자리 방향 화살표 (DOM HUD에 투영 — drei Html 금지 규칙 유의). — 잔여.
+- ~~**후순위 ④ 오프스크린 화살표**~~ — ✅ 완료 (2026-06-12): `CurrentStarArrowProjector` + `CurrentStarArrow` — 갤럭시 뷰에서 현재 별이 화면 밖이면 가장자리에 호박색 삼각형 화살표, useFrame camera.project() 기반 (DOM HUD, React 상태 없음).
 
 ## G. 로드맵 4차 — 우주선 뷰 고도화 + 천체 다양화 (2026-06-12 피드백, PR #3 머지 직후)
 
@@ -151,3 +151,25 @@
    - 홀로그램 플리커: 전환 시 청색 틴트 + 노이즈 글리치 짧게 발생 (CSS mix-blend + keyframe)
    - 줌 인·아웃 컷: 은하뷰 진입 시 카메라가 멀리서 줌인되며 홀로그램 격자가 소환되는 느낌 (R3F lerp)
    - 성능 우선이면 CSS fade + 홀로그램 테두리 글로우만으로도 충분할 수 있음
+
+## I. 온보딩 및 조작성 개선 (2026-06-12 피드백)
+
+### I-1. 컨텍스트 힌트 온보딩 (튜토리얼 대체)
+
+> 모달 튜토리얼 대신 행동 유발 지점에 once-only 힌트. `Profile`에 `seenHints: Set<HintKey>` 필드 추가 — 저장 포맷 변경이지만 기존 플레이어는 빈 Set으로 마이그레이션 가능. GEN_VERSION 무관.
+
+- **힌트 트리거 3종 (우선순위순):**
+  1. 첫 진입 → `"별을 클릭해 탐색하세요"` — 3s 후 자동 소멸
+  2. 첫 별 선택(콜아웃 열림) → `"워프로 이동할 수 있습니다"` — 워프 버튼 인접 표시
+  3. 첫 생명체 행성 발견 → `"탐사 버튼으로 생명체를 찾아보세요"` — 탐사 버튼 인접 표시
+- 힌트 UI: 작은 말풍선 + 페이드 아웃, `reduced-motion` 시 즉시 표시 후 소멸
+- `seenHints`에 기록 후 재표시 안 함 — 재방문자 방해 없음
+- `persist()` 단일 쓰기 경로 준수
+
+### I-2. 핵심 액션 버튼 추가 (마우스 의존도 감소)
+
+> OrbitControls 터치 지원(드래그 패닝·핀치줌)은 이미 있음. 부족한 부분만 버튼으로 보강. 백로그 B 모바일 실측 후 실제 불편한 부분을 확인하고 우선순위 조정 권장.
+
+- **현재 위치 복귀 버튼** — 카메라를 현재 항성으로 즉시 이동. HUD 고정 위치. 가장 실용적이고 구현 비용 최소.
+- **줌 +/- 버튼** — 모바일 핀치 대체용. 스텝 줌(OrbitControls `dollyIn/Out` 호출). 데스크탑에선 숨김 처리 가능.
+- *(보류)* 패닝·회전 버튼 — OrbitControls 터치가 충분한지 실측 후 결정.
