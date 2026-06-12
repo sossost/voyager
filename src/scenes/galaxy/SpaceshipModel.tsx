@@ -44,7 +44,7 @@ const SHIP_OFFSET_Z = 8
 
 /** 부유 — 미세하게 떠오르내리며 살아있는 느낌 (회전 없음, 항성 바라보기 고정). */
 const BOB_SPEED = 1.1
-const BOB_AMPLITUDE = 0.6
+const BOB_AMPLITUDE = 0.04
 
 /**
  * 위치 마커 링 — 줌아웃해도 현재 위치를 항상 화면 고정 크기로 표시.

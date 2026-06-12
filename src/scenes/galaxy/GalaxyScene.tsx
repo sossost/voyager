@@ -32,11 +32,11 @@ const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0]
 /** 퍼스펙티브 최소 거리 — 우주선·항성에 근접하는 한계. */
 const PERSPECTIVE_MIN_DISTANCE = 4
 /**
- * 퍼스펙티브 진입 거리 — 우주선 뷰처럼 현재 항성계(별·행성)를 프레이밍하는 오프셋(거리 ≈ 138).
- * 항성계가 한눈에 들어오고 우주선은 그 곁의 3인칭 요소로 보인다 (결정 41-e, 피드백 반영).
+ * 퍼스펙티브 진입 거리 — 1/8 스케일 시스템(Neptune ≈5 world units)이 한눈에 들어오는 오프셋.
+ * 거리 ≈ 16유닛 → Neptune이 시야각 ~17° 차지해 시스템이 적당히 크게 보인다.
  */
-const PERSPECTIVE_OFFSET_Y = 48
-const PERSPECTIVE_OFFSET_Z = 130
+const PERSPECTIVE_OFFSET_Y = 5
+const PERSPECTIVE_OFFSET_Z = 15
 /** 은하 전체(지름 9,600 유닛)가 화면에 들어오는 줌아웃 한계 — 나선 형상 조망용. */
 const GALAXY_MAX_ZOOM_OUT = 6_000
 /**
