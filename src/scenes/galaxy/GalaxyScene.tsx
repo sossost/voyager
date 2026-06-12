@@ -15,6 +15,7 @@ import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
 import { CameraRig } from '@/scenes/shared/CameraRig'
 import { DecorativeStarfield } from '@/scenes/shared/DecorativeStarfield'
 import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
+import { CurrentSystem } from '@/scenes/system/CurrentSystem'
 import { useGameStore } from '@/store'
 
 const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0]
@@ -46,6 +47,7 @@ export function GalaxyScene() {
   // 워프 중 카메라 앵커는 출발 별(from)에 둔다 — 연출은 현 위치에서 시작해야 한다
   const anchorStarId = scene.kind === 'warping' ? scene.from : currentStarId
   const isPerspectiveView = scene.kind === 'galaxy' && scene.view === 'perspective'
+  const isShipView = scene.kind === 'galaxy' && scene.view === 'ship'
 
   const shipFocus = useMemo(
     () => starWorldPosition(seed, anchorStarId) ?? GALAXY_CENTER,
@@ -66,9 +68,7 @@ export function GalaxyScene() {
           maxDistance={GALAXY_MAX_ZOOM_OUT}
         />
       ) : null}
-      {scene.kind === 'galaxy' && scene.view === 'ship' ? (
-        <ShipCameraRig anchor={shipFocus} />
-      ) : null}
+      {isShipView ? <ShipCameraRig anchor={shipFocus} /> : null}
       {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는
           균일 별밭 + 은하 광원감(원반 밴드·코어 글로우, 백로그 G-b-6)이 하늘을 채운다 */}
       {isPerspectiveView ? (
@@ -85,6 +85,8 @@ export function GalaxyScene() {
         maxPointSize={preset.maxPointSize}
         visitedStars={visitedStars}
       />
+      {/* 현재 항성계 — 우주선 뷰에서 현재 별 구체·행성을 은하 좌표에 직접 렌더 (결정 41) */}
+      {isShipView ? <CurrentSystem /> : null}
       {/* 정보 레이어 — 여정은 퍼스펙티브 전용, 비콘은 퍼스펙티브의 "여기" + 워프 중 목적지 표지 */}
       {isPerspectiveView ? <JourneyPath /> : null}
       {isPerspectiveView || scene.kind === 'warping' ? <CurrentStarBeacon /> : null}

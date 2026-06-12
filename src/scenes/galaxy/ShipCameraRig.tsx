@@ -10,10 +10,15 @@ import { useEffect, useRef } from 'react'
  * 몫). 모든 연속 값은 ref + useFrame, store 쓰기 없음 (철칙 6).
  */
 
-/** 우주선 정박 위치 — 현재 별 기준 오프셋 (별을 살짝 내려다보며 시작한다). */
+/**
+ * 우주선 정박 위치 — 현재 별 기준 오프셋 (별을 살짝 내려다보며 시작한다).
+ * 통합 후(결정 41) 우주선 뷰가 항성계 전체(외곽 궤도 반경 ≤~98)를 담아야 하므로
+ * 별을 점으로 보던 근접(≈37)에서 물러나 시스템을 프레이밍하는 거리로 정박한다.
+ * 줌은 없다(회전 전용) — 더 멀리 보는 건 퍼스펙티브 뷰의 몫.
+ */
 const SHIP_OFFSET_X = 0
-const SHIP_OFFSET_Y = 10
-const SHIP_OFFSET_Z = 36
+const SHIP_OFFSET_Y = 42
+const SHIP_OFFSET_Z = 132
 /** 시작 피치 — 정박 위치에서 현재 별을 바라보는 각도. */
 const INITIAL_PITCH = -Math.asin(
   SHIP_OFFSET_Y /
