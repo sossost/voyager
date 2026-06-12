@@ -10,7 +10,7 @@ import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
-import { STAR_CROSSFADE_NEAR } from '@/scenes/system/starCrossfade'
+import { SYSTEM_LOD_DISTANCE } from '@/scenes/system/starCrossfade'
 import { useGameStore } from '@/store'
 
 /**
@@ -23,16 +23,11 @@ import { useGameStore } from '@/store'
  * 더한다 (PlanetCalloutProjector). 렌더 전용 — GEN_VERSION·저장 포맷 무관.
  */
 
-/** 항성 시각 반경 — 행성 시각 반경 상한(~2.5)의 2배 이상이어야 위계가 선다. */
-const STAR_VISUAL_RADIUS = 5
-/**
- * LOD 거리 — 이 거리보다 멀면 행성·궤도링 렌더를 중단한다 (백로그 H-3).
- * NEAR(200)의 2배 = 400: 별 구체가 절반 이상 또렷해지는 시점에서만 행성·링을 표시,
- * 은하 뷰 줌아웃에서 항성계가 너무 일찍 보이는 이질감을 해소한다.
- */
-const SYSTEM_LOD_DISTANCE = STAR_CROSSFADE_NEAR * 2
-/** 항성 포인트라이트 — 행성 밤면 경계를 만드는 주광원. */
-const STAR_LIGHT_INTENSITY = 1_200
+/** 항성 시각 반경 — ORBIT_SCALE 축소(6)에 맞춰 3으로 조정, 코로나 글로우로 시각적으로 더 크게 보인다. */
+const STAR_VISUAL_RADIUS = 3
+// SYSTEM_LOD_DISTANCE는 starCrossfade.ts에서 임포트 — 궤도링 페이드와 같은 임계 공유 (백로그 H-3).
+/** 항성 포인트라이트 — ORBIT_SCALE 축소(11→6)로 내행성이 가까워졌으므로 강도를 낮춘다. */
+const STAR_LIGHT_INTENSITY = 500
 const STAR_LIGHT_DECAY = 1.6
 /** 주변광 — 밤면 가독성 (물리 광원 페널티 상쇄로 1 이상). */
 const AMBIENT_INTENSITY = 1.2

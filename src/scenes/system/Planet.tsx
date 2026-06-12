@@ -15,8 +15,8 @@ import {
 } from '@/scenes/system/planetTexture'
 import { useGameStore } from '@/store'
 
-export const ORBIT_BASE_RADIUS = 10
-export const ORBIT_SCALE = 16
+export const ORBIT_BASE_RADIUS = 5
+export const ORBIT_SCALE = 6
 /**
  * 행성 시각 반경 = BASE + 엔진 radius × SCALE (압축 매핑).
  * 엔진 radius(0.4~5.0)를 그대로 쓰면 큰 행성(4.5)이 항성(5)에 육박하는 모순이
