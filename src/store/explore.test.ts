@@ -116,7 +116,7 @@ describe('explore 수집', () => {
 })
 
 describe('homeWorld 탐사', () => {
-  it('지구 탐사: 조우 없음, 탐사 완료 표시, 토스트 표시', () => {
+  it('지구 탐사: 조우 없음, 탐사 완료 표시, 토스트 표시, write-through', async () => {
     // EXPLORETEST 시드도 Sol에서 시작 — currentStarId = SOL_STAR_ID
     const earthPlanetId = makePlanetId(SOL_STAR_ID, 2)
     expect(store.getState().currentStarId).toBe(SOL_STAR_ID)
@@ -126,6 +126,11 @@ describe('homeWorld 탐사', () => {
     expect(store.getState().encounter).toBeNull()
     expect(store.getState().exploredPlanets.has(earthPlanetId)).toBe(true)
     expect(store.getState().toasts.some((t) => t.message.includes('인류의 고향'))).toBe(true)
+
+    await vi.waitFor(async () => {
+      const { explorations } = await driver.loadAll()
+      expect(explorations.map((r) => r.planetId)).toContain(earthPlanetId)
+    })
   })
 
   it('지구 재탐사: 멱등 — 탐사 완료 유지, 추가 토스트', () => {

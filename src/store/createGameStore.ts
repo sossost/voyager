@@ -174,6 +174,9 @@ export function createGameStore(options: CreateGameStoreOptions) {
         nextExplored.add(planetId)
         set({ exploredPlanets: nextExplored })
         get().pushToast('인류의 고향 — 외계 생명체는 발견되지 않았습니다')
+        void persist(async () => {
+          await driver.addExploration({ planetId, exploredAt: now() })
+        }, reportPersistFailure)
         return
       }
 
