@@ -321,11 +321,6 @@ body {
   transition: background 120ms ease-out, box-shadow 120ms ease-out;
 }
 
-.hud-button:disabled {
-  pointer-events: none;
-  opacity: 0.45;
-}
-
 .hud-button:hover,
 .hud-button:focus-visible {
   background: color-mix(in srgb, var(--color-holo) 22%, var(--glass-surface));

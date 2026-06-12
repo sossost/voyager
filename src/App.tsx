@@ -1,7 +1,6 @@
 import { CanvasLayer } from '@/scenes/CanvasLayer'
 import { StorageModeBanner } from '@/ui/common/StorageModeBanner'
 import { ToastViewport } from '@/ui/common/ToastViewport'
-import { ViewTransitionOverlay } from '@/ui/common/ViewTransitionOverlay'
 import { WarpFlashOverlay } from '@/ui/common/WarpFlashOverlay'
 import { CodexOverlay } from '@/ui/codex/CodexOverlay'
 import { EncounterOverlay } from '@/ui/encounter/EncounterOverlay'
@@ -26,7 +25,6 @@ export function App() {
         <EncounterOverlay />
         <CodexOverlay />
         <JournalOverlay />
-        <ViewTransitionOverlay />
         <WarpFlashOverlay />
       </div>
       <div className="layer-system" data-layer="system">

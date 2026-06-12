@@ -79,11 +79,8 @@ export interface UiSlice {
   readonly isJourneyPathVisible: boolean
   /** 이미 표시된 온보딩 힌트 — 한 번 기록되면 재표시 없음 (백로그 I-1). */
   readonly seenHints: ReadonlySet<import('@/persistence/types').HintKey>
-  /** 뷰 전환 홀로그램 연출 진행 중 여부 — 버튼 잠금·글로우용 (H-5). */
-  readonly isViewTransitioning: boolean
   openOverlay(overlay: Exclude<Overlay, null>): void
   closeOverlay(): void
-  setViewTransitioning(isTransitioning: boolean): void
   toggleJourneyPath(): void
   /** 스캔 연출 종료 → 카드 공개. */
   revealEncounter(): void

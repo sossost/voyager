@@ -4,7 +4,6 @@ import { createRoot } from 'react-dom/client'
 import { BootGate } from '@/ui/boot/BootGate'
 
 import '@/styles/global.css'
-import '@/styles/view-transition.css'
 
 const rootElement = document.getElementById('root')
 if (rootElement == null) {
