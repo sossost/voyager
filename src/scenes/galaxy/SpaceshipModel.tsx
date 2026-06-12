@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
-import type { Group } from 'three'
+import { useEffect, useMemo, useRef } from 'react'
+import { AdditiveBlending, type Group, type Mesh, MeshBasicMaterial, RingGeometry } from 'three'
 
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { useGameStore } from '@/store'
@@ -23,13 +23,27 @@ const ENGINE_COLOR = '#7cf2e0'
 
 /** 모델 스케일 — 항성계 프레이밍 거리(~138)에서 곁의 3인칭 요소로 읽히는 크기. */
 const SHIP_SCALE = 1.5
-/** 항성 위로 띄우는 높이 — 궤도면(행성) 위라 별·행성과 겹치지 않는다. */
-const SHIP_ABOVE_STAR = 18
+/**
+ * 우주선 오프셋 — ShipCameraRig 정박 방향(Y:42, Z:132, 결정 41-e)을 축약해
+ * 별로부터 같은 방향으로 떨어진 위치에 배치한다. 이렇게 하면 퍼스펙티브 뷰에서
+ * "카메라가 보는 방향에서 멀어진 배"로 읽혀 별과 분리감이 생긴다 (백로그 H-4).
+ * 별 구체 반경(5)보다 충분히 멀어 겹침 없음.
+ */
+const SHIP_OFFSET_Y = 22
+const SHIP_OFFSET_Z = 68
 
 /** 가벼운 아이들 — 천천히 요잉하며 미세하게 부유한다 (살아있는 느낌). */
 const IDLE_YAW_SPEED = 0.25
 const BOB_SPEED = 1.1
 const BOB_AMPLITUDE = 0.6
+
+/** 헤일로 링 — 우주선을 별밭에서 돋보이게 하는 엔진 청록 선택 링 (백로그 H-6). */
+const HALO_RING_INNER = 3.2
+const HALO_RING_OUTER = 3.6
+const HALO_RING_SEGMENTS = 48
+const HALO_PULSE_SPEED = 1.8
+const HALO_MIN_OPACITY = 0.18
+const HALO_MAX_OPACITY = 0.45
 
 export function SpaceshipModel() {
   const seed = useGameStore((state) => state.seed)
@@ -37,25 +51,57 @@ export function SpaceshipModel() {
 
   const anchorRef = useRef<Group>(null)
   const shipRef = useRef<Group>(null)
+  const haloRef = useRef<Mesh>(null)
 
   const position = useMemo(
     () => starWorldPosition(seed, currentStarId) ?? ([0, 0, 0] as const),
     [seed, currentStarId],
   )
 
+  const haloGeometry = useMemo(
+    () => new RingGeometry(HALO_RING_INNER, HALO_RING_OUTER, HALO_RING_SEGMENTS),
+    [],
+  )
+  const haloMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        color: ENGINE_COLOR,
+        transparent: true,
+        opacity: HALO_MIN_OPACITY,
+        depthWrite: false,
+        blending: AdditiveBlending,
+      }),
+    [],
+  )
+
+  useEffect(() => () => haloGeometry.dispose(), [haloGeometry])
+  useEffect(() => () => haloMaterial.dispose(), [haloMaterial])
+
   useFrame((state) => {
     const ship = shipRef.current
+    const halo = haloRef.current
     if (ship == null) return
+
     const elapsed = state.clock.elapsedTime
     ship.rotation.y = elapsed * IDLE_YAW_SPEED
     ship.position.y = Math.sin(elapsed * BOB_SPEED) * BOB_AMPLITUDE
+
+    // 헤일로 빌보드 + 펄스 — 우주선이 별밭에 묻히지 않게 (백로그 H-6)
+    if (halo != null) {
+      halo.quaternion.copy(state.camera.quaternion)
+      haloMaterial.opacity =
+        HALO_MIN_OPACITY +
+        (HALO_MAX_OPACITY - HALO_MIN_OPACITY) * (0.5 + 0.5 * Math.sin(elapsed * HALO_PULSE_SPEED))
+    }
   })
 
   return (
     <group
       ref={anchorRef}
-      position={[position[0], position[1] + SHIP_ABOVE_STAR, position[2]]}
+      position={[position[0], position[1] + SHIP_OFFSET_Y, position[2] + SHIP_OFFSET_Z]}
     >
+      {/* 헤일로 링 — 빌보드 렌더, 우주선보다 앞에 그려 항상 보인다 */}
+      <mesh ref={haloRef} geometry={haloGeometry} material={haloMaterial} />
       <group ref={shipRef} scale={SHIP_SCALE}>
         {/* 선체 — +Z를 향하는 원뿔 (cone 기본 +Y를 +90° 회전) */}
         <mesh rotation={[Math.PI / 2, 0, 0]}>
