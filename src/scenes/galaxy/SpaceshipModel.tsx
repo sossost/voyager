@@ -1,6 +1,15 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { AdditiveBlending, type Group, type Mesh, MeshBasicMaterial, RingGeometry } from 'three'
+import {
+  AdditiveBlending,
+  type Group,
+  type Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  Quaternion,
+  RingGeometry,
+  Vector3,
+} from 'three'
 
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { useGameStore } from '@/store'
@@ -21,7 +30,7 @@ const WING_COLOR = '#8590a6'
 const ACCENT_COLOR = '#ffd166'
 const ENGINE_COLOR = '#7cf2e0'
 
-/** 모델 스케일 — 항성계 프레이밍 거리(~138)에서 곁의 3인칭 요소로 읽히는 크기. */
+/** 모델 스케일 — 항성계 프레이밍 거리(~138)에서 곁의 3인칭 요소로 읽히는 크기. 고정 값. */
 const SHIP_SCALE = 1.5
 /**
  * 우주선 오프셋 — ShipCameraRig 정박 방향(Y:42, Z:132, 결정 41-e)을 축약해
@@ -32,18 +41,33 @@ const SHIP_SCALE = 1.5
 const SHIP_OFFSET_Y = 22
 const SHIP_OFFSET_Z = 68
 
-/** 가벼운 아이들 — 천천히 요잉하며 미세하게 부유한다 (살아있는 느낌). */
-const IDLE_YAW_SPEED = 0.25
+/** 부유 — 미세하게 떠오르내리며 살아있는 느낌 (회전 없음, 항성 바라보기 고정). */
 const BOB_SPEED = 1.1
 const BOB_AMPLITUDE = 0.6
 
-/** 헤일로 링 — 우주선을 별밭에서 돋보이게 하는 엔진 청록 선택 링 (백로그 H-6). */
-const HALO_RING_INNER = 3.2
-const HALO_RING_OUTER = 3.6
-const HALO_RING_SEGMENTS = 48
-const HALO_PULSE_SPEED = 1.8
-const HALO_MIN_OPACITY = 0.18
-const HALO_MAX_OPACITY = 0.45
+/**
+ * 위치 마커 링 — 줌아웃해도 현재 위치를 항상 화면 고정 크기로 표시.
+ * CurrentStarBeacon의 worldPerPixel 기법 동일 적용.
+ */
+const MARKER_RING_INNER = 0.85
+const MARKER_RING_OUTER = 1.0
+const MARKER_RING_SEGMENTS = 48
+const MARKER_SCREEN_PX = 14
+const MARKER_MIN_WORLD_SCALE = 2.8
+const FALLBACK_FOV_DEGREES = 60
+const MARKER_PULSE_SPEED = 1.8
+const MARKER_MIN_OPACITY = 0.55
+const MARKER_MAX_OPACITY = 0.9
+
+/**
+ * 항성 방향 고정 쿼터니언 — anchor 로컬 +Z가 항성을 향한다.
+ * anchor 위치는 star+(0,22,68)이므로 anchor→star 방향은 (0,-22,-68) normalized.
+ * 매 프레임 재계산을 피하기 위해 모듈 레벨에서 한 번만 계산.
+ */
+const _Z = new Vector3(0, 0, 1)
+const _TO_STAR = new Vector3(0, -SHIP_OFFSET_Y, -SHIP_OFFSET_Z).normalize()
+const SHIP_FACING_QUAT = new Quaternion().setFromUnitVectors(_Z, _TO_STAR)
+const SHIP_FACING_QUAT_INV = SHIP_FACING_QUAT.clone().invert()
 
 export function SpaceshipModel() {
   const seed = useGameStore((state) => state.seed)
@@ -51,47 +75,59 @@ export function SpaceshipModel() {
 
   const anchorRef = useRef<Group>(null)
   const shipRef = useRef<Group>(null)
-  const haloRef = useRef<Mesh>(null)
+  const markerRef = useRef<Mesh>(null)
 
   const position = useMemo(
     () => starWorldPosition(seed, currentStarId) ?? ([0, 0, 0] as const),
     [seed, currentStarId],
   )
 
-  const haloGeometry = useMemo(
-    () => new RingGeometry(HALO_RING_INNER, HALO_RING_OUTER, HALO_RING_SEGMENTS),
+  const markerGeometry = useMemo(
+    () => new RingGeometry(MARKER_RING_INNER, MARKER_RING_OUTER, MARKER_RING_SEGMENTS),
     [],
   )
-  const haloMaterial = useMemo(
+  const markerMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
         color: ENGINE_COLOR,
         transparent: true,
-        opacity: HALO_MIN_OPACITY,
+        opacity: MARKER_MIN_OPACITY,
         depthWrite: false,
         blending: AdditiveBlending,
       }),
     [],
   )
 
-  useEffect(() => () => haloGeometry.dispose(), [haloGeometry])
-  useEffect(() => () => haloMaterial.dispose(), [haloMaterial])
+  useEffect(() => () => markerGeometry.dispose(), [markerGeometry])
+  useEffect(() => () => markerMaterial.dispose(), [markerMaterial])
 
   useFrame((state) => {
+    const anchor = anchorRef.current
     const ship = shipRef.current
-    const halo = haloRef.current
-    if (ship == null) return
+    const marker = markerRef.current
+    if (anchor == null || ship == null) return
 
     const elapsed = state.clock.elapsedTime
-    ship.rotation.y = elapsed * IDLE_YAW_SPEED
+
+    // 항성 방향 고정 — 우주선 코(+Z)가 항성을 향한다. 아이들 요잉 없음.
+    anchor.quaternion.copy(SHIP_FACING_QUAT)
+
+    // 부유 — anchor 로컬 Y 방향으로 미세하게 오르내린다.
     ship.position.y = Math.sin(elapsed * BOB_SPEED) * BOB_AMPLITUDE
 
-    // 헤일로 빌보드 + 펄스 — 우주선이 별밭에 묻히지 않게 (백로그 H-6)
-    if (halo != null) {
-      halo.quaternion.copy(state.camera.quaternion)
-      haloMaterial.opacity =
-        HALO_MIN_OPACITY +
-        (HALO_MAX_OPACITY - HALO_MIN_OPACITY) * (0.5 + 0.5 * Math.sin(elapsed * HALO_PULSE_SPEED))
+    // 위치 마커 — 화면 고정 크기 billboard (CurrentStarBeacon과 동일 기법)
+    if (marker != null) {
+      const cam = state.camera
+      const fov = cam instanceof PerspectiveCamera ? cam.fov : FALLBACK_FOV_DEGREES
+      const dist = cam.position.distanceTo(anchor.position)
+      const worldPerPixel = (2 * dist * Math.tan((fov * Math.PI) / 360)) / state.size.height
+      marker.scale.setScalar(Math.max(MARKER_SCREEN_PX * worldPerPixel, MARKER_MIN_WORLD_SCALE))
+      // anchor 회전 역보정으로 마커가 항상 카메라를 향한다
+      marker.quaternion.copy(state.camera.quaternion).premultiply(SHIP_FACING_QUAT_INV)
+      markerMaterial.opacity =
+        MARKER_MIN_OPACITY +
+        (MARKER_MAX_OPACITY - MARKER_MIN_OPACITY) *
+          (0.5 + 0.5 * Math.sin(elapsed * MARKER_PULSE_SPEED))
     }
   })
 
@@ -100,8 +136,8 @@ export function SpaceshipModel() {
       ref={anchorRef}
       position={[position[0], position[1] + SHIP_OFFSET_Y, position[2] + SHIP_OFFSET_Z]}
     >
-      {/* 헤일로 링 — 빌보드 렌더, 우주선보다 앞에 그려 항상 보인다 */}
-      <mesh ref={haloRef} geometry={haloGeometry} material={haloMaterial} />
+      {/* 위치 마커 링 — 화면 고정 크기 billboard, 줌아웃해도 항상 보인다 */}
+      <mesh ref={markerRef} geometry={markerGeometry} material={markerMaterial} />
       <group ref={shipRef} scale={SHIP_SCALE}>
         {/* 선체 — +Z를 향하는 원뿔 (cone 기본 +Y를 +90° 회전) */}
         <mesh rotation={[Math.PI / 2, 0, 0]}>
