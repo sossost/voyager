@@ -654,12 +654,33 @@
 **Chosen:** A — 진입 워프 재사용  
 **Reason:** "다음 별을 향해 출발"은 곧 그 별로의 진입이다. 방향성을 카메라 조준으로 전달하면 이탈 전용 연출 없이도 충분히 읽힌다. 나중에 별도 이탈 감각이 필요하면 WarpCameraRig 내부에서 분기 가능.
 
+#### 41-e. 퍼스펙티브 뷰 — `view: 'map'` 재정의 + 우주선 모델
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 우주선 중심 자유 공전 | 우주선이 항상 프레임 중심, "은하 속 내 배" 감각 최대 | 은하 전체 조망 불가(줌아웃으로 대체) |
+| B: 기존 은하 중심 공전 유지 + 우주선 모델 추가 | 은하 전략 맵 느낌 유지 | 우주선이 작아 보임, CurrentStarBeacon과 역할 중복 |
+| C: 미구현(CurrentStarBeacon 유지) | 공수 절감 | 내러티브 약화 |
+
+**Chosen:** A — 우주선 중심 자유 공전  
+**Reason:** 퍼스펙티브 뷰의 핵심 가치는 "은하 속에 떠 있는 내 우주선"을 보는 것. 우주선이 프레임 중심에 있어야 그 감각이 산다. 은하 전체 조망은 충분히 줌아웃하면 달성 가능.  
+우주선 모델: **기하 도형 플레이스홀더** — 나중에 실아트 교체 가능한 `SpaceshipModel` 컴포넌트로 캡슐화. 퍼스펙티브 뷰에서만 렌더, `CurrentStarBeacon` 대체.
+
+#### 41-f. 워프 발동 시퀀스 — 뷰별 분기
+
+| 뷰 | 시퀀스 |
+|----|--------|
+| 우주선 뷰 | 카메라를 목표 별 방향으로 부드럽게 회전 → 정렬 완료 후 워프 주입 |
+| 퍼스펙티브 뷰 | 즉시 우주선 뷰로 컷 전환 → 카메라 목표 별 방향 회전 → 워프 주입 |
+
+**Reason:** 퍼스펙티브 뷰에서 바로 워프하면 3인칭 워프 연출이 되어 1인칭 몰입이 깨진다. 워프는 항상 우주선 시점에서 경험해야 "나는 이 배 안에 있다"는 내러티브가 유지된다.
+
 **Consequences:**  
 - `SceneRouter`: `case 'system'` 분기 제거, `SystemScene` 삭제  
-- `store/types.ts`: `SceneState` 유니온에서 `system` 제거  
-- `GalaxyScene`: `currentStarId`가 있을 때 별 구체·행성 렌더  
+- `store/types.ts`: `SceneState` 유니온에서 `system` 제거, `view: 'ship' | 'perspective'` (기존 `'map'` 리네임)  
+- `GalaxyScene`: `currentStarId`가 있을 때 별 구체·행성 렌더; `view === 'perspective'`일 때 `SpaceshipModel` + `PerspectiveCameraRig` 마운트  
 - `GalaxyStarField`: `currentStarId` 포인트 알파 관리 (크로스페이드용 uniform 또는 어트리뷰트)  
-- `WarpCameraRig`: 거리 임계값 기반 StarSurface 페이드인 트리거  
+- `WarpCameraRig`: 거리 임계값 기반 StarSurface 페이드인 트리거; 발동 전 퍼스펙티브→우주선 뷰 컷  
 - `SystemEntryTransition` 삭제 (역할이 워프 중 자연 확대로 흡수)  
 - GEN_VERSION·저장 포맷 무관, 렌더+상태 전용 변경
 
