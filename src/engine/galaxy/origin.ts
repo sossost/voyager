@@ -1,24 +1,12 @@
 import type { Seed, StarId } from '../coords'
-import { GALAXY_RADIUS_SECTORS } from './density'
-import { starsInSector } from './sectors'
+import { SOL_STAR_ID } from '../system/sol'
 
 /**
- * 시드가 정한 시작 별 — 은하 중심에서 바깥으로 나선 순회하며 첫 별을 찾는다.
- * 순회 순서가 고정이므로 같은 시드는 항상 같은 시작 별을 얻는다.
+ * 시드가 정한 시작 별 — 항상 태양계(SOL_STAR_ID).
+ * Sol은 모든 시드에서 고정 위치(섹터 26,0,10)이므로 탐색 없이 직접 반환한다.
+ * seed 파라미터는 미래 호환성을 위해 유지한다.
  */
-export function originStar(seed: Seed): StarId {
-  for (let radius = 0; radius <= GALAXY_RADIUS_SECTORS; radius++) {
-    for (let sx = -radius; sx <= radius; sx++) {
-      for (let sz = -radius; sz <= radius; sz++) {
-        const isOnRing = Math.max(Math.abs(sx), Math.abs(sz)) === radius
-        if (!isOnRing) continue
-
-        const stars = starsInSector(seed, { sx, sy: 0, sz })
-        const first = stars[0]
-        if (first != null) return first.id
-      }
-    }
-  }
-  /* v8 ignore next 2 -- 밀도 함수가 중심부 별을 보장하므로 도달 불가 */
-  throw new Error('우주에 별이 없습니다 — 생성 파라미터 오류')
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function originStar(_seed: Seed): StarId {
+  return SOL_STAR_ID
 }

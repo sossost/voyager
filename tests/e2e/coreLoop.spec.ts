@@ -7,7 +7,7 @@ import { parseSeed } from '../../src/engine/coords'
 import { originStar } from '../../src/engine/galaxy/origin'
 import { starsInSector } from '../../src/engine/galaxy/sectors'
 import { planetsOf } from '../../src/engine/system/planets'
-import { SOL_STAR_ID } from '../../src/engine/system/sol'
+import { SOL_SECTOR, SOL_STAR_ID } from '../../src/engine/system/sol'
 
 /**
  * 코어 루프 E2E (스펙 AC):
@@ -32,8 +32,10 @@ if (START_STAR !== SOL_STAR_ID) {
  * warpTo → selectPlanet → explore 순서로 사용한다.
  */
 function findNearbyLifeTarget(seed: Seed): { starId: StarId; planetId: PlanetId } {
-  for (let sx = -3; sx <= 3; sx++) {
-    for (let sz = -3; sz <= 3; sz++) {
+  for (let dsx = -3; dsx <= 3; dsx++) {
+    for (let dsz = -3; dsz <= 3; dsz++) {
+      const sx = SOL_SECTOR.sx + dsx
+      const sz = SOL_SECTOR.sz + dsz
       for (const star of starsInSector(seed, { sx, sy: 0, sz })) {
         if (star.id === SOL_STAR_ID) continue
         const planets = planetsOf(seed, star.id)
@@ -53,8 +55,10 @@ const { starId: LIFE_STAR, planetId: LIFE_PLANET } = findNearbyLifeTarget(LIFE1_
  * LIFE_STAR와 다른 실제 별 — 결정론적 워프 목적지 (항법 단계용).
  */
 function findWarpTarget(seed: Seed): StarId {
-  for (let sx = -3; sx <= 3; sx++) {
-    for (let sz = -3; sz <= 3; sz++) {
+  for (let dsx = -3; dsx <= 3; dsx++) {
+    for (let dsz = -3; dsz <= 3; dsz++) {
+      const sx = SOL_SECTOR.sx + dsx
+      const sz = SOL_SECTOR.sz + dsz
       for (const star of starsInSector(seed, { sx, sy: 0, sz })) {
         if (star.id !== START_STAR && star.id !== LIFE_STAR) return star.id
       }

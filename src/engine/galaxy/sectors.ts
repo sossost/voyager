@@ -4,7 +4,7 @@ import { starName } from '../naming/names'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import { SECTOR_SIZE, sectorDensity } from './density'
-import { SOL_STAR_ID, SOL_LOCAL_POS } from '../system/sol'
+import { SOL_STAR_ID, SOL_LOCAL_POS, SOL_SECTOR } from '../system/sol'
 
 export const MAX_STARS_PER_SECTOR = 5
 
@@ -30,10 +30,10 @@ export interface Star {
   readonly name: string
 }
 
-/** 태양 — 모든 시드에서 은하 중심 섹터(0,0,0) 인덱스 0에 고정 배치된다 (G-c-10). */
+/** 태양 — 모든 시드에서 섹터(26,0,10) 인덱스 0에 고정 배치된다 (G-c-10). */
 export const SOL_STAR: Star = {
   id: SOL_STAR_ID,
-  sector: { sx: 0, sy: 0, sz: 0 },
+  sector: SOL_SECTOR,
   localPos: SOL_LOCAL_POS,
   spectral: 'G',
   name: '태양',
@@ -44,17 +44,20 @@ export const SOL_STAR: Star = {
  *
  * 별 개수는 섹터 스트림에서, 각 별의 속성은 별 자신의 독립 스트림에서 뽑는다
  * (스트림 격리 — 별 속성 추가가 이웃 별을 절대 바꾸지 않는다).
- * 은하 중심 섹터(0,0,0) 인덱스 0은 항상 SOL_STAR — RNG 스트림 소비 없이 상수 반환.
+ * Sol 섹터(26,0,10) 인덱스 0은 항상 SOL_STAR — 밀도와 무관하게 count ≥ 1 보장.
  */
 export function starsInSector(seed: Seed, sector: SectorCoords): readonly Star[] {
+  const isSolSector =
+    sector.sx === SOL_SECTOR.sx && sector.sy === SOL_SECTOR.sy && sector.sz === SOL_SECTOR.sz
   const density = sectorDensity(sector)
-  if (density === 0) return []
+  if (density === 0 && !isSolSector) return []
 
   const sectorRng = rngFor(seed, 'sector', sector.sx, sector.sy, sector.sz)
   const expected = density * MAX_STARS_PER_SECTOR
   const base = Math.floor(expected)
   const fraction = expected - base
-  const count = base + (sectorRng.next() < fraction ? 1 : 0)
+  const rawCount = base + (sectorRng.next() < fraction ? 1 : 0)
+  const count = isSolSector ? Math.max(rawCount, 1) : rawCount
 
   const stars: Star[] = []
   for (let index = 0; index < count; index++) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Seed } from '../coords'
 import { parseSeed } from '../coords'
+import { SOL_STAR_ID } from '../system/sol'
 import { originStar } from './origin'
 import { starById, starWorldPosition } from './position'
 
@@ -22,10 +23,10 @@ describe('originStar', () => {
     expect(starById(seed, originStar(seed))).not.toBeNull()
   })
 
-  it('시드 LIFE1의 시작 별은 0:0:0:0이다 — E2E 코어 루프가 의존하는 고정 계약', () => {
-    // 중심 섹터 밀도 1 보장(density.ts) 덕에 모든 시드가 0:0:0:0에서 시작하지만,
-    // E2E가 의존하는 LIFE1만큼은 회귀 시 즉시 단위 레벨에서 잡는다.
-    expect(originStar(seedOf('LIFE1'))).toBe('0:0:0:0')
+  it('모든 시드의 시작 별은 SOL_STAR_ID(26:0:10:0)이다 — E2E 코어 루프가 의존하는 고정 계약', () => {
+    // originStar는 Sol을 항상 반환한다 — 탐색 없이 SOL_STAR_ID 직접 반환 (G-c-10).
+    expect(originStar(seedOf('LIFE1'))).toBe(SOL_STAR_ID)
+    expect(originStar(seedOf('ORIGINTEST'))).toBe(SOL_STAR_ID)
   })
 })
 

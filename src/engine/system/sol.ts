@@ -2,10 +2,14 @@ import { makeStarId, makePlanetId } from '../coords'
 import type { StarId } from '../coords'
 import type { Planet } from './planets'
 
-/** 태양계 기준 StarId — 은하 중심 섹터(0,0,0)의 인덱스 0. 모든 시드에서 동일. */
-export const SOL_STAR_ID: StarId = makeStarId({ sx: 0, sy: 0, sz: 0 }, 0)
+/**
+ * 태양계 기준 StarId — 은하 중심에서 ~58% 거리(r≈27.9섹터) 나선팔 근방.
+ * 실제 태양의 은하 내 위치(은하 반경의 55~60%)를 반영한다. 모든 시드에서 동일.
+ */
+export const SOL_STAR_ID: StarId = makeStarId({ sx: 26, sy: 0, sz: 10 }, 0)
+export const SOL_SECTOR = { sx: 26, sy: 0, sz: 10 } as const
 
-/** 섹터 (0,0,0) 내 고정 좌표 [0, SECTOR_SIZE=100). */
+/** 섹터 (26,0,10) 내 고정 좌표 [0, SECTOR_SIZE=100). */
 export const SOL_LOCAL_POS = [50, 0, 50] as const
 
 /**

@@ -4,7 +4,7 @@ import type { PlanetId, Seed, StarId } from '../../src/engine/coords'
 import { parseSeed } from '../../src/engine/coords'
 import { starsInSector } from '../../src/engine/galaxy/sectors'
 import { planetsOf } from '../../src/engine/system/planets'
-import { SOL_STAR_ID } from '../../src/engine/system/sol'
+import { SOL_SECTOR, SOL_STAR_ID } from '../../src/engine/system/sol'
 
 /**
  * IndexedDB 차단 환경 폴백 E2E (스펙 AC):
@@ -15,8 +15,10 @@ import { SOL_STAR_ID } from '../../src/engine/system/sol'
 const LIFE1_SEED = parseSeed('LIFE1') as Seed
 
 function findNearbyLifeTarget(seed: Seed): { starId: StarId; planetId: PlanetId } {
-  for (let sx = -3; sx <= 3; sx++) {
-    for (let sz = -3; sz <= 3; sz++) {
+  for (let dsx = -3; dsx <= 3; dsx++) {
+    for (let dsz = -3; dsz <= 3; dsz++) {
+      const sx = SOL_SECTOR.sx + dsx
+      const sz = SOL_SECTOR.sz + dsz
       for (const star of starsInSector(seed, { sx, sy: 0, sz })) {
         if (star.id === SOL_STAR_ID) continue
         const life = planetsOf(seed, star.id).find((p) => p.hasLife && p.isHomeWorld !== true)

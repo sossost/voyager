@@ -9,7 +9,7 @@ import {
   sectorDensity,
 } from './density'
 import { MAX_STARS_PER_SECTOR, SOL_STAR, starsInSector } from './sectors'
-import { SOL_STAR_ID, SOL_LOCAL_POS } from '../system/sol'
+import { SOL_SECTOR, SOL_STAR_ID, SOL_LOCAL_POS } from '../system/sol'
 
 function seedOf(value: string): Seed {
   const seed = parseSeed(value)
@@ -42,7 +42,7 @@ describe('sectorDensity', () => {
     }
   })
 
-  it('중심 섹터 (0,0,0)의 밀도는 1이다 — originStar의 0:0:0:0 보장 (시드 LIFE1 의존)', () => {
+  it('중심 섹터 (0,0,0)의 밀도는 1이다 (벌지 보장)', () => {
     expect(sectorDensity({ sx: 0, sy: 0, sz: 0 })).toBe(1)
   })
 
@@ -107,9 +107,9 @@ describe('starsInSector', () => {
     expect(stars.length).toBeGreaterThan(0)
   })
 
-  it('중심 섹터(0,0,0) 인덱스 0은 항상 태양이다 — 시드 무관', () => {
+  it('Sol 섹터(26,0,10) 인덱스 0은 항상 태양이다 — 시드 무관', () => {
     for (const s of [seed, seedOf('ANOTHERSEED'), seedOf('ZETA42')]) {
-      const first = starsInSector(s, { sx: 0, sy: 0, sz: 0 })[0]
+      const first = starsInSector(s, SOL_SECTOR)[0]
       expect(first).toEqual(SOL_STAR)
       expect(first?.id).toBe(SOL_STAR_ID)
       expect(first?.name).toBe('태양')
