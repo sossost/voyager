@@ -10,6 +10,7 @@ import {
 } from 'three'
 
 import { GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
+import { GALAXY_NEBULAE } from '@/scenes/galaxy/galaxyNebulae'
 
 /**
  * 은하 성운 헤이즈 — 밀도 함수를 텍스처로 구워 은하면에 깐 평면 1장 (드로콜 1).
@@ -44,6 +45,10 @@ const COLOR_BLEND_RADIUS_SECTORS = 10
 /** 중심 광원 — 텍스처 위에 덧그리는 코어 글로우 (벌지 반경의 배수). */
 const CORE_GLOW_RADIUS_SECTORS = 14
 const CORE_GLOW_ALPHA = 0.85
+
+/** 성운 패치 — 우주선 뷰 파노라마와 같은 위치 (galaxyNebulae, 우주 일관성). */
+const NEBULA_RADIUS_SCALE = 2.2
+const NEBULA_CORE_ALPHA = 0.4
 
 function clamp01(value: number): number {
   if (value < 0) return 0
@@ -107,6 +112,25 @@ function buildNebulaTexture(): CanvasTexture {
   context.globalCompositeOperation = 'lighter'
   context.fillStyle = gradient
   context.fillRect(center - glowRadius, center - glowRadius, glowRadius * 2, glowRadius * 2)
+
+  // 4) 성운 패치 — 파노라마(함내 하늘)에서 보이는 그 성운이 지도에도 같은 자리에 뜬다
+  for (const blob of GALAXY_NEBULAE) {
+    const blobX = (blob.sx + GALAXY_RADIUS_SECTORS) * UPSCALE_FACTOR
+    const blobY = (blob.sz + GALAXY_RADIUS_SECTORS) * UPSCALE_FACTOR
+    const blobRadius = blob.sigmaSectors * NEBULA_RADIUS_SCALE * UPSCALE_FACTOR
+    const [red, green, blue] = blob.color
+    const blobGradient = context.createRadialGradient(blobX, blobY, 0, blobX, blobY, blobRadius)
+    blobGradient.addColorStop(
+      0,
+      `rgba(${Math.round(red * 255)}, ${Math.round(green * 255)}, ${Math.round(blue * 255)}, ${NEBULA_CORE_ALPHA})`,
+    )
+    blobGradient.addColorStop(
+      1,
+      `rgba(${Math.round(red * 255)}, ${Math.round(green * 255)}, ${Math.round(blue * 255)}, 0)`,
+    )
+    context.fillStyle = blobGradient
+    context.fillRect(blobX - blobRadius, blobY - blobRadius, blobRadius * 2, blobRadius * 2)
+  }
 
   const texture = new CanvasTexture(upscaled)
   texture.colorSpace = 'srgb'
