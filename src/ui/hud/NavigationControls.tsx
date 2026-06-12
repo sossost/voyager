@@ -11,6 +11,7 @@ export function NavigationControls() {
   const isJourneyPathVisible = useGameStore((state) => state.isJourneyPathVisible)
   const toggleJourneyPath = useGameStore((state) => state.toggleJourneyPath)
   const hasJourney = useGameStore((state) => state.visitedStars.size >= MIN_STARS_FOR_JOURNEY)
+  const isViewTransitioning = useGameStore((state) => state.isViewTransitioning)
 
   if (scene.kind === 'warping') return null
 
@@ -19,7 +20,13 @@ export function NavigationControls() {
     return (
       <nav className="navigation-controls" aria-label="화면 컨트롤">
         <div className="nav-row">
-          <button type="button" className="hud-button" onClick={returnToShip}>
+          <button
+            type="button"
+            className="hud-button"
+            disabled={isViewTransitioning}
+            aria-disabled={isViewTransitioning}
+            onClick={returnToShip}
+          >
             ← 우주선
           </button>
           {hasJourney ? (
@@ -68,7 +75,13 @@ export function NavigationControls() {
   return (
     <nav className="navigation-controls" aria-label="화면 컨트롤">
       <div className="nav-row">
-        <button type="button" className="hud-button" onClick={openPerspective}>
+        <button
+          type="button"
+          className="hud-button"
+          disabled={isViewTransitioning}
+          aria-disabled={isViewTransitioning}
+          onClick={openPerspective}
+        >
           은하 항법
         </button>
         <button

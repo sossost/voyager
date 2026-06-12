@@ -8,15 +8,21 @@ import { useGameStore } from '@/store'
  */
 export function ShipFrame() {
   const scene = useGameStore((state) => state.scene)
+  const isViewTransitioning = useGameStore((state) => state.isViewTransitioning)
   const isOnShip = (scene.kind === 'galaxy' && scene.view === 'ship') || scene.kind === 'warping'
   if (isOnShip === false) return null
 
+  const showGlow = isViewTransitioning && scene.kind === 'galaxy' && scene.view === 'ship'
+  const cornerClass = showGlow
+    ? 'ship-frame-corner ship-frame-corner--glow'
+    : 'ship-frame-corner'
+
   return (
     <div className="ship-frame" aria-hidden="true">
-      <span className="ship-frame-corner ship-frame-corner-tl" />
-      <span className="ship-frame-corner ship-frame-corner-tr" />
-      <span className="ship-frame-corner ship-frame-corner-bl" />
-      <span className="ship-frame-corner ship-frame-corner-br" />
+      <span className={`${cornerClass} ship-frame-corner-tl`} />
+      <span className={`${cornerClass} ship-frame-corner-tr`} />
+      <span className={`${cornerClass} ship-frame-corner-bl`} />
+      <span className={`${cornerClass} ship-frame-corner-br`} />
     </div>
   )
 }

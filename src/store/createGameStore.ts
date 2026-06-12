@@ -135,13 +135,13 @@ export function createGameStore(options: CreateGameStoreOptions) {
     openPerspective() {
       if (get().scene.kind !== 'galaxy') return
       // 퍼스펙티브 뷰는 행성을 클릭하지 않으므로 행성 선택을 해제한다
-      set({ scene: { kind: 'galaxy', view: 'perspective' }, selectedPlanetId: null })
+      set({ scene: { kind: 'galaxy', view: 'perspective' }, selectedPlanetId: null, isViewTransitioning: true })
     },
 
     returnToShip() {
       if (get().scene.kind !== 'galaxy') return
       // 별 선택은 유지 — 우주선 뷰에서도 StarInfoPanel·항행이 동작한다
-      set({ scene: { kind: 'galaxy', view: 'ship' } })
+      set({ scene: { kind: 'galaxy', view: 'ship' }, isViewTransitioning: true })
     },
 
     consumeArrival() {
@@ -232,6 +232,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
     storageMode: driver.mode,
     toasts: [],
     isJourneyPathVisible: false,
+    isViewTransitioning: false,
     seenHints: new Set<HintKey>(options.initialSeenHints ?? []),
 
     openOverlay(overlay) {
@@ -240,6 +241,10 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     closeOverlay() {
       set({ overlay: null })
+    },
+
+    setViewTransitioning(isViewTransitioning) {
+      set({ isViewTransitioning })
     },
 
     toggleJourneyPath() {
