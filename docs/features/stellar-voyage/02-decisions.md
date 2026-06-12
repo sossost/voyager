@@ -609,6 +609,62 @@
 
 ---
 
+### 41. 항성계 씬 통합 — SceneState 단일화 + 은하 좌표계 직접 배치 (백로그 G-b-7, E-5)
+
+**Date:** 2026-06-12 (brainstorm: "씬 스왑 없이 은하 배경 유지하며 항성계 띄우기")
+
+#### 41-a. 좌표계 — 시스템 오브젝트를 어디에 배치할까
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 은하 좌표계 직접 | 단일 좌표계, 씬 스왑 없음, 은하 배경이 진짜 배경 | 포인트 스프라이트 숨기기 필요, 스케일 전환 구현 복잡 |
+| B: 로컬 좌표(Floating Origin) + 스카이박스 | 현 SystemScene 구조 유지, 행성 클릭 레이캐스트 단순 | 은하가 가짜 배경(스카이박스), 씬 스왑 부분 잔존 |
+
+**Chosen:** A — 은하 좌표계 직접 배치  
+**Reason:** 통합의 핵심 가치("은하 속에 실제로 있다는 감각")는 A만 구현 가능. B는 현 구조 개선이지 통합이 아님.
+
+#### 41-b. SceneState — `kind: 'system'` 존치 여부
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: `kind: 'system'` 제거, galaxy만 유지 | 상태 모델 단순화, 씬 스왑 코드 제거 | 스토어·액션·라우터 일괄 수정 |
+| B: `kind: 'system'` 유지, 렌더만 통합 | 변경 범위 최소 | 상태와 렌더가 불일치(시스템 오브젝트가 galaxy 씬에 있는데 kind는 'system') |
+
+**Chosen:** A — `kind: 'system'` 제거  
+**Reason:** 상태가 렌더를 반영해야 한다. 은하 씬 안에서 항성계를 보여주는데 kind가 'system'이면 거짓말하는 상태 모델. 시스템 활성 여부는 `scene.view === 'ship'` + `currentStarId` 유무로 암묵적으로 결정된다.
+
+#### 41-c. 워프 진입 스케일 전환
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 워프 도착 중 자연 확대 (포인트 → 구체 크로스페이드) | 완전 연속적, 씬 스왑 느낌 없음 | WarpCameraRig에 거리 기반 크로스페이드 로직 추가 |
+| B: WarpFlash 피크에 구체 즉시 등장 | 현행 패턴 유지, 구현 단순 | 플래시 가리는 덕에 팝인이 눈에 안 띄지만 연속성 약함 |
+| C: 워프 종료 후 카메라 줌인 애니메이션 | 진입 연출이 명확 | 워프 + 별도 애니 = 대기 시간 2중 발생 |
+
+**Chosen:** A — 워프 도착 중 자연 확대  
+**Reason:** 씬 통합의 하이라이트 순간. WarpCameraRig가 이미 목표 별 좌표를 알고 있어 카메라 거리 임계값(≈600 유닛)에서 StarSurface 페이드인 트리거가 자연스럽게 연결된다. 포인트 스프라이트 alpha는 같은 임계값에서 역방향 페이드.
+
+#### 41-d. 이탈 워프 연출 (E-5 해소)
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 진입 워프 재사용 — 목표 별 조준 후 동일 WarpCameraRig 발동 | 코드 재사용, 이탈·진입 대칭, 별도 이탈 애니 불필요 | 이탈 "출발" 느낌이 진입 "도착" 느낌과 시각적으로 동일 |
+| B: 별도 이탈 연출 구현 | 이탈의 고유한 감각 | 공수 2배, E-5 추가 스펙 필요 |
+
+**Chosen:** A — 진입 워프 재사용  
+**Reason:** "다음 별을 향해 출발"은 곧 그 별로의 진입이다. 방향성을 카메라 조준으로 전달하면 이탈 전용 연출 없이도 충분히 읽힌다. 나중에 별도 이탈 감각이 필요하면 WarpCameraRig 내부에서 분기 가능.
+
+**Consequences:**  
+- `SceneRouter`: `case 'system'` 분기 제거, `SystemScene` 삭제  
+- `store/types.ts`: `SceneState` 유니온에서 `system` 제거  
+- `GalaxyScene`: `currentStarId`가 있을 때 별 구체·행성 렌더  
+- `GalaxyStarField`: `currentStarId` 포인트 알파 관리 (크로스페이드용 uniform 또는 어트리뷰트)  
+- `WarpCameraRig`: 거리 임계값 기반 StarSurface 페이드인 트리거  
+- `SystemEntryTransition` 삭제 (역할이 워프 중 자연 확대로 흡수)  
+- GEN_VERSION·저장 포맷 무관, 렌더+상태 전용 변경
+
+---
+
 ## Architecture
 
 ### Structure

@@ -59,8 +59,11 @@
 
 ## G. 로드맵 4차 — 우주선 뷰 고도화 + 천체 다양화 (2026-06-12 피드백, PR #3 머지 직후)
 
-> 컨셉 확정: **기본은 어디서나 우주선(1인칭) 뷰, 은하 전도는 "함내에서 띄우는 시뮬레이션"이다.**
-> 이 프레임으로 아래 항목들의 우선순위·표현을 정한다. 결정 28(물리 충실 기각 이력)·31(행성 부가 구 금지) 숙지.
+> **컨셉 확정 (2026-06-12 업데이트):**
+> - **우주선 뷰(1인칭)** — 항상 우주선 내부 시점. 은하·항성계가 창밖으로 보임. 기본 시점.
+> - **퍼스펙티브 뷰(3인칭)** — 은하 공간 안에 우주선 모델이 실제로 렌더. 카메라가 우주선 중심 공전. 은하 항법 맵 역할.
+> - 두 뷰 모두 동일한 은하 씬 위에서 동작 — 씬 스왑 없음 (결정 41).
+> 결정 28(물리 충실 기각)·31(행성 부가 구 금지) 숙지.
 
 ### G-a. 빠른 개선 (렌더/DOM 전용 — GEN_VERSION 무관)
 
@@ -73,7 +76,33 @@
 ### G-b. 중형 — 시점·연출 재작업
 
 6. ~~**우주선 뷰 은하 측면 광원감**~~ — ✅ 완료 (2026-06-12, 결정 38): `ShipViewGalaxyGlow` — 정박 별 기준 방위각별 sectorDensity 선적분을 실린더에 구운 원반 밴드 + 은하 중심 코어 글로우 빌보드(각크기 상한 0.22). 텍스처+가산 원칙 준수, 점·입자 없음. 우주선 뷰·워프 전용 마운트.
-7. **항성계 씬도 우주선 뷰로 통일** — 항성계 내부도 1인칭(ShipCameraRig 패턴)이 기본이 되도록 카메라 재설계. 행성 관찰·클릭 UX(궤도 회전 없이 시선만으로 충분한가), 진입 트랜지션(SystemEntryTransition)·E-5 이탈 워프와 한 묶음. 탐사 행성 접근 연출(행성으로 다가가는 카메라?)까지 포함해 `/yc:brainstorm` 선행 권장.
+7. **항성계 씬 통합 + 퍼스펙티브 뷰 우주선** ✦ brainstorm 완료 (2026-06-12, 결정 41)
+
+   **컨셉:**
+   - `SceneState.kind: 'system'` 삭제 → 은하 씬 단일화. 항성계 오브젝트를 은하 좌표계에 직접 배치.
+   - `view: 'ship'` (1인칭 우주선 뷰) / `view: 'perspective'` (3인칭, 우주선 모델 렌더 + 우주선 중심 공전).
+   - E-5 이탈 워프: 목표 별 조준 후 진입 워프 재사용. 뷰별 워프 진입 시퀀스 분리.
+
+   **워프 발동 시퀀스 (뷰별):**
+   - **우주선 뷰에서**: 카메라를 목표 별 방향으로 부드럽게 회전 → 정렬 완료 후 워프 주입
+   - **퍼스펙티브 뷰에서**: 즉시 우주선 뷰로 컷 전환 → 카메라 목표 별 방향 회전 → 워프 주입
+
+   **구현 단계 (순서 의존)**
+
+   | # | 작업 | 핵심 파일 | 최소 모델 |
+   |---|------|-----------|-----------|
+   | 1 | `SceneState` 리팩터 — `kind: 'system'` 제거, `view` 타입에 `'perspective'` 추가, 스토어·액션·타입 일괄 수정 | `store/types.ts`, `createGameStore.ts`, `SceneRouter.tsx` | Haiku |
+   | 2 | `SystemScene` → `GalaxyScene` 통합 — 별 구체·행성을 현재 별 은하 좌표에 렌더 | `GalaxyScene.tsx`, `SystemScene.tsx`(삭제), `StarSurface`, `Planet`, `OrbitRing` | Sonnet |
+   | 3 | 포인트 스프라이트 크로스페이드 — `GalaxyStarField`에서 `currentStarId` 포인트 alpha 관리 (카메라 거리 ≈ 600 임계값) | `GalaxyStarField.tsx` | Sonnet |
+   | 4 | 워프 진입 스케일 전환 — `WarpCameraRig` 내 거리 기반 StarSurface 페이드인 트리거, `SystemEntryTransition` 삭제 | `WarpCameraRig.tsx`, `SystemEntryTransition.tsx`(삭제) | Sonnet |
+   | 5 | 카메라 리그 전환 — 정박 시 별 중심 공전 `CameraRig` 마운트 | `GalaxyScene.tsx` | Haiku |
+   | 6 | 이탈 워프 + 뷰별 시퀀스 — ① 우주선 뷰: 목표 별 방향 회전 애니 → 워프. ② 퍼스펙티브 뷰: 우주선 뷰 컷 → 회전 → 워프. | `createGameStore.ts`, `WarpCameraRig.tsx`, `HudLayer.tsx` | Sonnet |
+   | 7 | 맵→퍼스펙티브 리네임 + 시스템 오브젝트 숨김 처리 | `GalaxyScene.tsx`, HUD 버튼 레이블 | Haiku |
+   | 8 | 퍼스펙티브 뷰 우주선 모델 — `currentStarId` 은하 좌표에 기하 도형 우주선 렌더. `PerspectiveCameraRig`(우주선 중심 공전). `CurrentStarBeacon` 대체. 워프 인터랙션 유지. | `scenes/galaxy/SpaceshipModel.tsx`(신규), `PerspectiveCameraRig.tsx`(신규 or MapCameraRig 수정) | Sonnet |
+   | 9 | 콜아웃·패널 재연결 | `PlanetCalloutProjector.tsx`, `SystemReadout.tsx` | Sonnet |
+   | 10 | 테스트 갱신 — E2E(씬 전환·뷰 전환 경로), 스토어 단위 테스트 | `tests/e2e/`, `store/*.test.ts` | Sonnet |
+
+   > `/yc:plan` 실행 전 현재 브랜치 PR 머지 선행 필요.
 
 ### G-c. 엔진 확장 — 생성 변경 (브레인스토밍 선행)
 
