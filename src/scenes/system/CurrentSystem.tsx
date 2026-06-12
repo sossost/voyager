@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
-import type { Group } from 'three'
+import type { Group, PointLight } from 'three'
 import { Vector3 } from 'three'
 
 import { planetsOf, starById } from '@/engine'
@@ -10,7 +10,7 @@ import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
-import { STAR_CROSSFADE_FAR } from '@/scenes/system/starCrossfade'
+import { SYSTEM_LOD_DISTANCE } from '@/scenes/system/starCrossfade'
 import { useGameStore } from '@/store'
 
 /**
@@ -23,25 +23,34 @@ import { useGameStore } from '@/store'
  * 더한다 (PlanetCalloutProjector). 렌더 전용 — GEN_VERSION·저장 포맷 무관.
  */
 
-/** 항성 시각 반경 — 행성 시각 반경 상한(~2.5)의 2배 이상이어야 위계가 선다. */
-const STAR_VISUAL_RADIUS = 5
+/** 항성 시각 반경 — ORBIT_SCALE 축소(6)에 맞춰 3으로 조정, 코로나 글로우로 시각적으로 더 크게 보인다. */
+const STAR_VISUAL_RADIUS = 3
+// SYSTEM_LOD_DISTANCE는 starCrossfade.ts에서 임포트 — 궤도링 페이드와 같은 임계 공유 (백로그 H-3).
 /**
- * LOD 거리 — 이 거리보다 멀면 행성·궤도링 렌더를 중단한다 (백로그 H-3).
- * 구체 크로스페이드 FAR(650)보다 2배 이상 멀어 구체가 이미 완전 투명인 구간.
- * 퍼스펙티브 최대 줌아웃(6000)에서 행성은 서브픽셀이므로 이 임계에서 끊어도
- * 시각적 정보 손실 없음.
+ * 항성 포인트라이트 — 조명은 그룹 스케일과 무관하게 월드 좌표로 작동한다.
+ * 퍼스펙티브(1/8 스케일)에선 행성이 항성에 8배 가까워지므로 강도를 대폭 낮춘다.
+ * 유도: decay=1.6, 거리 1/8 → 동일 밝기 유지 강도 = 500 / 8^1.6 ≈ 19.
  */
-const SYSTEM_LOD_DISTANCE = STAR_CROSSFADE_FAR * 2
-/** 항성 포인트라이트 — 행성 밤면 경계를 만드는 주광원. */
-const STAR_LIGHT_INTENSITY = 1_200
+const STAR_LIGHT_INTENSITY_SHIP = 500
+const STAR_LIGHT_INTENSITY_PERSPECTIVE = 19
 const STAR_LIGHT_DECAY = 1.6
-/** 주변광 — 밤면 가독성 (물리 광원 페널티 상쇄로 1 이상). */
-const AMBIENT_INTENSITY = 1.2
+/** 주변광 — 밤면 가독성. */
+const AMBIENT_INTENSITY = 0.9
+
+/**
+ * 은하 항법(퍼스펙티브) 뷰의 항성계 스케일 — 함교 뷰(1.0)에 비해 1/8.
+ * 은하 스케일 대비 행성계가 실제보다 크게 보이는 이질감을 줄인다.
+ */
+const PERSPECTIVE_SYSTEM_SCALE = 0.125
+const SHIP_SYSTEM_SCALE = 1.0
 
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
   const starId = useGameStore((state) => state.currentStarId)
   const sceneKind = useGameStore((state) => state.scene.kind)
+  const isPerspective = useGameStore(
+    (state) => state.scene.kind === 'galaxy' && state.scene.view === 'perspective',
+  )
   // 행성·궤도링은 은하 뷰에서만 — 워프 중엔 텍스처 베이크 부담 없이 구체에 집중 (결정 41-c).
   const showPlanets = sceneKind === 'galaxy'
   // 워프 중엔 별 구체도 숨긴다 — 시작 시 구(FROM)→점 전환 팝 방지 + 도착 후 플래시가
@@ -49,7 +58,10 @@ export function CurrentSystem() {
   const isWarping = sceneKind === 'warping'
 
   const systemGroupRef = useRef<Group>(null)
+  const lightRef = useRef<PointLight>(null)
+  const lightIntensityRef = useRef(STAR_LIGHT_INTENSITY_SHIP)
   const lodScratch = useMemo(() => new Vector3(), [])
+  const systemScaleRef = useRef(SHIP_SYSTEM_SCALE)
 
   const star = useMemo(() => starById(seed, starId), [seed, starId])
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
@@ -59,33 +71,46 @@ export function CurrentSystem() {
   )
   const starColor = star == null ? '#ffffff' : SPECTRAL_RENDER[star.spectral].color
 
-  // LOD — 퍼스펙티브 줌아웃 시 구체는 이미 투명하지만 행성·궤도링이 계속 렌더됨.
-  // 임계 거리 초과 시 그룹 전체를 비가시화해 불필요한 드로콜을 제거한다 (백로그 H-3).
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const group = systemGroupRef.current
     if (group == null) return
+
+    // LOD — 임계 거리 초과 시 그룹 전체 비가시화 (백로그 H-3).
     const dist = state.camera.position.distanceTo(
       lodScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]),
     )
     group.visible = dist < SYSTEM_LOD_DISTANCE
+
+    // 퍼스펙티브(은하 항법) ↔ 함교 뷰 전환 시 스케일 + 광원 강도 부드럽게 보간.
+    const lerpFactor = 1 - Math.pow(0.02, delta)
+    const targetScale = isPerspective ? PERSPECTIVE_SYSTEM_SCALE : SHIP_SYSTEM_SCALE
+    systemScaleRef.current += (targetScale - systemScaleRef.current) * lerpFactor
+    group.scale.setScalar(systemScaleRef.current)
+
+    // 광원: 스케일과 함께 강도 보간 — 행성 세계 거리가 달라진 만큼 보정
+    const light = lightRef.current
+    if (light != null) {
+      const targetIntensity = isPerspective ? STAR_LIGHT_INTENSITY_PERSPECTIVE : STAR_LIGHT_INTENSITY_SHIP
+      lightIntensityRef.current += (targetIntensity - lightIntensityRef.current) * lerpFactor
+      light.intensity = lightIntensityRef.current
+    }
   })
+
+  const wp = [worldPosition[0], worldPosition[1], worldPosition[2]] as const
 
   return (
     <>
-      <group
-        ref={systemGroupRef}
-        position={[worldPosition[0], worldPosition[1], worldPosition[2]]}
-      >
-        {/* 주변광은 밤면 가독성, 포인트라이트는 항성에서 나오는 낮/밤 경계. 둘 다 three에선
-            전역 광원이지만(그룹 위치 무관), 현재 이 상태에서 표준 머티리얼은 행성뿐이라
-            행성에만 작용한다 — 은하 별·배경은 셰이더/가산이라 조명 무관 */}
-        <ambientLight intensity={AMBIENT_INTENSITY} />
-        <pointLight
-          position={[0, 0, 0]}
-          intensity={STAR_LIGHT_INTENSITY}
-          decay={STAR_LIGHT_DECAY}
-          color={starColor}
-        />
+      {/* 조명은 월드 좌표 고정 — geometry 그룹 스케일과 무관하게 거리 기반으로 작동한다. */}
+      <ambientLight intensity={AMBIENT_INTENSITY} />
+      <pointLight
+        ref={lightRef}
+        position={wp}
+        intensity={STAR_LIGHT_INTENSITY_SHIP}
+        decay={STAR_LIGHT_DECAY}
+        color={starColor}
+      />
+
+      <group ref={systemGroupRef} position={wp}>
         {!isWarping ? <StarSurface radius={STAR_VISUAL_RADIUS} color={starColor} /> : null}
 
         {showPlanets

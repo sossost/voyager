@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { PlanetId, Seed, StarId } from '@/engine'
-import { originStar, parseSeed, planetsOf, starsInSector } from '@/engine'
+import { makePlanetId, originStar, parseSeed, planetsOf, SOL_STAR_ID, starsInSector } from '@/engine'
 import { MemoryDriver } from '@/persistence/memoryDriver'
 import type { GameStoreApi } from './createGameStore'
 import { createGameStore } from './createGameStore'
@@ -112,6 +112,35 @@ describe('explore 수집', () => {
       const { collection } = await driver.loadAll()
       expect(collection).toHaveLength(1)
     })
+  })
+})
+
+describe('homeWorld 탐사', () => {
+  it('지구 탐사: 조우 없음, 탐사 완료 표시, 토스트 표시, write-through', async () => {
+    // EXPLORETEST 시드도 Sol에서 시작 — currentStarId = SOL_STAR_ID
+    const earthPlanetId = makePlanetId(SOL_STAR_ID, 2)
+    expect(store.getState().currentStarId).toBe(SOL_STAR_ID)
+
+    store.getState().explore(earthPlanetId)
+
+    expect(store.getState().encounter).toBeNull()
+    expect(store.getState().exploredPlanets.has(earthPlanetId)).toBe(true)
+    expect(store.getState().toasts.some((t) => t.message.includes('인류의 고향'))).toBe(true)
+
+    await vi.waitFor(async () => {
+      const { explorations } = await driver.loadAll()
+      expect(explorations.map((r) => r.planetId)).toContain(earthPlanetId)
+    })
+  })
+
+  it('지구 재탐사: 멱등 — 탐사 완료 유지, 추가 토스트', () => {
+    const earthPlanetId = makePlanetId(SOL_STAR_ID, 2)
+    store.getState().explore(earthPlanetId)
+    const firstToastCount = store.getState().toasts.length
+
+    store.getState().explore(earthPlanetId)
+    expect(store.getState().toasts.length).toBe(firstToastCount + 1)
+    expect(store.getState().encounter).toBeNull()
   })
 })
 

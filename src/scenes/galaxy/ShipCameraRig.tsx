@@ -9,8 +9,8 @@ import { useGameStore } from '@/store'
  *
  * OrbitControls(외부 점을 도는 관찰자 시점)와 달리, 카메라가 현재 별 옆의
  * 고정 위치에 떠서 드래그로 시선만 돌린다(요/피치) — "함교에서 고개를 돌리는"
- * 느낌. 확대/축소는 없다 — 회전 전용("줌도 빼 달라" 피드백, 거리 탐색은 지도의
- * 몫). 모든 연속 값은 ref + useFrame, store 쓰기 없음 (철칙 6).
+ * 느낌. 확대/축소는 없다 — 회전 전용. 거리 탐색은 퍼스펙티브 뷰의 몫.
+ * 모든 연속 값은 ref + useFrame, store 쓰기 없음 (철칙 6).
  *
  * 단, 워프 도착(pendingArrival) 직후엔 정박 거리보다 멀리서 시작해 빨려들 듯
  * 줌인으로 안착한다 — 플래시가 걷히며 드러나는 도착 확대 연출 (결정 41-c 보강).
@@ -19,13 +19,12 @@ import { useGameStore } from '@/store'
 
 /**
  * 우주선 정박 위치 — 현재 별 기준 오프셋 (별을 살짝 내려다보며 시작한다).
- * 통합 후(결정 41) 우주선 뷰가 항성계 전체(외곽 궤도 반경 ≤~98)를 담아야 하므로
- * 별을 점으로 보던 근접(≈37)에서 물러나 시스템을 프레이밍하는 거리로 정박한다.
- * 줌은 없다(회전 전용) — 더 멀리 보는 건 퍼스펙티브 뷰의 몫.
+ * 거리 ≈63유닛 — 항성계 전체(Neptune ≤29유닛)가 시야에 들어오는 거리.
  */
 const SHIP_OFFSET_X = 0
-const SHIP_OFFSET_Y = 42
-const SHIP_OFFSET_Z = 132
+const SHIP_OFFSET_Y = 20
+const SHIP_OFFSET_Z = 60
+
 /** 시작 피치 — 정박 위치에서 현재 별을 바라보는 각도. */
 const INITIAL_PITCH = -Math.asin(
   SHIP_OFFSET_Y /

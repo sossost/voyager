@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { PlanetId, Seed } from '../coords'
 import { makePlanetId, makeStarId, parseSeed } from '../coords'
 import { LIFE_PROBABILITY, planetById, planetsOf } from './planets'
+import { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './sol'
 
 function seedOf(value: string): Seed {
   const seed = parseSeed(value)
@@ -73,6 +74,28 @@ describe('planetsOf', () => {
     }
     expect(planetById(seed, makePlanetId(starId, 99))).toBeNull()
     expect(planetById(seed, 'broken' as PlanetId)).toBeNull()
+  })
+
+  it('SOL_STAR_ID는 시드 무관 SOLAR_SYSTEM_PLANETS를 반환한다', () => {
+    for (const s of [seed, seedOf('ANOTHER'), seedOf('ZETA42')]) {
+      expect(planetsOf(s, SOL_STAR_ID)).toBe(SOLAR_SYSTEM_PLANETS)
+    }
+  })
+
+  it('SOLAR_SYSTEM_PLANETS: 8행성, 지구만 isHomeWorld=true', () => {
+    expect(SOLAR_SYSTEM_PLANETS).toHaveLength(8)
+    const earth = SOLAR_SYSTEM_PLANETS.find((p) => p.isHomeWorld === true)
+    expect(earth).toBeDefined()
+    expect(earth?.name).toBe('지구')
+    expect(earth?.hasLife).toBe(true)
+    const nonEarth = SOLAR_SYSTEM_PLANETS.filter((p) => p.isHomeWorld !== true)
+    expect(nonEarth.every((p) => !p.hasLife)).toBe(true)
+  })
+
+  it('planetById는 SOL 행성도 올바르게 반환한다', () => {
+    const earth = SOLAR_SYSTEM_PLANETS[2]
+    if (earth == null) throw new Error('Earth not found')
+    expect(planetById(seed, earth.id)).toEqual(earth)
   })
 
   it('몬테카를로: 암석형/가스형 비율이 60/40에 수렴한다', () => {

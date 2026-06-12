@@ -8,7 +8,8 @@ import {
   SECTOR_SIZE,
   sectorDensity,
 } from './density'
-import { MAX_STARS_PER_SECTOR, starsInSector } from './sectors'
+import { MAX_STARS_PER_SECTOR, SOL_STAR, starsInSector } from './sectors'
+import { SOL_SECTOR, SOL_STAR_ID, SOL_LOCAL_POS } from '../system/sol'
 
 function seedOf(value: string): Seed {
   const seed = parseSeed(value)
@@ -41,7 +42,7 @@ describe('sectorDensity', () => {
     }
   })
 
-  it('중심 섹터 (0,0,0)의 밀도는 1이다 — originStar의 0:0:0:0 보장 (시드 LIFE1 의존)', () => {
+  it('중심 섹터 (0,0,0)의 밀도는 1이다 (벌지 보장)', () => {
     expect(sectorDensity({ sx: 0, sy: 0, sz: 0 })).toBe(1)
   })
 
@@ -104,5 +105,19 @@ describe('starsInSector', () => {
   it('중심부 섹터에는 별이 실제로 존재한다', () => {
     const stars = starsInSector(seed, { sx: 1, sy: 0, sz: 1 })
     expect(stars.length).toBeGreaterThan(0)
+  })
+
+  it('Sol 섹터(26,0,10) 인덱스 0은 항상 태양이다 — 시드 무관', () => {
+    for (const s of [seed, seedOf('ANOTHERSEED'), seedOf('ZETA42')]) {
+      const first = starsInSector(s, SOL_SECTOR)[0]
+      expect(first).toEqual(SOL_STAR)
+      expect(first?.id).toBe(SOL_STAR_ID)
+      expect(first?.name).toBe('태양')
+      expect(first?.spectral).toBe('G')
+    }
+  })
+
+  it('SOL_STAR 좌표는 SOL_LOCAL_POS와 일치한다', () => {
+    expect(SOL_STAR.localPos).toEqual(SOL_LOCAL_POS)
   })
 })

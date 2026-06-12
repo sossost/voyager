@@ -168,6 +168,18 @@ export function createGameStore(options: CreateGameStoreOptions) {
       if (planet == null || !planet.hasLife) return
       if (planet.starId !== state.currentStarId) return // 현재 항성계의 행성만 탐사 가능
 
+      // 인류의 고향(지구) — hasLife이지만 외계 생명체 없음 (G-c-10)
+      if (planet.isHomeWorld === true) {
+        const nextExplored = new Set(state.exploredPlanets)
+        nextExplored.add(planetId)
+        set({ exploredPlanets: nextExplored })
+        get().pushToast('인류의 고향 — 외계 생명체는 발견되지 않았습니다')
+        void persist(async () => {
+          await driver.addExploration({ planetId, exploredAt: now() })
+        }, reportPersistFailure)
+        return
+      }
+
       // 결정론: 같은 행성 = 항상 같은 개체 (재방문 = 재조우)
       const alien = alienAt(state.seed, planetId)
       const alreadyCollected = state.collectedIndividuals.has(alien.individualId)

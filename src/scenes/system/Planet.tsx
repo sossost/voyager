@@ -1,5 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
+import { DoubleSide } from 'three'
 import type { Group, Mesh, Vector3 } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
@@ -14,15 +15,15 @@ import {
 } from '@/scenes/system/planetTexture'
 import { useGameStore } from '@/store'
 
-export const ORBIT_BASE_RADIUS = 10
-export const ORBIT_SCALE = 16
+export const ORBIT_BASE_RADIUS = 5
+export const ORBIT_SCALE = 6
 /**
  * 행성 시각 반경 = BASE + 엔진 radius × SCALE (압축 매핑).
- * 엔진 radius(0.4~5.0)를 그대로 쓰면 큰 행성(4.5)이 항성(5)에 육박하는 모순이
- * 생기므로 0.6~2.5로 압축한다 — 항성이 항상 2배 이상 크다. 렌더 전용, 엔진 불변.
+ * 궤도 간격(최소 ~2유닛) 대비 행성 지름이 넘치지 않도록 축소.
+ * 최대(radius=5): 0.25 + 5*0.18 = 1.15 — 항성(3)의 38%, 항성이 항상 2배 이상 크다.
  */
-const PLANET_VISUAL_BASE = 0.45
-const PLANET_VISUAL_SCALE = 0.4
+const PLANET_VISUAL_BASE = 0.25
+const PLANET_VISUAL_SCALE = 0.18
 /** orbitAu=1 행성의 공전 각속도 (rad/s) — 케플러 근사로 바깥쪽일수록 느려진다. */
 const BASE_ANGULAR_SPEED = 0.22
 const FULL_TURN = Math.PI * 2
@@ -161,6 +162,13 @@ export function Planet({ planet }: PlanetProps) {
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[visualRadius * 1.5, visualRadius * 1.7, 48]} />
           <meshBasicMaterial color="#7c5cff" transparent opacity={0.95} depthWrite={false} />
+        </mesh>
+      ) : null}
+
+      {planet.hasRings === true ? (
+        <mesh rotation={[-Math.PI / 2 + 0.25, 0, 0]}>
+          <ringGeometry args={[visualRadius * 1.45, visualRadius * 2.65, 64]} />
+          <meshBasicMaterial color="#d4c097" transparent opacity={0.82} side={DoubleSide} depthWrite={true} />
         </mesh>
       ) : null}
 

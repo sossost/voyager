@@ -20,12 +20,13 @@ export {
   sectorDensity,
 } from './galaxy/density'
 export type { SpectralClass, Star } from './galaxy/sectors'
-export { MAX_STARS_PER_SECTOR, starsInSector } from './galaxy/sectors'
+export { MAX_STARS_PER_SECTOR, SOL_STAR, starsInSector } from './galaxy/sectors'
 export { originStar } from './galaxy/origin'
 export { starById, starWorldPosition } from './galaxy/position'
 
 export type { Planet, PlanetKind } from './system/planets'
 export { LIFE_PROBABILITY, planetById, planetsOf } from './system/planets'
+export { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './system/sol'
 
 export type { Rarity } from './alien/rarity'
 export { RARITIES, RARITY_WEIGHTS } from './alien/rarity'

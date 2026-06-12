@@ -30,20 +30,21 @@ const WING_COLOR = '#8590a6'
 const ACCENT_COLOR = '#ffd166'
 const ENGINE_COLOR = '#7cf2e0'
 
-/** 모델 스케일 — 항성계 프레이밍 거리(~138)에서 곁의 3인칭 요소로 읽히는 크기. 고정 값. */
-const SHIP_SCALE = 1.5
 /**
- * 우주선 오프셋 — ShipCameraRig 정박 방향(Y:42, Z:132, 결정 41-e)을 축약해
- * 별로부터 같은 방향으로 떨어진 위치에 배치한다. 이렇게 하면 퍼스펙티브 뷰에서
- * "카메라가 보는 방향에서 멀어진 배"로 읽혀 별과 분리감이 생긴다 (백로그 H-4).
- * 별 구체 반경(5)보다 충분히 멀어 겹침 없음.
+ * 모델 스케일 — 1/8 스케일 항성계(Neptune ≈5 world units)에서 읽히는 크기.
+ * 선체 길이 = 3.6 * SHIP_SCALE ≈ 0.54 world units — 시스템 대비 작은 점으로 보인다.
  */
-const SHIP_OFFSET_Y = 22
-const SHIP_OFFSET_Z = 68
+const SHIP_SCALE = 0.15
+/**
+ * 우주선 오프셋 — 1/8 스케일 기준 Neptune(≈5 world units) 바로 바깥에 배치.
+ * 별과 분리감을 주면서 시스템과 함께 읽히는 거리.
+ */
+const SHIP_OFFSET_Y = 3
+const SHIP_OFFSET_Z = 8
 
 /** 부유 — 미세하게 떠오르내리며 살아있는 느낌 (회전 없음, 항성 바라보기 고정). */
 const BOB_SPEED = 1.1
-const BOB_AMPLITUDE = 0.6
+const BOB_AMPLITUDE = 0.04
 
 /**
  * 위치 마커 링 — 줌아웃해도 현재 위치를 항상 화면 고정 크기로 표시.
@@ -52,8 +53,8 @@ const BOB_AMPLITUDE = 0.6
 const MARKER_RING_INNER = 0.85
 const MARKER_RING_OUTER = 1.0
 const MARKER_RING_SEGMENTS = 48
-const MARKER_SCREEN_PX = 14
-const MARKER_MIN_WORLD_SCALE = 2.8
+const MARKER_SCREEN_PX = 10
+const MARKER_MIN_WORLD_SCALE = 0.4
 const FALLBACK_FOV_DEGREES = 60
 const MARKER_PULSE_SPEED = 1.8
 const MARKER_MIN_OPACITY = 0.55
