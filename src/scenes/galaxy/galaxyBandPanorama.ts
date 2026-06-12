@@ -58,7 +58,7 @@ const SHARP_BLUR_PX = 4
 const PREVIEW_SHARP_BLUR_PX = 8
 /** 산란 헤일로 — 밝은 영역 주변에 베이크해 넣는 블룸 (두꺼운 원반의 산란광 역할). */
 const HALO_BLUR_PX = 14
-const HALO_ALPHA = 0.42
+const HALO_ALPHA = 0.34
 
 /** 적분 보폭 (섹터) — 클럼프 노이즈 파장(~5.5섹터)보다 충분히 촘촘하다. */
 const RAY_STEP_SECTORS = 0.75
@@ -74,11 +74,6 @@ const VERTICAL_EXIT_SECTORS = GALAXY_HALF_THICKNESS_SECTORS + 0.1
  * 노이즈·잔광을 만점까지 끌어올리지 않는 하한이다.
  */
 const MIN_EXPOSURE_INTEGRAL = 12
-/**
- * 밝기 감마 — 소프트 니가 저·중광량을 이미 들어 올리므로(초기 기울기 ~1.4) 1로 둔다.
- * 니 위에 감마 리프트를 겹치면 중간 워시가 떠서 팔 사이 골이 "세로 기둥"으로 도드라진다(실측).
- */
-const BRIGHTNESS_GAMMA = 1
 /**
  * 실린더 상·하단 가장자리 페이드 시작점 (|v| 기준) — 벌지 내부 정박(시작 별)에서는
  * 전 고도가 밝아 텍스처 끝이 하드 엣지로 보인다. 외곽 정박의 벌지 돔(|v|≈0.71)은
@@ -111,23 +106,27 @@ const PATCH_SPAN = 0.16
  * 프라이어로 모으고, 원거리 광(벌지 돔·림 밴드 — 실구조)은 그대로 둔다.
  * 벌지 내부·면 밖·중간 반경 정박을 하나의 메커니즘으로 처리한다.
  */
-const LOCAL_LIGHT_NEAR_SECTORS = 8
-const LOCAL_LIGHT_FAR_SECTORS = 16
+/**
+ * 경계 8~16은 중간 반경 정박에서 벌지 절반이 "원거리"로 새서 실린더 세로를
+ * 통째로 채웠다(굵은 띠, 실측 기각) — 12~24면 그 벌지광이 띠로 모이고,
+ * 림 정박의 벌지 돔(20섹터 밖)은 여전히 원거리 실구조로 남는다.
+ */
+const LOCAL_LIGHT_NEAR_SECTORS = 12
+const LOCAL_LIGHT_FAR_SECTORS = 24
 /**
  * 근거리 광을 모으는 원반면 띠 프라이어 (월드 σ / 고고도 잔광 바닥).
  * σ가 좁으면 코어 근처 정박에서 넓은 워시 위에 "형광등 줄"이 뜬다(실측 기각 — σ 650)
  * — 완만한 경사로 모아야 워시와 띠가 한 몸으로 읽힌다.
  */
 const BAND_PRIOR_SIGMA_WORLD = 1_000
-const BAND_PRIOR_FLOOR = 0.3
+const BAND_PRIOR_FLOOR = 0.18
 
 /**
- * 하이라이트 소프트 니 — 선형 클램프는 밝은 구간을 평평하게 깎아 띠 심이
- * 형광등처럼 읽힌다. 1-exp 곡선(t=1에서 1로 정규화)이 고광량을 부드럽게 눌러
- * 그라데이션을 지킨다.
+ * 하이라이트 숄더 — 어깨 시작점까지는 선형, 그 위만 1-exp로 부드럽게 누른다.
+ * 전구간 니(1-exp 전체)는 중간 광량까지 들어 올려 면 밖 워시가 뜨고 띠가
+ * 뚱뚱해진다(실측 기각) — 선형 토우가 띠를 얇게, 어깨가 형광등 평탄화를 막는다.
  */
-const SOFT_KNEE = 1.7
-const KNEE_NORMALIZER = 1 - Math.exp(-SOFT_KNEE)
+const SHOULDER_START = 0.7
 
 /**
  * 성운 틴트 샘플 보폭 — 색조 노이즈는 파장이 길어(~11섹터) 3샘플에 1회로 충분하다.
@@ -141,6 +140,13 @@ function clamp01(value: number): number {
   if (value < 0) return 0
   if (value > 1) return 1
   return value
+}
+
+/** 숄더 톤 커브 — 접합점에서 기울기 1로 매끄럽게 이어지고 상한 ~0.89로 수렴한다. */
+function toneCurve(value: number): number {
+  if (value <= SHOULDER_START) return value
+  const over = (value - SHOULDER_START) / (1 - SHOULDER_START)
+  return SHOULDER_START + (1 - SHOULDER_START) * (1 - Math.exp(-over))
 }
 
 function smoothstep(edge0: number, edge1: number, value: number): number {
@@ -304,9 +310,7 @@ function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
 
     for (let row = 0; row < grid.rows; row++) {
       const offset = row * grid.columns + column
-      const exposureRatio = clamp01((shaped[offset] ?? 0) / exposure)
-      const softKnee = (1 - Math.exp(-SOFT_KNEE * exposureRatio)) / KNEE_NORMALIZER
-      const brightness = Math.pow(softKnee, BRIGHTNESS_GAMMA)
+      const brightness = toneCurve(clamp01((shaped[offset] ?? 0) / exposure))
       const warmth = clamp01((grid.warmths[offset] ?? 0) * WARMTH_GAIN)
 
       const verticalRatio = 1 - (row / (grid.rows - 1)) * 2
