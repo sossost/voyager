@@ -3,6 +3,7 @@ import { makePlanetId, parsePlanetId } from '../coords'
 import { planetName } from '../naming/names'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
+import { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './sol'
 
 export type PlanetKind = 'rocky' | 'gas'
 
@@ -19,6 +20,8 @@ export interface Planet {
   readonly name: string
   /** 시각 표현(텍스처/색)용 시드 — 게임플레이에는 영향 없음. */
   readonly paletteSeed: number
+  /** 인류의 고향 — hasLife이지만 외계 생명체 없음 (지구 전용 예외). */
+  readonly isHomeWorld?: boolean
 }
 
 const MAX_PLANETS_PER_SYSTEM = 8
@@ -43,8 +46,11 @@ const ORBIT_JITTER_AU = 0.4
  *
  * 행성 개수는 'planets' 스트림에서, 각 행성의 속성은 행성 자신의 'planet' 스트림에서
  * 뽑는다 (스트림 격리). 행성 속성 draw는 append-only — 순서 변경/삽입 금지.
+ * Sol(SOL_STAR_ID)은 RNG 스트림 분리된 예외 노드 — 상수 반환.
  */
 export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
+  if (starId === SOL_STAR_ID) return SOLAR_SYSTEM_PLANETS
+
   const countRng = rngFor(seed, 'planets', starId)
   const count = 1 + countRng.int(MAX_PLANETS_PER_SYSTEM)
 

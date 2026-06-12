@@ -4,6 +4,7 @@ import { starName } from '../naming/names'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import { SECTOR_SIZE, sectorDensity } from './density'
+import { SOL_STAR_ID, SOL_LOCAL_POS } from '../system/sol'
 
 export const MAX_STARS_PER_SECTOR = 5
 
@@ -29,11 +30,21 @@ export interface Star {
   readonly name: string
 }
 
+/** 태양 — 모든 시드에서 은하 중심 섹터(0,0,0) 인덱스 0에 고정 배치된다 (G-c-10). */
+export const SOL_STAR: Star = {
+  id: SOL_STAR_ID,
+  sector: { sx: 0, sy: 0, sz: 0 },
+  localPos: SOL_LOCAL_POS,
+  spectral: 'G',
+  name: '태양',
+}
+
 /**
  * 섹터 → 별 목록. 순수 함수 — 같은 (seed, sector)는 항상 같은 별을 만든다.
  *
  * 별 개수는 섹터 스트림에서, 각 별의 속성은 별 자신의 독립 스트림에서 뽑는다
  * (스트림 격리 — 별 속성 추가가 이웃 별을 절대 바꾸지 않는다).
+ * 은하 중심 섹터(0,0,0) 인덱스 0은 항상 SOL_STAR — RNG 스트림 소비 없이 상수 반환.
  */
 export function starsInSector(seed: Seed, sector: SectorCoords): readonly Star[] {
   const density = sectorDensity(sector)
@@ -48,6 +59,10 @@ export function starsInSector(seed: Seed, sector: SectorCoords): readonly Star[]
   const stars: Star[] = []
   for (let index = 0; index < count; index++) {
     const id = makeStarId(sector, index)
+    if (id === SOL_STAR_ID) {
+      stars.push(SOL_STAR)
+      continue
+    }
     const starRng = rngFor(seed, 'star', id)
     // append-only: 새 속성은 반드시 아래 draw들 뒤에 추가할 것 (자기 스트림 내 호환성)
     const localPos = [
