@@ -3,6 +3,9 @@ import type { IndividualId, PlanetId, Rarity, Seed, StarId } from '@/engine'
 /** 저장 스키마 버전 — Dexie 마이그레이션 축. 생성 로직 버전(genVersion)과 별개다. */
 export const SAVE_VERSION = 1
 
+/** 한 번만 표시되는 온보딩 힌트 키 (백로그 I-1). */
+export type HintKey = 'first-enter' | 'first-star-select' | 'first-life-planet'
+
 export interface Profile {
   readonly id: 1
   readonly seed: Seed
@@ -10,6 +13,8 @@ export interface Profile {
   readonly genVersion: number
   readonly currentStarId: StarId
   readonly createdAt: number
+  /** 이미 표시된 힌트 목록 — 없으면 빈 배열로 취급 (기존 프로필 하위 호환). */
+  readonly seenHints?: readonly HintKey[]
 }
 
 export interface VisitRecord {

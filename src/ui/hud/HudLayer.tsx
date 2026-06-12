@@ -1,3 +1,5 @@
+import { CurrentStarArrow } from '@/ui/hud/CurrentStarArrow'
+import { HintLayer } from '@/ui/hud/HintLayer'
 import { NavigationControls } from '@/ui/hud/NavigationControls'
 import { PlanetPanel } from '@/ui/hud/PlanetPanel'
 import { ShipFrame } from '@/ui/hud/ShipFrame'
@@ -15,6 +17,8 @@ export function HudLayer() {
       <StarInfoPanel />
       <PlanetPanel />
       <NavigationControls />
+      <CurrentStarArrow />
+      <HintLayer />
     </div>
   )
 }

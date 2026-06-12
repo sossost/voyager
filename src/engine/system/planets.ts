@@ -22,6 +22,7 @@ export interface Planet {
 }
 
 const MAX_PLANETS_PER_SYSTEM = 8
+const INT32_MAX = 2_147_483_647
 /** 행성당 생명체 확률 (01-spec.md 핵심 수치). */
 export const LIFE_PROBABILITY = 0.1
 
@@ -59,7 +60,7 @@ export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
         ? ROCKY_RADIUS_MIN + rng.next() * ROCKY_RADIUS_SPAN
         : GAS_RADIUS_MIN + rng.next() * GAS_RADIUS_SPAN
     const orbitAu = (index + 1) * ORBIT_BASE_AU + rng.next() * ORBIT_JITTER_AU
-    const paletteSeed = rng.int(2147483647)
+    const paletteSeed = rng.int(INT32_MAX)
     const name = planetName(rngFor(seed, 'name', id))
 
     planets.push({ id, starId, index, kind, radius, orbitAu, hasLife, name, paletteSeed })

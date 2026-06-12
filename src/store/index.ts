@@ -17,8 +17,8 @@ export function initializeGameStore(options: CreateGameStoreOptions): GameStoreA
   storageDriver = options.driver
 
   // 개발/E2E 전용 — Playwright는 픽셀 비교 대신 상태를 단언한다 (테스트 전략)
-  if (typeof window !== 'undefined' && import.meta.env.MODE !== 'production') {
-    ;(window as unknown as Record<string, unknown>)['__gameStore'] = storeApi
+  if (typeof window !== 'undefined' && import.meta.env.DEV) {
+    ;(window as Window & { __gameStore?: GameStoreApi })['__gameStore'] = storeApi
   }
   return storeApi
 }

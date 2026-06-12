@@ -49,6 +49,7 @@ function startGame(
     hydration: records,
     initialQualityTier: tier,
     createdAt: profile.createdAt,
+    initialSeenHints: profile.seenHints,
   })
 }
 

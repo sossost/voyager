@@ -77,6 +77,8 @@ export interface UiSlice {
   readonly toasts: readonly Toast[]
   /** 은하 지도 여정 경로선 표시 여부 — 취향 타는 요소라 기본 off (백로그 F-2). */
   readonly isJourneyPathVisible: boolean
+  /** 이미 표시된 온보딩 힌트 — 한 번 기록되면 재표시 없음 (백로그 I-1). */
+  readonly seenHints: ReadonlySet<import('@/persistence/types').HintKey>
   openOverlay(overlay: Exclude<Overlay, null>): void
   closeOverlay(): void
   toggleJourneyPath(): void
@@ -85,6 +87,8 @@ export interface UiSlice {
   closeEncounter(): void
   pushToast(message: string): void
   dismissToast(id: number): void
+  /** 힌트를 "표시됨"으로 기록하고 영속화한다. */
+  markHintSeen(key: import('@/persistence/types').HintKey): void
 }
 
 export interface SettingsSlice {
