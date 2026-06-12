@@ -1,13 +1,15 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DoubleSide } from 'three'
 import type { Group, Mesh, Vector3 } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
+import { moonsOf } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
+import { Moon } from '@/scenes/system/Moon'
 import {
   bakePlanetTextures,
   disposePlanetTextures,
@@ -82,6 +84,8 @@ export function Planet({ planet }: PlanetProps) {
   const selectPlanet = useGameStore((state) => state.selectPlanet)
   const isSelected = useGameStore((state) => state.selectedPlanetId === planet.id)
   const qualityTier = useGameStore((state) => state.qualityTier)
+  const seed = useGameStore((state) => state.seed)
+  const moons = useMemo(() => moonsOf(seed, planet), [seed, planet])
   const { planetSegments: segments, planetTextureBaseWidth } = QUALITY_PRESETS[qualityTier]
 
   const [textures, setTextures] = useState<PlanetTextureSet | null>(null)
@@ -173,6 +177,10 @@ export function Planet({ planet }: PlanetProps) {
       ) : null}
 
       {planet.hasLife ? <LifeSignalWaves planetRadius={visualRadius} /> : null}
+
+      {moons.map((moon) => (
+        <Moon key={moon.index} moon={moon} planetVisualRadius={visualRadius} />
+      ))}
     </group>
   )
 }

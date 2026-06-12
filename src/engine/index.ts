@@ -26,6 +26,8 @@ export { starById, starWorldPosition } from './galaxy/position'
 
 export type { Planet, PlanetKind } from './system/planets'
 export { LIFE_PROBABILITY, planetById, planetsOf } from './system/planets'
+export type { Moon } from './system/moons'
+export { moonsOf } from './system/moons'
 export { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './system/sol'
 
 export type { Rarity } from './alien/rarity'
