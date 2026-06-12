@@ -166,9 +166,9 @@ export function Planet({ planet }: PlanetProps) {
       ) : null}
 
       {planet.hasRings === true ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh rotation={[-Math.PI / 2 + 0.25, 0, 0]}>
           <ringGeometry args={[visualRadius * 1.45, visualRadius * 2.65, 64]} />
-          <meshBasicMaterial color="#d4c097" transparent opacity={0.82} side={DoubleSide} depthWrite={false} />
+          <meshBasicMaterial color="#d4c097" transparent opacity={0.82} side={DoubleSide} depthWrite={true} />
         </mesh>
       ) : null}
 
