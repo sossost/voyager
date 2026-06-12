@@ -112,12 +112,19 @@ function acquireBandTexture(anchor: readonly [number, number, number]): BandAcqu
   return { texture, job }
 }
 
-/** 정련 완료 — 캐시를 최종 텍스처로 교체하고 이전(프리뷰) 텍스처를 적치한다. */
-function commitRefinedBand(key: string, texture: CanvasTexture): void {
-  if (cachedBand != null && cachedBand.key === key) {
-    evictedBandTextures.push(cachedBand.texture)
+/**
+ * 정련 완료 커밋 — 키가 현재 캐시와 일치할 때만 최종 텍스처로 교체한다(성공 시 true).
+ * 정박이 이미 바뀐 늦은 정련본은 캐시를 건드리지 않고 적치만 한다 — 키 불일치
+ * 커밋이 캐시를 덮어쓰면 새 정박의 텍스처가 고아가 된다(GPU 누수).
+ */
+function commitRefinedBand(key: string, texture: CanvasTexture): boolean {
+  if (cachedBand == null || cachedBand.key !== key) {
+    evictedBandTextures.push(texture)
+    return false
   }
+  evictedBandTextures.push(cachedBand.texture)
   cachedBand = { key, texture, isRefined: true }
+  return true
 }
 
 function disposeEvictedBandTextures(): void {
@@ -160,8 +167,8 @@ interface ShipViewGalaxyGlowProps {
 
 export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
   const coreGroupRef = useRef<Group>(null)
-  const refineJobRef = useRef<BandPanoramaJob | null>(null)
-  const refineKeyRef = useRef('')
+  /** 이미 스왑까지 끝낸 job — 완료된 job의 refine/compose 재호출을 막는다. */
+  const completedJobRef = useRef<BandPanoramaJob | null>(null)
 
   const acquisition = useMemo(() => acquireBandTexture(anchor), [anchor])
 
@@ -175,7 +182,7 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
         depthWrite: false,
         side: BackSide,
       }),
-    [acquisition],
+    [acquisition.texture],
   )
   const coreMaterial = useMemo(
     () =>
@@ -189,11 +196,6 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
     [],
   )
 
-  useEffect(() => {
-    refineJobRef.current = acquisition.job
-    refineKeyRef.current = bandPanoramaKey(anchor)
-  }, [acquisition, anchor])
-
   useEffect(() => () => bandMaterial.dispose(), [bandMaterial])
   useEffect(() => () => coreMaterial.dispose(), [coreMaterial])
   // 캐시에서 밀려난 이전 정박의 텍스처를 커밋 후 폐기 — 새 텍스처가 화면에 붙은 뒤라 안전
@@ -201,15 +203,18 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
 
   useFrame((state) => {
     // 고해상 정련 — 프레임 예산만큼 굽고, 완료되면 머티리얼에 직접 스왑
-    // (1회성 교체라 store/리렌더가 필요 없다 — 철칙 6의 ref 원칙)
-    const job = refineJobRef.current
-    if (job != null && job.refine(REFINE_BUDGET_MS)) {
-      refineJobRef.current = null
+    // (1회성 교체라 store/리렌더가 필요 없다 — 철칙 6의 ref 원칙).
+    // job·머티리얼·키를 같은 렌더 클로저에서 받으므로 항상 같은 정박의 쌍이다 —
+    // ref로 건너 무장하면 앵커 변경 프레임에 낡은 job이 새 머티리얼에 쓰는 레이스가 생긴다.
+    const job = acquisition.job
+    if (job != null && completedJobRef.current !== job && job.refine(REFINE_BUDGET_MS)) {
+      completedJobRef.current = job
       const refined = toBandTexture(job.composeFinal())
-      bandMaterial.map = refined
-      bandMaterial.needsUpdate = true
-      commitRefinedBand(refineKeyRef.current, refined)
-      disposeEvictedBandTextures()
+      if (commitRefinedBand(bandPanoramaKey(anchor), refined)) {
+        bandMaterial.map = refined
+        bandMaterial.needsUpdate = true
+        disposeEvictedBandTextures()
+      }
     }
 
     // 코어 빌보드 — 카메라 응시 + 각크기 클램프 + 근접 페이드 (연속 값은 ref, 철칙 6)

@@ -15,9 +15,13 @@ import {
  * - 띠 두께가 방향마다 달라지며 (중심 쪽 두껍고 외곽 쪽 얇음)
  * - 클럼프 얼룩이 고도에 따라 자연스럽게 번진다.
  *
- * 비용(광선 ~3.7만)이 커서 2단계로 굽는다 — 저해상 프리뷰(동기 ~20ms, 즉시 표시)
- * → 프레임당 시간 예산으로 고해상 정련(행성 텍스처의 프레임 분산 베이크와 같은
- * 철학, 결정 33) → 완료 시 스왑. 전부 결정론 — 같은 정박 위치는 항상 같은 하늘.
+ * 파이프라인은 두 단계로 분리된다:
+ * 1) 광선 적분 (비싸다, 프레임 분산) — 원시 적분·난색도 그리드만 채운다.
+ * 2) 톤매핑 합성 (싸다, 동기) — 자동 노출 정규화 + 색·균열·패치 + 블러/헤일로.
+ *
+ * 비용(광선 ~3.7만)이 커서 저해상 프리뷰(동기 ~20ms, 즉시 표시) → 프레임당
+ * 시간 예산으로 고해상 정련 → 완료 시 스왑한다 (행성 텍스처의 프레임 분산
+ * 베이크와 같은 철학, 결정 33). 전부 결정론 — 같은 정박 위치는 항상 같은 하늘.
  */
 
 /** 밴드 실린더 반경 — 정박 별에서 가장 먼 은하 별(≤9,600)보다 바깥, 장식 별밭(12,000) 안. */
@@ -54,16 +58,24 @@ const RAY_MAX_SECTORS = GALAXY_RADIUS_SECTORS * 2
 /** 수직 탈출 한계 — 이 밖은 밀도 0이라 적분을 조기 종료한다 (고고도 광선 비용 절감). */
 const VERTICAL_EXIT_SECTORS = GALAXY_HALF_THICKNESS_SECTORS + 0.1
 
-/** 적분값이 이 값이면 밝기 1로 포화 — 벌지 정관통 방향만 닿는 상한 (포화 = 구조 소멸). */
-const INTEGRAL_SATURATION = 30
+/**
+ * 자동 노출 — 파노라마마다 자기 최대 적분값으로 정규화한다. 적분 스케일은 정박에
+ * 따라 ~9(중간 반경·면 밖)에서 ~30(외곽 림)까지 변하므로, 고정 기준으로는 어떤
+ * 정박에서는 띠가 묻히고 어떤 정박에서는 포화된다. 바닥값은 최대가 작은 하늘에서
+ * 노이즈·잔광을 만점까지 끌어올리지 않는 하한이다.
+ */
+const MIN_EXPOSURE_INTEGRAL = 12
+/**
+ * 밝기 감마 (<1) — 팔 사이·외곽 방향에도 옅은 빛이 깔리게 어두운 쪽을 들어 올린다.
+ * 벌지 옆 팔 사이 골이 "세로 기둥"처럼 도드라지지 않는 선 (실측 0.8은 골이 과했다).
+ */
+const BRIGHTNESS_GAMMA = 0.72
 /**
  * 실린더 상·하단 가장자리 페이드 시작점 (|v| 기준) — 벌지 내부 정박(시작 별)에서는
  * 전 고도가 밝아 텍스처 끝이 하드 엣지로 보인다. 외곽 정박의 벌지 돔(|v|≈0.71)은
  * 건드리지 않는 위치에서 시작한다.
  */
 const EDGE_FADE_START = 0.75
-/** 밝기 감마 (<1) — 팔 사이·외곽 방향에도 옅은 빛이 깔리게 어두운 쪽을 들어 올린다. */
-const BRIGHTNESS_GAMMA = 0.8
 
 /** 벌지(난색) ↔ 나선팔(한색) — GalaxyNebula(결정 23)와 같은 색 언어. */
 const BULGE_RGB = [255, 208, 150] as const
@@ -79,19 +91,22 @@ const WARMTH_GAIN = 1.6
 const RIFT_HALF_HEIGHT_WORLD = 190
 const RIFT_MAX_DEPTH = 0.45
 const RIFT_NOISE_FLOOR = 0.35
-/** 방위각 패치 변조 — 실구조(클럼프 적분)가 생겼으므로 초기 구현보다 약하게 보탠다. */
+/** 방위각 패치 변조 — 실구조(클럼프 적분)가 있으므로 약하게만 보탠다. */
 const PATCH_BASE = 0.92
 const PATCH_SPAN = 0.16
 
 /**
- * 벌지 내부 보정 — 벌지 안 정박(시작 별 포함)에서는 물리적으로 전 고도가 밝아
- * 하늘 전체가 단조로운 워시가 된다. 게임 미학 우선 원칙(결정 28)에 따라 안쪽
- * 정박일수록 광량을 원반면 중심의 띠 형태로 모은다 — 벌지 밖 정박에는 영향이 없다.
+ * 근거리 광 분리 — 정박을 둘러싼 두꺼운 원반의 빛은 물리대로면 전 고도에 깔려
+ * "사방 워시"가 된다 (원반 두께/반경 비가 실은하의 5배라 하늘이 푸석해진다).
+ * 게임 미학 우선 원칙(결정 28): 이 구간(근거리)에서 출발한 광만 원반면 띠
+ * 프라이어로 모으고, 원거리 광(벌지 돔·림 밴드 — 실구조)은 그대로 둔다.
+ * 벌지 내부·면 밖·중간 반경 정박을 하나의 메커니즘으로 처리한다.
  */
-const INTERIOR_BLEND_RADIUS_SECTORS = 10
-const INTERIOR_BAND_SIGMA = 0.35
-/** 보정 후에도 남기는 고고도 잔광 — "빛 속에 있다"는 감각은 유지한다. */
-const INTERIOR_AMBIENT_FLOOR = 0.25
+const LOCAL_LIGHT_NEAR_SECTORS = 8
+const LOCAL_LIGHT_FAR_SECTORS = 16
+/** 근거리 광을 모으는 원반면 띠 프라이어 (월드 σ / 고고도 잔광 바닥). */
+const BAND_PRIOR_SIGMA_WORLD = 650
+const BAND_PRIOR_FLOOR = 0.22
 
 function clamp01(value: number): number {
   if (value < 0) return 0
@@ -116,120 +131,154 @@ function azimuthNoise(theta: number, phase: number): number {
   return 0.5 + wave / 3.5
 }
 
-interface RayLight {
-  /** 정규화 광량 [0, 1]. */
-  readonly brightness: number
+/** 광선 적분 결과의 원시 그리드 — 톤매핑 전 단계 (행 우선, rows × columns). */
+interface RayGrid {
+  readonly columns: number
+  readonly rows: number
+  /** 방향별 밀도 선적분값 (섹터 단위 가중). */
+  readonly integrals: Float32Array
+  /** 적분 중 근거리(LOCAL_LIGHT_*) 구간의 기여분 — 띠 프라이어 적용 대상. */
+  readonly localIntegrals: Float32Array
   /** 밀도 가중 벌지 근접도 [0, 1] — 색 보간용. */
-  readonly warmth: number
+  readonly warmths: Float32Array
 }
 
-/** 한 광선의 원반 광량 — 3D 밀도를 선적분한다 (표면 밝기라 거리 가중 없음). */
-function integrateRay(
-  originSx: number,
-  originSy: number,
-  originSz: number,
-  directionX: number,
-  directionY: number,
-  directionZ: number,
-  stepSectors: number,
-): RayLight {
-  // 수직 탈출 — 원반 두께 밖은 밀도 0이므로 그 전까지만 적분 (고고도 광선 조기 종료)
-  let rayEnd = RAY_MAX_SECTORS
-  if (directionY > 1e-6) {
-    rayEnd = Math.min(rayEnd, (VERTICAL_EXIT_SECTORS - originSy) / directionY)
-  } else if (directionY < -1e-6) {
-    rayEnd = Math.min(rayEnd, (-VERTICAL_EXIT_SECTORS - originSy) / directionY)
+function createRayGrid(columns: number, rows: number): RayGrid {
+  return {
+    columns,
+    rows,
+    integrals: new Float32Array(columns * rows),
+    localIntegrals: new Float32Array(columns * rows),
+    warmths: new Float32Array(columns * rows),
   }
-
-  let integral = 0
-  let warmthIntegral = 0
-  for (let distance = stepSectors * 0.5; distance <= rayEnd; distance += stepSectors) {
-    const sx = originSx + directionX * distance
-    const sy = originSy + directionY * distance
-    const sz = originSz + directionZ * distance
-    const density = sectorDensity({ sx, sy, sz })
-    if (density === 0) continue
-
-    const weighted = density * stepSectors
-    integral += weighted
-    const radiusFromCore = Math.sqrt(sx * sx + sz * sz)
-    warmthIntegral += weighted * clamp01(1 - radiusFromCore / COLOR_BLEND_RADIUS_SECTORS)
-  }
-
-  const brightness = Math.pow(clamp01(integral / INTEGRAL_SATURATION), BRIGHTNESS_GAMMA)
-  const warmth = integral > 0 ? clamp01((warmthIntegral / integral) * WARMTH_GAIN) : 0
-  return { brightness, warmth }
 }
 
-/** 격자의 열 구간 [columnStart, columnEnd)를 ImageData에 굽는다. */
+/** 격자의 열 구간 [columnStart, columnEnd)에 원시 광선 적분을 채운다. */
 function bakeColumns(
-  image: ImageData,
-  rows: number,
-  columns: number,
+  grid: RayGrid,
   anchor: readonly [number, number, number],
   stepSectors: number,
   columnStart: number,
   columnEnd: number,
 ): void {
+  if (grid.rows < 2) throw new Error('밴드 격자는 최소 2행이어야 합니다 (행 보간 분모)')
+
   const originSx = anchor[0] / SECTOR_SIZE
   const originSy = anchor[1] / SECTOR_SIZE
   const originSz = anchor[2] / SECTOR_SIZE
-  const anchorRadiusSectors = Math.sqrt(originSx * originSx + originSz * originSz)
-  const interiorWeight = clamp01(1 - anchorRadiusSectors / INTERIOR_BLEND_RADIUS_SECTORS)
 
   for (let column = columnStart; column < columnEnd; column++) {
     // three.js CylinderGeometry UV 규약: u = θ/2π, 측면 정점 = (r·sinθ, y, r·cosθ)
-    const theta = (column / columns) * Math.PI * 2
+    const theta = (column / grid.columns) * Math.PI * 2
     const wallX = Math.sin(theta) * BAND_RADIUS
     const wallZ = Math.cos(theta) * BAND_RADIUS
 
-    const patch = PATCH_BASE + PATCH_SPAN * azimuthNoise(theta, 0)
-    const riftNoise =
-      RIFT_NOISE_FLOOR + (1 - RIFT_NOISE_FLOOR) * azimuthNoise(theta, 2.3)
-
-    for (let row = 0; row < rows; row++) {
+    for (let row = 0; row < grid.rows; row++) {
       // 캔버스 첫 행 = 텍스처 v=1 = 실린더 꼭대기 (flipY) — 위가 +y
-      const verticalRatio = 1 - (row / (rows - 1)) * 2
-      const yWorld = verticalRatio * BAND_HALF_HEIGHT
+      const yWorld = (1 - (row / (grid.rows - 1)) * 2) * BAND_HALF_HEIGHT
       const wallY = yWorld - anchor[1]
       const length = Math.sqrt(wallX * wallX + wallY * wallY + wallZ * wallZ)
-      const { brightness, warmth } = integrateRay(
-        originSx,
-        originSy,
-        originSz,
-        wallX / length,
-        wallY / length,
-        wallZ / length,
-        stepSectors,
-      )
+      const directionX = wallX / length
+      const directionY = wallY / length
+      const directionZ = wallZ / length
 
-      const riftDip = (yWorld / RIFT_HALF_HEIGHT_WORLD) ** 2
-      const rift = 1 - RIFT_MAX_DEPTH * riftNoise * brightness * Math.exp(-riftDip)
-      const edgeFade = 1 - smoothstep(EDGE_FADE_START, 1, Math.abs(verticalRatio))
-      const bandShape =
-        INTERIOR_AMBIENT_FLOOR +
-        (1 - INTERIOR_AMBIENT_FLOOR) *
-          Math.exp(-((verticalRatio / INTERIOR_BAND_SIGMA) ** 2))
-      const interiorShaping = 1 - interiorWeight * (1 - bandShape)
-      const level = brightness * patch * rift * edgeFade * interiorShaping
+      // 수직 탈출 — 원반 두께 밖은 밀도 0이므로 그 전까지만 적분 (고고도 광선 조기 종료)
+      let rayEnd = RAY_MAX_SECTORS
+      if (directionY > 1e-6) {
+        rayEnd = Math.min(rayEnd, (VERTICAL_EXIT_SECTORS - originSy) / directionY)
+      } else if (directionY < -1e-6) {
+        rayEnd = Math.min(rayEnd, (-VERTICAL_EXIT_SECTORS - originSy) / directionY)
+      }
 
-      const red = ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth
-      const green = ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth
-      const blue = ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth
+      // 표면 밝기는 거리와 무관 — 거리 가중 없는 순수 선적분
+      let integral = 0
+      let localIntegral = 0
+      let warmthIntegral = 0
+      for (let distance = stepSectors * 0.5; distance <= rayEnd; distance += stepSectors) {
+        const sx = originSx + directionX * distance
+        const sy = originSy + directionY * distance
+        const sz = originSz + directionZ * distance
+        const density = sectorDensity({ sx, sy, sz })
+        if (density === 0) continue
 
-      const offset = (row * columns + column) * 4
-      image.data[offset] = red * level
-      image.data[offset + 1] = green * level
-      image.data[offset + 2] = blue * level
-      image.data[offset + 3] = 255 // 가산 블렌딩 — 검정 = 투명 (GalaxyNebula와 같은 규약)
+        const weighted = density * stepSectors
+        integral += weighted
+        localIntegral +=
+          weighted *
+          (1 - smoothstep(LOCAL_LIGHT_NEAR_SECTORS, LOCAL_LIGHT_FAR_SECTORS, distance))
+        const radiusFromCore = Math.sqrt(sx * sx + sz * sz)
+        warmthIntegral +=
+          weighted * clamp01(1 - radiusFromCore / COLOR_BLEND_RADIUS_SECTORS)
+      }
+
+      const offset = row * grid.columns + column
+      grid.integrals[offset] = integral
+      grid.localIntegrals[offset] = localIntegral
+      grid.warmths[offset] = integral > 0 ? warmthIntegral / integral : 0
     }
   }
 }
 
-function toCanvas(image: ImageData): HTMLCanvasElement {
+/** 행 → 띠 프라이어: 원반면(y=0)에서 멀수록 근거리 광을 깎는 가우시안 + 잔광 바닥. */
+function bandPrior(yWorld: number): number {
+  return (
+    BAND_PRIOR_FLOOR +
+    (1 - BAND_PRIOR_FLOOR) * Math.exp(-((yWorld / BAND_PRIOR_SIGMA_WORLD) ** 2))
+  )
+}
+
+/** 원시 그리드 → 톤매핑된 베이스 캔버스: 근거리 띠 셰이핑 + 자동 노출 + 색·균열·패치. */
+function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
+  // 1패스 — 근거리 광만 띠 프라이어로 모은 표시용 광량을 만들고 최댓값을 찾는다
+  const shaped = new Float32Array(grid.columns * grid.rows)
+  let maxShaped = 0
+  for (let row = 0; row < grid.rows; row++) {
+    const verticalRatio = 1 - (row / (grid.rows - 1)) * 2
+    const prior = bandPrior(verticalRatio * BAND_HALF_HEIGHT)
+    for (let column = 0; column < grid.columns; column++) {
+      const offset = row * grid.columns + column
+      const total = grid.integrals[offset] ?? 0
+      const local = grid.localIntegrals[offset] ?? 0
+      const value = total - local + local * prior
+      shaped[offset] = value
+      if (value > maxShaped) maxShaped = value
+    }
+  }
+  const exposure = Math.max(maxShaped, MIN_EXPOSURE_INTEGRAL)
+
+  // 2패스 — 노출 정규화 + 색·균열·패치·가장자리 페이드를 픽셀로
+  const image = new ImageData(grid.columns, grid.rows)
+  for (let column = 0; column < grid.columns; column++) {
+    const theta = (column / grid.columns) * Math.PI * 2
+    const patch = PATCH_BASE + PATCH_SPAN * azimuthNoise(theta, 0)
+    const riftNoise = RIFT_NOISE_FLOOR + (1 - RIFT_NOISE_FLOOR) * azimuthNoise(theta, 2.3)
+
+    for (let row = 0; row < grid.rows; row++) {
+      const offset = row * grid.columns + column
+      const brightness = Math.pow(
+        clamp01((shaped[offset] ?? 0) / exposure),
+        BRIGHTNESS_GAMMA,
+      )
+      const warmth = clamp01((grid.warmths[offset] ?? 0) * WARMTH_GAIN)
+
+      const verticalRatio = 1 - (row / (grid.rows - 1)) * 2
+      const yWorld = verticalRatio * BAND_HALF_HEIGHT
+      const riftDip = (yWorld / RIFT_HALF_HEIGHT_WORLD) ** 2
+      const rift = 1 - RIFT_MAX_DEPTH * riftNoise * brightness * Math.exp(-riftDip)
+      const edgeFade = 1 - smoothstep(EDGE_FADE_START, 1, Math.abs(verticalRatio))
+      const level = brightness * patch * rift * edgeFade
+
+      const pixel = offset * 4
+      image.data[pixel] = (ARM_RGB[0] + (BULGE_RGB[0] - ARM_RGB[0]) * warmth) * level
+      image.data[pixel + 1] = (ARM_RGB[1] + (BULGE_RGB[1] - ARM_RGB[1]) * warmth) * level
+      image.data[pixel + 2] = (ARM_RGB[2] + (BULGE_RGB[2] - ARM_RGB[2]) * warmth) * level
+      image.data[pixel + 3] = 255 // 가산 블렌딩 — 검정 = 투명 (GalaxyNebula와 같은 규약)
+    }
+  }
+
   const canvas = document.createElement('canvas')
-  canvas.width = image.width
-  canvas.height = image.height
+  canvas.width = grid.columns
+  canvas.height = grid.rows
   const context = canvas.getContext('2d')
   if (context == null) throw new Error('은하 밴드 베이크용 2D 컨텍스트를 만들 수 없습니다')
   context.putImageData(image, 0, 0)
@@ -237,7 +286,7 @@ function toCanvas(image: ImageData): HTMLCanvasElement {
 }
 
 /**
- * 베이스 격자 → 최종 캔버스 합성: 블러 업스케일 + 산란 헤일로.
+ * 베이스 캔버스 → 최종 캔버스 합성: 블러 업스케일 + 산란 헤일로.
  * 가로는 한 바퀴 랩이므로 좌우로 한 장씩 더 그려 블러가 솔기 너머를 샘플하게 한다.
  */
 function composeCanvas(base: HTMLCanvasElement, sharpBlurPx: number): HTMLCanvasElement {
@@ -285,20 +334,12 @@ export function createBandPanoramaJob(
 ): BandPanoramaJob {
   let preview: HTMLCanvasElement | null = null
   if (options.withPreview) {
-    const previewImage = new ImageData(PREVIEW_COLUMNS, PREVIEW_ROWS)
-    bakeColumns(
-      previewImage,
-      PREVIEW_ROWS,
-      PREVIEW_COLUMNS,
-      anchor,
-      PREVIEW_STEP_SECTORS,
-      0,
-      PREVIEW_COLUMNS,
-    )
-    preview = composeCanvas(toCanvas(previewImage), PREVIEW_SHARP_BLUR_PX)
+    const previewGrid = createRayGrid(PREVIEW_COLUMNS, PREVIEW_ROWS)
+    bakeColumns(previewGrid, anchor, PREVIEW_STEP_SECTORS, 0, PREVIEW_COLUMNS)
+    preview = composeCanvas(toneMapGrid(previewGrid), PREVIEW_SHARP_BLUR_PX)
   }
 
-  const fullImage = new ImageData(BASE_COLUMNS, BASE_ROWS)
+  const fullGrid = createRayGrid(BASE_COLUMNS, BASE_ROWS)
   let nextColumn = 0
 
   return {
@@ -306,22 +347,17 @@ export function createBandPanoramaJob(
     refine(budgetMs) {
       const deadline = performance.now() + budgetMs
       while (nextColumn < BASE_COLUMNS) {
-        bakeColumns(
-          fullImage,
-          BASE_ROWS,
-          BASE_COLUMNS,
-          anchor,
-          RAY_STEP_SECTORS,
-          nextColumn,
-          nextColumn + 1,
-        )
+        bakeColumns(fullGrid, anchor, RAY_STEP_SECTORS, nextColumn, nextColumn + 1)
         nextColumn++
         if (performance.now() >= deadline) break
       }
       return nextColumn >= BASE_COLUMNS
     },
     composeFinal() {
-      return composeCanvas(toCanvas(fullImage), SHARP_BLUR_PX)
+      if (nextColumn < BASE_COLUMNS) {
+        throw new Error('정련이 끝나기 전에 composeFinal이 호출됐습니다')
+      }
+      return composeCanvas(toneMapGrid(fullGrid), SHARP_BLUR_PX)
     },
   }
 }
