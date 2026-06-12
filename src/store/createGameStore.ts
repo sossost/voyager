@@ -82,17 +82,20 @@ export function createGameStore(options: CreateGameStoreOptions) {
     genVersion: GEN_VERSION,
 
     // ── sceneSlice ──────────────────────────────────────────
-    scene: { kind: 'system', starId: options.startStarId } satisfies SceneState,
+    // 첫 화면은 시작 별의 우주선 뷰 — 항성계가 은하 좌표에 통합되어 별도 'system' kind가 없다 (결정 41)
+    scene: { kind: 'galaxy', view: 'ship' } satisfies SceneState,
     selectedStarId: null,
     selectedPlanetId: null,
+    pendingArrival: false,
 
     selectStar(starId) {
-      if (get().scene.kind !== 'galaxy') return
+      if (get().scene.kind !== 'galaxy') return // ship·perspective 양쪽에서 별 선택 가능 (결정 41-f)
       set({ selectedStarId: starId })
     },
 
     selectPlanet(planetId) {
-      if (get().scene.kind !== 'system') return
+      const { scene } = get()
+      if (scene.kind !== 'galaxy' || scene.view !== 'ship') return // 행성은 우주선 뷰에서만 보인다
       set({ selectedPlanetId: planetId })
     },
 
@@ -121,31 +124,26 @@ export function createGameStore(options: CreateGameStoreOptions) {
     onWarpComplete() {
       const { scene } = get()
       if (scene.kind !== 'warping') return
-      set({ scene: { kind: 'system', starId: scene.to } })
+      // 도착 = 새 별의 우주선 뷰 (항성계가 우주선 뷰에 통합됨, 결정 41-b).
+      // pendingArrival로 우주선 카메라의 도착 확대 연출을 1회 트리거한다.
+      set({ scene: { kind: 'galaxy', view: 'ship' }, pendingArrival: true })
     },
 
-    enterCurrentSystem() {
-      const { scene, selectedStarId, currentStarId } = get()
-      if (scene.kind !== 'galaxy') return
-      if (selectedStarId !== currentStarId) return
-      set({ scene: { kind: 'system', starId: currentStarId }, selectedStarId: null })
-    },
-
-    backToGalaxy() {
-      if (get().scene.kind !== 'system') return
-      // 항성계 이탈은 우주선 뷰로 — 지도는 명시적으로 연다 (결정 34)
-      set({ scene: { kind: 'galaxy', view: 'ship' }, selectedPlanetId: null })
-    },
-
-    openGalaxyMap() {
+    openPerspective() {
       if (get().scene.kind !== 'galaxy') return
-      set({ scene: { kind: 'galaxy', view: 'map' } })
+      // 퍼스펙티브 뷰는 행성을 클릭하지 않으므로 행성 선택을 해제한다
+      set({ scene: { kind: 'galaxy', view: 'perspective' }, selectedPlanetId: null })
     },
 
-    closeGalaxyMap() {
+    returnToShip() {
       if (get().scene.kind !== 'galaxy') return
-      // 선택은 유지 — 우주선 뷰에서도 StarInfoPanel·항행이 동작한다
+      // 별 선택은 유지 — 우주선 뷰에서도 StarInfoPanel·항행이 동작한다
       set({ scene: { kind: 'galaxy', view: 'ship' } })
+    },
+
+    consumeArrival() {
+      if (!get().pendingArrival) return
+      set({ pendingArrival: false })
     },
 
     // ── playerSlice (영속 기록의 O(1) 캐시) ──────────────────
@@ -160,12 +158,12 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     explore(planetId) {
       const state = get()
-      if (state.scene.kind !== 'system') return
+      if (state.scene.kind !== 'galaxy' || state.scene.view !== 'ship') return // 행성은 우주선 뷰에서만
       if (state.encounter != null) return
 
       const planet = planetById(state.seed, planetId)
       if (planet == null || !planet.hasLife) return
-      if (planet.starId !== state.scene.starId) return // 현재 항성계의 행성만 탐사 가능
+      if (planet.starId !== state.currentStarId) return // 현재 항성계의 행성만 탐사 가능
 
       // 결정론: 같은 행성 = 항상 같은 개체 (재방문 = 재조우)
       const alien = alienAt(state.seed, planetId)

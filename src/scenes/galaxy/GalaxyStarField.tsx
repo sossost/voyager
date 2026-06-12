@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
-import { BufferGeometry, Color, Float32BufferAttribute } from 'three'
+import { BufferGeometry, Color, Float32BufferAttribute, Vector3 } from 'three'
 
 import type { Star, StarId } from '@/engine'
 import { SECTOR_SIZE } from '@/engine'
@@ -8,6 +8,7 @@ import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { fract } from '@/scenes/shared/fract'
 import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMaterial'
 import { starVariance } from '@/scenes/shared/starVariance'
+import { crossfadeProgress } from '@/scenes/system/starCrossfade'
 
 /**
  * 원거리 별 크기 하한 — size 어트리뷰트 1단위당 px. 분광형 크기에 비례하므로
@@ -67,6 +68,8 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
   const positions = new Float32Array(count * 3)
   const colors = new Float32Array(count * 3)
   const sizes = new Float32Array(count)
+  // 현재 별 플래그 — 1인 포인트만 uCurrentFade를 받는다 (크로스페이드, 결정 41-c). 기본 0.
+  const current = new Float32Array(count)
   const color = new Color()
 
   stars.forEach((star, index) => {
@@ -85,6 +88,7 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
   geometry.setAttribute('starColor', new Float32BufferAttribute(colors, 3))
   geometry.setAttribute('size', new Float32BufferAttribute(sizes, 1))
+  geometry.setAttribute('aCurrent', new Float32BufferAttribute(current, 1))
   return geometry
 }
 
@@ -92,6 +96,7 @@ interface GalaxyStarFieldProps {
   readonly stars: readonly Star[]
   readonly maxPointSize: number
   readonly visitedStars: ReadonlySet<StarId>
+  readonly currentStarId: StarId
 }
 
 /**
@@ -99,8 +104,14 @@ interface GalaxyStarFieldProps {
  * 화면의 모든 점이 클릭 가능한 진짜 별이다 (별도 원경 레이어 없음).
  * 방문한 별은 어트리뷰트 갱신으로 청록빛 틴트를 얹는다 — 드로콜·캡 추가 없음.
  */
-export function GalaxyStarField({ stars, maxPointSize, visitedStars }: GalaxyStarFieldProps) {
+export function GalaxyStarField({
+  stars,
+  maxPointSize,
+  visitedStars,
+  currentStarId,
+}: GalaxyStarFieldProps) {
   const geometry = useMemo(() => buildGeometry(stars), [stars])
+  const currentStarScratch = useMemo(() => new Vector3(), [])
   const material = useMemo(
     () =>
       createStarGlowMaterial({
@@ -151,8 +162,34 @@ export function GalaxyStarField({ stars, maxPointSize, visitedStars }: GalaxySta
     }
   }, [geometry, indexByStarId, stars, visitedStars])
 
+  // 현재 별 인덱스에만 aCurrent=1 — currentStarId/지오메트리 변경 시 한 번 (드묾)
+  useEffect(() => {
+    const attribute = geometry.getAttribute('aCurrent')
+    if (attribute == null) return
+    const array = attribute.array as Float32Array
+    array.fill(0)
+    const index = indexByStarId.get(currentStarId)
+    if (index != null) array[index] = 1
+    attribute.needsUpdate = true
+  }, [geometry, indexByStarId, currentStarId])
+
   useFrame((state) => {
     setUniform(material, 'uPixelRatio', state.gl.getPixelRatio())
+
+    // 현재 별 포인트 크로스페이드 — 구체(StarSurface)는 항상 렌더되므로 카메라 거리로
+    // 항상 핸드오프한다. 가까우면 구체, 멀면(퍼스펙티브 줌아웃) 포인트로 (결정 41-c).
+    let currentFade = 1
+    const index = indexByStarId.get(currentStarId)
+    const star = index == null ? null : stars[index]
+    if (star != null) {
+      currentStarScratch.set(
+        star.sector.sx * SECTOR_SIZE + star.localPos[0],
+        star.sector.sy * SECTOR_SIZE + star.localPos[1],
+        star.sector.sz * SECTOR_SIZE + star.localPos[2],
+      )
+      currentFade = crossfadeProgress(state.camera.position.distanceTo(currentStarScratch))
+    }
+    setUniform(material, 'uCurrentFade', currentFade)
   })
 
   return <points geometry={geometry} material={material} />

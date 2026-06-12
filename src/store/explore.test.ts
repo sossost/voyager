@@ -38,7 +38,7 @@ let store: GameStoreApi
 let driver: MemoryDriver
 
 function warpToStar(starId: StarId) {
-  if (store.getState().scene.kind === 'system') store.getState().backToGalaxy()
+  // 워프 → 도착 = 우주선 뷰 (통합 후 explore는 우주선 뷰에서만, 결정 41)
   store.getState().warpTo(starId)
   store.getState().onWarpComplete()
 }

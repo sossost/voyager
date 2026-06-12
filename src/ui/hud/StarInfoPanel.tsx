@@ -6,7 +6,8 @@ import { useGameStore } from '@/store'
 
 export function StarInfoPanel() {
   const seed = useGameStore((state) => state.seed)
-  const sceneKind = useGameStore((state) => state.scene.kind)
+  const scene = useGameStore((state) => state.scene)
+  const sceneKind = scene.kind
   const selectedStarId = useGameStore((state) => state.selectedStarId)
   const currentStarId = useGameStore((state) => state.currentStarId)
   const isVisited = useGameStore(
@@ -14,7 +15,7 @@ export function StarInfoPanel() {
   )
   const selectStar = useGameStore((state) => state.selectStar)
   const warpTo = useGameStore((state) => state.warpTo)
-  const enterCurrentSystem = useGameStore((state) => state.enterCurrentSystem)
+  const returnToShip = useGameStore((state) => state.returnToShip)
 
   const star = useMemo(
     () => (selectedStarId == null ? null : starById(seed, selectedStarId)),
@@ -64,13 +65,16 @@ export function StarInfoPanel() {
         </dl>
 
         {isCurrentStar ? (
-          <button
-            type="button"
-            className="hud-button hud-button-primary"
-            onClick={enterCurrentSystem}
-          >
-            항성계 진입
-          </button>
+          // 퍼스펙티브 뷰에서만 함교 복귀 버튼 표시 — 이미 우주선 뷰라면 버튼 없음 (백로그 H-1)
+          scene.kind === 'galaxy' && scene.view === 'perspective' ? (
+            <button
+              type="button"
+              className="hud-button hud-button-primary"
+              onClick={returnToShip}
+            >
+              함교 복귀
+            </button>
+          ) : null
         ) : (
           <button
             type="button"

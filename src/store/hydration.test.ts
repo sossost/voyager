@@ -57,7 +57,7 @@ describe('하이드레이션 — 영속 기록 → O(1) 캐시 복원 (스펙 AC
     expect(state.discoveredSpecies.get('sp001')).toBe(2)
     expect(state.discoveredSpecies.get('sp005')).toBe(1)
     expect(state.collectionEntries).toHaveLength(3)
-    expect(state.scene).toEqual({ kind: 'system', starId: startStarId })
+    expect(state.scene).toEqual({ kind: 'galaxy', view: 'ship' })
   })
 
   it('방문 별 캐시는 visitedAt 오름차순이다 — Set 순서가 여정 타임라인 (백로그 F-2)', () => {

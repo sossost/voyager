@@ -36,8 +36,8 @@ beforeEach(() => {
 })
 
 describe('초기 상태', () => {
-  it('첫 화면은 시작 항성계의 태양계 뷰다 (스펙 AC)', () => {
-    expect(store.getState().scene).toEqual({ kind: 'system', starId: startStarId })
+  it('첫 화면은 시작 별의 우주선 뷰다 — 항성계가 우주선 뷰에 통합됨 (스펙 AC, 결정 41)', () => {
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
     expect(store.getState().currentStarId).toBe(startStarId)
   })
 
@@ -47,29 +47,29 @@ describe('초기 상태', () => {
 })
 
 describe('씬 전이 가드', () => {
-  it('selectStar는 은하 뷰에서만 동작한다', () => {
+  it('selectStar는 은하 뷰(ship·perspective)에서 동작하고 워프 중엔 무시된다 (결정 41-f)', () => {
     store.getState().selectStar(target)
-    expect(store.getState().selectedStarId).toBeNull() // system 씬이라 무시
+    expect(store.getState().selectedStarId).toBe(target) // 우주선 뷰 — 동작
 
-    store.getState().backToGalaxy()
-    store.getState().selectStar(target)
-    expect(store.getState().selectedStarId).toBe(target)
+    store.getState().openPerspective()
+    store.getState().selectStar(startStarId)
+    expect(store.getState().selectedStarId).toBe(startStarId) // 퍼스펙티브 — 동작
+
+    store.getState().returnToShip()
+    store.getState().warpTo(target) // 워프 시작 → selectedStarId 리셋
+    store.getState().selectStar(startStarId)
+    expect(store.getState().selectedStarId).toBeNull() // 워프 중 — 무시
   })
 
-  it('warpTo는 은하 뷰에서만, 다른 별로만 가능하다', () => {
-    store.getState().warpTo(target)
-    expect(store.getState().scene.kind).toBe('system') // system에서 워프 불가
-
-    store.getState().backToGalaxy()
+  it('warpTo는 다른 별로만, 은하 뷰에서만 가능하다', () => {
     store.getState().warpTo(startStarId)
-    expect(store.getState().scene.kind).toBe('galaxy') // 현재 별로 워프 불가
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' }) // 현재 별로 워프 불가
 
     store.getState().warpTo(target)
     expect(store.getState().scene).toEqual({ kind: 'warping', from: startStarId, to: target })
   })
 
   it('워프 중 재워프는 가드로 차단된다', () => {
-    store.getState().backToGalaxy()
     store.getState().warpTo(target)
     const during = store.getState().scene
 
@@ -78,67 +78,51 @@ describe('씬 전이 가드', () => {
   })
 
   it('워프 시작 시점에 방문 기록과 현재 위치가 커밋된다 (연출 중단에도 안전)', () => {
-    store.getState().backToGalaxy()
     store.getState().warpTo(target)
 
     expect(store.getState().currentStarId).toBe(target)
     expect(store.getState().visitedStars.has(target)).toBe(true)
   })
 
-  it('onWarpComplete는 warping에서만 system으로 전이한다', () => {
+  it('onWarpComplete는 warping에서만 우주선 뷰로 전이한다 (결정 41)', () => {
     store.getState().onWarpComplete()
-    expect(store.getState().scene.kind).toBe('system') // 이미 system — 변화 없음
-
-    store.getState().backToGalaxy()
-    store.getState().onWarpComplete()
-    expect(store.getState().scene.kind).toBe('galaxy') // galaxy에서 무시
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' }) // galaxy에서 무시
 
     store.getState().warpTo(target)
     store.getState().onWarpComplete()
-    expect(store.getState().scene).toEqual({ kind: 'system', starId: target })
-  })
-
-  it('enterCurrentSystem은 현재 별을 선택했을 때만 워프 없이 진입한다', () => {
-    store.getState().backToGalaxy()
-
-    store.getState().selectStar(target)
-    store.getState().enterCurrentSystem()
-    expect(store.getState().scene.kind).toBe('galaxy') // 다른 별 선택 중 — 무시
-
-    store.getState().selectStar(startStarId)
-    const visitedBefore = store.getState().visitedStars
-    store.getState().enterCurrentSystem()
-    expect(store.getState().scene).toEqual({ kind: 'system', starId: startStarId })
-    expect(store.getState().visitedStars).toBe(visitedBefore) // 재방문 기록 없음
-  })
-
-  it('backToGalaxy는 system에서만 동작한다', () => {
-    store.getState().backToGalaxy()
-    expect(store.getState().scene.kind).toBe('galaxy')
-
-    store.getState().backToGalaxy()
-    expect(store.getState().scene.kind).toBe('galaxy') // galaxy에서 무시 (변화 없음)
-  })
-
-  it('항성계 이탈은 우주선 뷰로 나가고, 은하 전도는 열고 닫는다 (결정 34)', () => {
-    store.getState().backToGalaxy()
     expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
-
-    store.getState().openGalaxyMap()
-    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'map' })
-
-    store.getState().closeGalaxyMap()
-    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
+    expect(store.getState().currentStarId).toBe(target)
   })
 
-  it('지도 열기/닫기는 은하 뷰에서만 동작한다', () => {
-    store.getState().openGalaxyMap() // system에서 — 무시
-    expect(store.getState().scene.kind).toBe('system')
+  it('워프 도착은 pendingArrival을 켜고, consumeArrival이 1회성으로 끈다 (도착 확대 연출)', () => {
+    expect(store.getState().pendingArrival).toBe(false)
 
-    store.getState().backToGalaxy()
-    store.getState().openGalaxyMap()
     store.getState().warpTo(target)
-    store.getState().closeGalaxyMap() // warping에서 — 무시
+    expect(store.getState().pendingArrival).toBe(false) // 발동 시점엔 아직
+    store.getState().onWarpComplete()
+    expect(store.getState().pendingArrival).toBe(true) // 도착 = 트리거
+
+    store.getState().consumeArrival()
+    expect(store.getState().pendingArrival).toBe(false) // 카메라가 소비
+
+    store.getState().consumeArrival()
+    expect(store.getState().pendingArrival).toBe(false) // 멱등 — 변화 없음
+  })
+
+  it('퍼스펙티브 뷰를 열고 우주선 뷰로 돌아온다 (결정 41)', () => {
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
+
+    store.getState().openPerspective()
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'perspective' })
+
+    store.getState().returnToShip()
+    expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
+  })
+
+  it('뷰 전환은 은하 뷰에서만 — 워프 중엔 무시된다', () => {
+    store.getState().openPerspective()
+    store.getState().warpTo(target)
+    store.getState().returnToShip() // warping에서 — 무시
     expect(store.getState().scene.kind).toBe('warping')
   })
 })
@@ -146,7 +130,6 @@ describe('씬 전이 가드', () => {
 describe('불변성', () => {
   it('visitedStars는 변이가 아니라 새 인스턴스로 교체된다', () => {
     const before = store.getState().visitedStars
-    store.getState().backToGalaxy()
     store.getState().warpTo(target)
     expect(store.getState().visitedStars).not.toBe(before)
     expect(before.has(target)).toBe(false)
@@ -155,7 +138,6 @@ describe('불변성', () => {
 
 describe('write-through 영속화', () => {
   it('워프 시 방문 기록과 프로필이 드라이버에 저장된다', async () => {
-    store.getState().backToGalaxy()
     store.getState().warpTo(target)
 
     await vi.waitFor(async () => {
@@ -167,7 +149,6 @@ describe('write-through 영속화', () => {
 
   it('같은 별 왕복 재방문은 기록을 중복 생성하지 않는다 (멱등)', async () => {
     const roundTrip = (to: StarId) => {
-      store.getState().backToGalaxy()
       store.getState().warpTo(to)
       store.getState().onWarpComplete()
     }
@@ -185,17 +166,17 @@ describe('write-through 영속화', () => {
 })
 
 describe('selectPlanet / setQuality', () => {
-  it('selectPlanet은 태양계 뷰에서만 동작한다', () => {
+  it('selectPlanet은 우주선 뷰에서만 동작하고 퍼스펙티브 전환 시 해제된다 (결정 41)', () => {
     const planetId = `${startStarId}:p0` as PlanetId
 
     store.getState().selectPlanet(planetId)
-    expect(store.getState().selectedPlanetId).toBe(planetId)
+    expect(store.getState().selectedPlanetId).toBe(planetId) // 우주선 뷰 — 동작
 
-    store.getState().backToGalaxy()
-    expect(store.getState().selectedPlanetId).toBeNull() // 이탈 시 초기화
+    store.getState().openPerspective()
+    expect(store.getState().selectedPlanetId).toBeNull() // 퍼스펙티브엔 행성이 없음 — 해제
 
     store.getState().selectPlanet(planetId)
-    expect(store.getState().selectedPlanetId).toBeNull() // 은하 뷰 — 무시
+    expect(store.getState().selectedPlanetId).toBeNull() // 퍼스펙티브 — 무시
   })
 
   it('setQuality는 티어와 모드를 함께 바꾼다', () => {
@@ -220,7 +201,6 @@ describe('영속화 실패 처리', () => {
         createdAt: 1,
       })
 
-      failingStore.getState().backToGalaxy()
       failingStore.getState().warpTo(target)
       expect(failingStore.getState().currentStarId).toBe(target) // 진행 비차단
 

@@ -9,23 +9,33 @@ import { JourneyPath } from '@/scenes/galaxy/JourneyPath'
 import { SelectedStarMarker } from '@/scenes/galaxy/SelectedStarMarker'
 import { ShipCameraRig } from '@/scenes/galaxy/ShipCameraRig'
 import { ShipViewGalaxyGlow } from '@/scenes/galaxy/ShipViewGalaxyGlow'
+import { SpaceshipModel } from '@/scenes/galaxy/SpaceshipModel'
 import { StarCalloutProjector } from '@/scenes/galaxy/StarCalloutProjector'
 import { useGalaxyStars } from '@/scenes/galaxy/useGalaxyStars'
 import { useStarPicking } from '@/scenes/galaxy/useStarPicking'
 import { CameraRig } from '@/scenes/shared/CameraRig'
 import { DecorativeStarfield } from '@/scenes/shared/DecorativeStarfield'
 import { DistantGalaxies } from '@/scenes/shared/DistantGalaxies'
+import { CurrentSystem } from '@/scenes/system/CurrentSystem'
 import { useGameStore } from '@/store'
 
 const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0]
 
 /**
- * 두 시점 (결정 34·36):
+ * 두 시점 (결정 34·36·41):
  * - 우주선 뷰(ship): 1인칭 — 회전축이 카메라 자신 (ShipCameraRig, 현재 별 옆 정박).
- * - 은하 전도(map): 궤도 중심 = 은하 중심 고정 OrbitControls. 항행 목적지를 고르는 전략 지도.
+ * - 퍼스펙티브 뷰(perspective): 3인칭 — 궤도 중심 = 우주선(현재 별). 우주선 모델 주위를
+ *   공전하며 줌아웃으로 은하를 조망하고 항행 목적지를 고른다 (결정 41-e).
  * 뷰 전환은 리그 교체 = 즉시 컷 — 트랜지션 없음. 워프 중엔 WarpCameraRig가 전담한다.
  */
-const MAP_MIN_DISTANCE = 200
+/** 퍼스펙티브 최소 거리 — 우주선·항성에 근접하는 한계. */
+const PERSPECTIVE_MIN_DISTANCE = 32
+/**
+ * 퍼스펙티브 진입 거리 — 우주선 뷰처럼 현재 항성계(별·행성)를 프레이밍하는 오프셋(거리 ≈ 138).
+ * 항성계가 한눈에 들어오고 우주선은 그 곁의 3인칭 요소로 보인다 (결정 41-e, 피드백 반영).
+ */
+const PERSPECTIVE_OFFSET_Y = 48
+const PERSPECTIVE_OFFSET_Z = 130
 /** 은하 전체(지름 9,600 유닛)가 화면에 들어오는 줌아웃 한계 — 나선 형상 조망용. */
 const GALAXY_MAX_ZOOM_OUT = 6_000
 /**
@@ -45,7 +55,8 @@ export function GalaxyScene() {
   // warpTo가 currentStarId를 즉시 목적지로 바꾸므로(결정 16: 저장 선행),
   // 워프 중 카메라 앵커는 출발 별(from)에 둔다 — 연출은 현 위치에서 시작해야 한다
   const anchorStarId = scene.kind === 'warping' ? scene.from : currentStarId
-  const isMapView = scene.kind === 'galaxy' && scene.view === 'map'
+  const isPerspectiveView = scene.kind === 'galaxy' && scene.view === 'perspective'
+  const isShipView = scene.kind === 'galaxy' && scene.view === 'ship'
 
   const shipFocus = useMemo(
     () => starWorldPosition(seed, anchorStarId) ?? GALAXY_CENTER,
@@ -59,19 +70,19 @@ export function GalaxyScene() {
     <>
       <color attach="background" args={['#05060f']} />
       {/* 뷰별 카메라 리그 — 워프 중엔 어느 쪽도 마운트하지 않는다 (WarpCameraRig 전담) */}
-      {isMapView ? (
+      {isPerspectiveView ? (
         <CameraRig
-          focus={GALAXY_CENTER}
-          minDistance={MAP_MIN_DISTANCE}
+          focus={shipFocus}
+          minDistance={PERSPECTIVE_MIN_DISTANCE}
           maxDistance={GALAXY_MAX_ZOOM_OUT}
+          offsetY={PERSPECTIVE_OFFSET_Y}
+          offsetZ={PERSPECTIVE_OFFSET_Z}
         />
       ) : null}
-      {scene.kind === 'galaxy' && scene.view === 'ship' ? (
-        <ShipCameraRig anchor={shipFocus} />
-      ) : null}
-      {/* 장식 배경 (백로그 G-a-2) — 전도는 원거리 은하 빌보드, 우주선 뷰·워프는
+      {isShipView ? <ShipCameraRig anchor={shipFocus} /> : null}
+      {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는
           균일 별밭 + 은하 광원감(원반 밴드·코어 글로우, 백로그 G-b-6)이 하늘을 채운다 */}
-      {isMapView ? (
+      {isPerspectiveView ? (
         <DistantGalaxies />
       ) : (
         <>
@@ -79,15 +90,22 @@ export function GalaxyScene() {
           <ShipViewGalaxyGlow anchor={shipFocus} />
         </>
       )}
-      {isMapView ? <GalaxyNebula /> : null}
+      {isPerspectiveView ? <GalaxyNebula /> : null}
       <GalaxyStarField
         stars={stars}
         maxPointSize={preset.maxPointSize}
         visitedStars={visitedStars}
+        currentStarId={currentStarId}
       />
-      {/* 지도 정보 레이어 — 여정은 지도 전용, 비콘은 지도의 "여기" + 워프 중 목적지 표지 */}
-      {isMapView ? <JourneyPath /> : null}
-      {isMapView || scene.kind === 'warping' ? <CurrentStarBeacon /> : null}
+      {/* 현재 항성계 — 모든 뷰(우주선·퍼스펙티브)와 워프에서 별 구체를 은하 좌표에 직접
+          렌더한다. 크로스페이드가 거리에 따라 포인트↔구체를 핸드오프하므로 퍼스펙티브에서
+          줌아웃하면 자연히 점으로 돌아간다. 행성은 워프 중엔 베이크하지 않는다 (결정 41) */}
+      <CurrentSystem />
+      {/* 퍼스펙티브 = 항성계 곁에 떠 있는 내 우주선을 3인칭으로 본다 (결정 41-e) */}
+      {isPerspectiveView ? <SpaceshipModel /> : null}
+      {/* 정보 레이어 — 여정은 퍼스펙티브 전용, 비콘은 워프 중 도착 지점 표지 */}
+      {isPerspectiveView ? <JourneyPath /> : null}
+      {scene.kind === 'warping' ? <CurrentStarBeacon /> : null}
       <SelectedStarMarker />
       <StarCalloutProjector />
     </>
