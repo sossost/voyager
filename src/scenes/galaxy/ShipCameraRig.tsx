@@ -9,7 +9,7 @@ import { useGameStore } from '@/store'
  *
  * OrbitControls(외부 점을 도는 관찰자 시점)와 달리, 카메라가 현재 별 옆의
  * 고정 위치에 떠서 드래그로 시선만 돌린다(요/피치) — "함교에서 고개를 돌리는"
- * 느낌. 줌은 휠/버튼으로 MIN_ZOOM_SCALE~MAX_ZOOM_SCALE 배율 조절 가능.
+ * 느낌. 확대/축소는 없다 — 회전 전용. 거리 탐색은 퍼스펙티브 뷰의 몫.
  * 모든 연속 값은 ref + useFrame, store 쓰기 없음 (철칙 6).
  *
  * 단, 워프 도착(pendingArrival) 직후엔 정박 거리보다 멀리서 시작해 빨려들 듯
@@ -19,15 +19,12 @@ import { useGameStore } from '@/store'
 
 /**
  * 우주선 정박 위치 — 현재 별 기준 오프셋 (별을 살짝 내려다보며 시작한다).
- * zoom=1 기준 거리 ≈63유닛. 휠/버튼 줌으로 0.35×~3× 배율 조절 가능 (~22~189유닛).
+ * 거리 ≈63유닛 — 항성계 전체(Neptune ≤29유닛)가 시야에 들어오는 거리.
  */
 const SHIP_OFFSET_X = 0
 const SHIP_OFFSET_Y = 20
 const SHIP_OFFSET_Z = 60
 
-/** 휠 줌 배율 범위 — 너무 붙이면 항성 구체가 화면을 가리고, 너무 당기면 시스템이 사라진다. */
-const MIN_ZOOM_SCALE = 0.35
-const MAX_ZOOM_SCALE = 3.0
 /** 시작 피치 — 정박 위치에서 현재 별을 바라보는 각도. */
 const INITIAL_PITCH = -Math.asin(
   SHIP_OFFSET_Y /
@@ -75,8 +72,6 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
   const currentYaw = useRef(0)
   const currentPitch = useRef(INITIAL_PITCH)
   const dragPointer = useRef<{ id: number; x: number; y: number } | null>(null)
-  const targetZoom = useRef(1.0)
-  const currentZoom = useRef(1.0)
 
   // 복귀 버튼 — 시선을 현재 별 방향(초기 포즈)으로 즉시 리셋한다
   useEffect(() => {
@@ -84,16 +79,10 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
       targetYaw.current = 0
       targetPitch.current = INITIAL_PITCH
     }
-    cameraActions.zoomIn = () => {
-      targetZoom.current = Math.max(MIN_ZOOM_SCALE, targetZoom.current * 0.75)
-    }
-    cameraActions.zoomOut = () => {
-      targetZoom.current = Math.min(MAX_ZOOM_SCALE, targetZoom.current * 1.33)
-    }
+    cameraActions.zoomIn = null
+    cameraActions.zoomOut = null
     return () => {
       cameraActions.reset = null
-      cameraActions.zoomIn = null
-      cameraActions.zoomOut = null
     }
   }, [])
 
@@ -150,31 +139,13 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
     }
   }, [gl])
 
-  // 휠 줌 — 캔버스 위에서만 작동, 페이지 스크롤 막기 위해 passive:false
-  useEffect(() => {
-    const element = gl.domElement
-    const handleWheel = (event: WheelEvent) => {
-      event.preventDefault()
-      const factor = event.deltaY > 0 ? 1.1 : 0.9
-      targetZoom.current = Math.max(
-        MIN_ZOOM_SCALE,
-        Math.min(MAX_ZOOM_SCALE, targetZoom.current * factor),
-      )
-    }
-    element.addEventListener('wheel', handleWheel, { passive: false })
-    return () => element.removeEventListener('wheel', handleWheel)
-  }, [gl])
-
   useFrame((state, delta) => {
     const blend = 1 - Math.exp(-LOOK_DAMPING * delta)
     currentYaw.current += (targetYaw.current - currentYaw.current) * blend
     currentPitch.current += (targetPitch.current - currentPitch.current) * blend
 
-    // 줌 부드럽게 보간 — 휠/버튼으로 바꾼 targetZoom에 따라온다
-    currentZoom.current += (targetZoom.current - currentZoom.current) * (1 - Math.exp(-8 * delta))
-
     // 도착 확대: 정박 오프셋을 같은 방향으로 스케일만 키워(별이 계속 중앙) 1배로 안착한다
-    let offsetScale = currentZoom.current
+    let offsetScale = 1
     if (isArrivingRef.current) {
       if (arrivalStartRef.current == null) arrivalStartRef.current = state.clock.elapsedTime
       const progress = (state.clock.elapsedTime - arrivalStartRef.current) / ARRIVAL_DURATION_S
@@ -182,9 +153,8 @@ export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
         isArrivingRef.current = false
       } else {
         offsetScale =
-          currentZoom.current *
-          (ARRIVAL_START_DISTANCE_MULTIPLIER +
-            (1 - ARRIVAL_START_DISTANCE_MULTIPLIER) * easeInOut(progress))
+          ARRIVAL_START_DISTANCE_MULTIPLIER +
+          (1 - ARRIVAL_START_DISTANCE_MULTIPLIER) * easeInOut(progress)
       }
     }
 

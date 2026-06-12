@@ -30,7 +30,7 @@ const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0]
  * 뷰 전환은 리그 교체 = 즉시 컷 — 트랜지션 없음. 워프 중엔 WarpCameraRig가 전담한다.
  */
 /** 퍼스펙티브 최소 거리 — 우주선·항성에 근접하는 한계. */
-const PERSPECTIVE_MIN_DISTANCE = 32
+const PERSPECTIVE_MIN_DISTANCE = 4
 /**
  * 퍼스펙티브 진입 거리 — 우주선 뷰처럼 현재 항성계(별·행성)를 프레이밍하는 오프셋(거리 ≈ 138).
  * 항성계가 한눈에 들어오고 우주선은 그 곁의 3인칭 요소로 보인다 (결정 41-e, 피드백 반영).
