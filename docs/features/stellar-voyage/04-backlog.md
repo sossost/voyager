@@ -76,7 +76,9 @@
 ### G-b. 중형 — 시점·연출 재작업
 
 6. ~~**우주선 뷰 은하 측면 광원감**~~ — ✅ 완료 (2026-06-12, 결정 38): `ShipViewGalaxyGlow` — 정박 별 기준 방위각별 sectorDensity 선적분을 실린더에 구운 원반 밴드 + 은하 중심 코어 글로우 빌보드(각크기 상한 0.22). 텍스처+가산 원칙 준수, 점·입자 없음. 우주선 뷰·워프 전용 마운트.
-7. **항성계 씬 통합 + 퍼스펙티브 뷰 우주선** ✦ brainstorm 완료 (2026-06-12, 결정 41)
+7. ~~**항성계 씬 통합 + 퍼스펙티브 뷰 우주선**~~ — ✅ 완료 (2026-06-12, 결정 41, Phase 1~5): `kind:'system'` 제거 → 은하 씬 단일화. 항성계를 은하 좌표 오프셋 그룹에 직접 렌더(`CurrentSystem`), 워프 도착 포인트↔구체 크로스페이드(`starCrossfade`), 퍼스펙티브 3인칭에 항성계 + 우주선 모델(`SpaceshipModel`), 뷰별 워프 정렬(1인칭 보장). 피드백 반영: 워프 도착 확대 연출(`pendingArrival`→ShipCameraRig 줌인), 퍼스펙티브에도 항성계 렌더, 우주선 궤도면 위로 띄움·축소. `SystemScene`/`SystemEntryTransition`/`SystemBackdropStars` 삭제. 렌더+상태 전용 — GEN_VERSION 무관.
+
+   <details><summary>원래 계획 (참고용)</summary>
 
    **컨셉:**
    - `SceneState.kind: 'system'` 삭제 → 은하 씬 단일화. 항성계 오브젝트를 은하 좌표계에 직접 배치.
@@ -103,6 +105,8 @@
    | 10 | 테스트 갱신 — E2E(씬 전환·뷰 전환 경로), 스토어 단위 테스트 | `tests/e2e/`, `store/*.test.ts` | Sonnet |
 
    > `/yc:plan` 실행 전 현재 브랜치 PR 머지 선행 필요.
+
+   </details>
 
 ### G-c. 엔진 확장 — 생성 변경 (브레인스토밍 선행)
 
