@@ -11,6 +11,6 @@
  *
  * v2 (2026-06-11): 나선팔 밀도 함수 + MAX_STARS_PER_SECTOR 80→5 (결정 21).
  * v3 (2026-06-11): 수직 두께 렌즈형 프로파일 — 중심 5 → 가장자리 1.2섹터 테이퍼 (결정 32).
- *   sy=0 평면 밀도는 불변이라 originStar·LIFE1 시작 별계는 그대로다.
+ *   sy=0 평면 밀도는 불변이라 originStar·LIFE1 시작 항성계는 그대로다.
  */
 export const GEN_VERSION = 3

@@ -12,7 +12,7 @@ import { useGameStore } from '@/store'
  * 은하 전체 별의 전수 생성 — 은하가 유한(반경 48섹터, 약 7천 별)이라
  * 섹터 가상화 없이 한 번에 만든다 (실측 ~50ms, 결정 22).
  *
- * 씬 전환(은하↔별계)마다 GalaxyScene이 리마운트되므로
+ * 씬 전환(은하↔항성계)마다 GalaxyScene이 리마운트되므로
  * 모듈 레벨에서 시드당 1회만 생성하도록 캐시한다. 생성은 결정론적이라 안전하다.
  */
 let cachedSeed: Seed | null = null

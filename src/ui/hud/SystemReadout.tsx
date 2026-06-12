@@ -5,7 +5,7 @@ import { SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
 import { useGameStore } from '@/store'
 
 /**
- * 별계 진입 함교 리드아웃 (백로그 G-a-4) — 어느 항성계에 들어왔는지 이름·분광형을
+ * 항성계 진입 함교 리드아웃 (백로그 G-a-4) — 어느 항성계에 들어왔는지 이름·분광형을
  * 진입 직후 잠깐 띄웠다 거둔다. 클릭 응답(콜아웃)과 달리 무조작 안내라 자동 소멸.
  * 표시 수명은 JS 타이머가 결정하고 CSS 애니메이션은 페이드만 맡는다 —
  * reduced-motion으로 애니메이션이 꺼져도 사라짐이 보장된다.

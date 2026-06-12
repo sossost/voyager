@@ -36,7 +36,7 @@ beforeEach(() => {
 })
 
 describe('초기 상태', () => {
-  it('첫 화면은 시작 별계의 태양계 뷰다 (스펙 AC)', () => {
+  it('첫 화면은 시작 항성계의 태양계 뷰다 (스펙 AC)', () => {
     expect(store.getState().scene).toEqual({ kind: 'system', starId: startStarId })
     expect(store.getState().currentStarId).toBe(startStarId)
   })
@@ -120,7 +120,7 @@ describe('씬 전이 가드', () => {
     expect(store.getState().scene.kind).toBe('galaxy') // galaxy에서 무시 (변화 없음)
   })
 
-  it('별계 이탈은 우주선 뷰로 나가고, 은하 전도는 열고 닫는다 (결정 34)', () => {
+  it('항성계 이탈은 우주선 뷰로 나가고, 은하 전도는 열고 닫는다 (결정 34)', () => {
     store.getState().backToGalaxy()
     expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' })
 

@@ -39,9 +39,9 @@ function clamp01(value: number): number {
  * +, -, *, /, Math.sqrt, Math.abs와 그것만으로 만든 유리 근사(trig.ts)만 사용한다
  * (크로스 엔진 결정론 — 결정 14). 나선팔은 아르키메데스 나선 위상의 cos 파동으로 만들고,
  * 중심 섹터 (0,0,0)의 밀도는 항상 1이므로 originStar는 모든 시드에서 0:0:0:0을 얻는다
- * (시드 LIFE1의 시작 별계 보장이 여기에 기댄다 — 깨뜨리지 말 것).
+ * (시드 LIFE1의 시작 항성계 보장이 여기에 기댄다 — 깨뜨리지 말 것).
  * 수직 프로파일 변경은 sy=0 평면의 밀도를 절대 바꾸지 않는다 (|0|/두께 = 0) —
- * originStar 순회와 LIFE1 시작 별계가 sy=0에 있기 때문에 이 불변식이 안전판이다.
+ * originStar 순회와 LIFE1 시작 항성계가 sy=0에 있기 때문에 이 불변식이 안전판이다.
  */
 export function sectorDensity(sector: SectorCoords): number {
   const radialDistance = Math.sqrt(sector.sx * sector.sx + sector.sz * sector.sz)

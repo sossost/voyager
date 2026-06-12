@@ -18,7 +18,7 @@ export function NavigationControls() {
     return (
       <nav className="navigation-controls" aria-label="화면 컨트롤">
         <button type="button" className="hud-button" onClick={backToGalaxy}>
-          ← 별계 이탈
+          ← 항성계 이탈
         </button>
       </nav>
     )

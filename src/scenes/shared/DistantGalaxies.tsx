@@ -6,7 +6,7 @@ import { AdditiveBlending, CanvasTexture, type Group, MeshBasicMaterial } from '
  * 원거리 배경 은하 — 우리 은하 바깥의 빈 검정을 채우는 장식 레이어 (백로그 E-1, 결정 24).
  *
  * 절차 베이크한 스머지 텍스처 1장을 빌보드 쿼드 몇 장으로 띄운다. 좌표는 은하 중심 기준.
- * 은하 전도(map) 전용 — 우주선 뷰·별계 씬은 균일 별밭(DecorativeStarfield)이 하늘을
+ * 은하 전도(map) 전용 — 우주선 뷰·항성계 씬은 균일 별밭(DecorativeStarfield)이 하늘을
  * 채운다 (백로그 G-a-2: 함내 시점에서는 "지도 장식"이 아니라 별이 보여야 한다).
  * 렌더 전용 — 시드·생성 분포와 무관하며 피킹(화면공간 별 클릭) 대상이 아니다.
  */
@@ -21,7 +21,7 @@ interface DistantGalaxyConfig {
   readonly direction: readonly [number, number, number]
   /**
    * 셸 반경 (월드 단위) — 최대 줌아웃(6,000) 밖, 카메라 far(30,000) 안.
-   * 상한 24,000: 별계 씬의 은하 중심 역오프셋(최대 ~4,800) + 쿼드 반폭을 더해도
+   * 상한 24,000: 항성계 씬의 은하 중심 역오프셋(최대 ~4,800) + 쿼드 반폭을 더해도
    * far 평면을 넘지 않아야 한다 (24,000 + 4,800 + 850 ≈ 29,650 < 30,000).
    */
   readonly distance: number
@@ -88,7 +88,7 @@ function buildGalaxySmudgeTexture(): CanvasTexture {
 }
 
 /**
- * 텍스처·머티리얼은 앱 수명 모듈 캐시 — 씬 전환(은하↔별계)마다 컴포넌트가
+ * 텍스처·머티리얼은 앱 수명 모듈 캐시 — 씬 전환(은하↔항성계)마다 컴포넌트가
  * 리마운트되므로 재베이크·GPU 재업로드를 막는다 (useGalaxyStars 캐시와 같은 트레이드오프).
  * 지연 초기화: import 시점엔 document가 보장되지 않는다.
  */

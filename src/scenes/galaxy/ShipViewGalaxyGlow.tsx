@@ -73,7 +73,7 @@ function toBandTexture(canvas: HTMLCanvasElement): CanvasTexture {
 }
 
 /**
- * 밴드 텍스처 단일 캐시 — 같은 정박 별이면 씬 전환(은하↔별계) 리마운트에도 재베이크하지
+ * 밴드 텍스처 단일 캐시 — 같은 정박 별이면 씬 전환(은하↔항성계) 리마운트에도 재베이크하지
  * 않는다 (DistantGalaxies 캐시와 같은 트레이드오프). 정박이 바뀌어 밀려난 텍스처는
  * 즉시 dispose하지 않고 적치한다 — 렌더 단계에서 파괴적 부수효과를 일으키면 동시성
  * 재렌더에서 표시 중인 텍스처를 폐기할 수 있어, 폐기는 커밋 이후(useEffect·useFrame)에 한다.

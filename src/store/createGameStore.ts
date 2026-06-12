@@ -133,7 +133,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     backToGalaxy() {
       if (get().scene.kind !== 'system') return
-      // 별계 이탈은 우주선 뷰로 — 지도는 명시적으로 연다 (결정 34)
+      // 항성계 이탈은 우주선 뷰로 — 지도는 명시적으로 연다 (결정 34)
       set({ scene: { kind: 'galaxy', view: 'ship' }, selectedPlanetId: null })
     },
 
@@ -165,7 +165,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
       const planet = planetById(state.seed, planetId)
       if (planet == null || !planet.hasLife) return
-      if (planet.starId !== state.scene.starId) return // 현재 별계의 행성만 탐사 가능
+      if (planet.starId !== state.scene.starId) return // 현재 항성계의 행성만 탐사 가능
 
       // 결정론: 같은 행성 = 항상 같은 개체 (재방문 = 재조우)
       const alien = alienAt(state.seed, planetId)

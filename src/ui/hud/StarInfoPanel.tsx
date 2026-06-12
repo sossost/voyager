@@ -69,7 +69,7 @@ export function StarInfoPanel() {
             className="hud-button hud-button-primary"
             onClick={enterCurrentSystem}
           >
-            별계 진입
+            항성계 진입
           </button>
         ) : (
           <button
