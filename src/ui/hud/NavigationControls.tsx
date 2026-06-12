@@ -19,13 +19,13 @@ export function NavigationControls() {
     return (
       <nav className="navigation-controls" aria-label="화면 컨트롤">
         <div className="nav-row">
-          <button type="button" className="hud-button" onClick={returnToShip}>
+          <button type="button" className="hud-button hud-button-nav" onClick={returnToShip}>
             ← 우주선
           </button>
           {hasJourney ? (
             <button
               type="button"
-              className="hud-button"
+              className="hud-button hud-button-nav"
               aria-pressed={isJourneyPathVisible}
               onClick={toggleJourneyPath}
             >
@@ -68,7 +68,7 @@ export function NavigationControls() {
   return (
     <nav className="navigation-controls" aria-label="화면 컨트롤">
       <div className="nav-row">
-        <button type="button" className="hud-button" onClick={openPerspective}>
+        <button type="button" className="hud-button hud-button-nav" onClick={openPerspective}>
           은하 항법
         </button>
         <button
