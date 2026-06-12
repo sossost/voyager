@@ -52,9 +52,10 @@ const PREVIEW_COLUMNS = 128
 const PREVIEW_ROWS = 32
 const PREVIEW_STEP_SECTORS = 1.5
 
-/** 업스케일 블러(px, 최종 해상도 기준) — 격자를 연속 발광 면으로. 프리뷰는 더 강하게. */
-const SHARP_BLUR_PX = 2
-const PREVIEW_SHARP_BLUR_PX = 6
+/** 업스케일 블러(px, 최종 해상도 기준) — 격자를 연속 발광 면으로. 프리뷰는 더 강하게.
+    코어 근처 정박은 좁은 방위각이 화면을 가득 채워 격자 블록이 드러난다 — 넉넉하게. */
+const SHARP_BLUR_PX = 4
+const PREVIEW_SHARP_BLUR_PX = 8
 /** 산란 헤일로 — 밝은 영역 주변에 베이크해 넣는 블룸 (두꺼운 원반의 산란광 역할). */
 const HALO_BLUR_PX = 14
 const HALO_ALPHA = 0.42
@@ -74,10 +75,10 @@ const VERTICAL_EXIT_SECTORS = GALAXY_HALF_THICKNESS_SECTORS + 0.1
  */
 const MIN_EXPOSURE_INTEGRAL = 12
 /**
- * 밝기 감마 (<1) — 팔 사이·외곽 방향에도 옅은 빛이 깔리게 어두운 쪽을 들어 올린다.
- * 벌지 옆 팔 사이 골이 "세로 기둥"처럼 도드라지지 않는 선 (실측 0.8은 골이 과했다).
+ * 밝기 감마 — 소프트 니가 저·중광량을 이미 들어 올리므로(초기 기울기 ~1.4) 1로 둔다.
+ * 니 위에 감마 리프트를 겹치면 중간 워시가 떠서 팔 사이 골이 "세로 기둥"으로 도드라진다(실측).
  */
-const BRIGHTNESS_GAMMA = 0.72
+const BRIGHTNESS_GAMMA = 1
 /**
  * 실린더 상·하단 가장자리 페이드 시작점 (|v| 기준) — 벌지 내부 정박(시작 별)에서는
  * 전 고도가 밝아 텍스처 끝이 하드 엣지로 보인다. 외곽 정박의 벌지 돔(|v|≈0.71)은
@@ -112,9 +113,21 @@ const PATCH_SPAN = 0.16
  */
 const LOCAL_LIGHT_NEAR_SECTORS = 8
 const LOCAL_LIGHT_FAR_SECTORS = 16
-/** 근거리 광을 모으는 원반면 띠 프라이어 (월드 σ / 고고도 잔광 바닥). */
-const BAND_PRIOR_SIGMA_WORLD = 650
-const BAND_PRIOR_FLOOR = 0.22
+/**
+ * 근거리 광을 모으는 원반면 띠 프라이어 (월드 σ / 고고도 잔광 바닥).
+ * σ가 좁으면 코어 근처 정박에서 넓은 워시 위에 "형광등 줄"이 뜬다(실측 기각 — σ 650)
+ * — 완만한 경사로 모아야 워시와 띠가 한 몸으로 읽힌다.
+ */
+const BAND_PRIOR_SIGMA_WORLD = 1_000
+const BAND_PRIOR_FLOOR = 0.3
+
+/**
+ * 하이라이트 소프트 니 — 선형 클램프는 밝은 구간을 평평하게 깎아 띠 심이
+ * 형광등처럼 읽힌다. 1-exp 곡선(t=1에서 1로 정규화)이 고광량을 부드럽게 눌러
+ * 그라데이션을 지킨다.
+ */
+const SOFT_KNEE = 1.7
+const KNEE_NORMALIZER = 1 - Math.exp(-SOFT_KNEE)
 
 /**
  * 성운 틴트 샘플 보폭 — 색조 노이즈는 파장이 길어(~11섹터) 3샘플에 1회로 충분하다.
@@ -291,10 +304,9 @@ function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
 
     for (let row = 0; row < grid.rows; row++) {
       const offset = row * grid.columns + column
-      const brightness = Math.pow(
-        clamp01((shaped[offset] ?? 0) / exposure),
-        BRIGHTNESS_GAMMA,
-      )
+      const exposureRatio = clamp01((shaped[offset] ?? 0) / exposure)
+      const softKnee = (1 - Math.exp(-SOFT_KNEE * exposureRatio)) / KNEE_NORMALIZER
+      const brightness = Math.pow(softKnee, BRIGHTNESS_GAMMA)
       const warmth = clamp01((grid.warmths[offset] ?? 0) * WARMTH_GAIN)
 
       const verticalRatio = 1 - (row / (grid.rows - 1)) * 2
