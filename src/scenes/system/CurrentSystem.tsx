@@ -46,16 +46,15 @@ const SHIP_SYSTEM_SCALE = 1.0
 
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
-  const starId = useGameStore((state) => state.currentStarId)
-  const sceneKind = useGameStore((state) => state.scene.kind)
-  const isPerspective = useGameStore(
-    (state) => state.scene.kind === 'galaxy' && state.scene.view === 'perspective',
-  )
+  const currentStarId = useGameStore((state) => state.currentStarId)
+  const scene = useGameStore((state) => state.scene)
+  const isPerspective = scene.kind === 'galaxy' && scene.view === 'perspective'
+  const isWarping = scene.kind === 'warping'
+  // 워프 중엔 FROM 별을 기준으로 렌더 — currentStarId는 이미 목적지이지만
+  // 카메라는 FROM 별 근처이므로 광원·LOD 기준이 FROM이어야 한다.
+  const starId = isWarping ? scene.from : currentStarId
   // 행성·궤도링은 은하 뷰에서만 — 워프 중엔 텍스처 베이크 부담 없이 구체에 집중 (결정 41-c).
-  const showPlanets = sceneKind === 'galaxy'
-  // 워프 중엔 별 구체도 숨긴다 — 시작 시 구(FROM)→점 전환 팝 방지 + 도착 후 플래시가
-  // 걷히며 crossfade로 자연스럽게 나타남. 포인트 스프라이트가 시각 연속성 담당 (백로그 H-2).
-  const isWarping = sceneKind === 'warping'
+  const showPlanets = scene.kind === 'galaxy'
 
   const systemGroupRef = useRef<Group>(null)
   const lightRef = useRef<PointLight>(null)

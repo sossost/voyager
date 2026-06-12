@@ -96,7 +96,7 @@ export function GalaxyScene() {
         stars={stars}
         maxPointSize={preset.maxPointSize}
         visitedStars={visitedStars}
-        currentStarId={currentStarId}
+        currentStarId={anchorStarId}
       />
       {/* 현재 항성계 — 모든 뷰(우주선·퍼스펙티브)와 워프에서 별 구체를 은하 좌표에 직접
           렌더한다. 크로스페이드가 거리에 따라 포인트↔구체를 핸드오프하므로 퍼스펙티브에서
