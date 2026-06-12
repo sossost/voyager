@@ -28,6 +28,7 @@ const VERTEX_SHADER = /* glsl */ `
   uniform float uCurrentFade;
   varying vec3 vColor;
   varying float vSoftness;
+  varying float vCurrentScale;
 
   void main() {
     vColor = starColor;
@@ -46,7 +47,10 @@ const VERTEX_SHADER = /* glsl */ `
     // 현재 별(aCurrent=1)만 카메라가 가까우면 사라진다 — 구체로 핸드오프 (결정 41-c).
     // 나머지 별(aCurrent=0)은 mix(1, fade, 0)=1로 무영향.
     float currentScale = mix(1.0, uCurrentFade, aCurrent);
-    gl_PointSize = clamped * (1.0 + ${SOFT_SIZE_BOOST.toFixed(1)} * vSoftness) * currentScale;
+    vCurrentScale = currentScale;
+    // gl_PointSize=0은 WebGL1/모바일에서 미정의(1px로 클램프되어 점이 남는다) — 하한을 두고
+    // 프래그먼트에서 명시적으로 discard한다.
+    gl_PointSize = clamped * (1.0 + ${SOFT_SIZE_BOOST.toFixed(1)} * vSoftness) * max(currentScale, 0.001);
     gl_Position = projectionMatrix * mvPosition;
   }
 `
@@ -55,8 +59,11 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform float uOpacity;
   varying vec3 vColor;
   varying float vSoftness;
+  varying float vCurrentScale;
 
   void main() {
+    // 현재 별이 구체로 완전히 핸드오프된 상태 — 1px 클램프 잔상을 명시적으로 제거 (결정 41-c)
+    if (vCurrentScale < 0.001) discard;
     vec2 fromCenter = gl_PointCoord - vec2(0.5);
     float normalizedDistance = length(fromCenter) * 2.0;
 

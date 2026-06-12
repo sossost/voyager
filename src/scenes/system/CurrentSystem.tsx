@@ -47,8 +47,9 @@ export function CurrentSystem() {
   return (
     <>
       <group position={[worldPosition[0], worldPosition[1], worldPosition[2]]}>
-        {/* 주변광은 밤면 가독성, 포인트라이트는 항성에서 나오는 낮/밤 경계 — 표준 머티리얼
-            행성에만 작용한다(은하 별·배경은 셰이더/가산이라 무영향) */}
+        {/* 주변광은 밤면 가독성, 포인트라이트는 항성에서 나오는 낮/밤 경계. 둘 다 three에선
+            전역 광원이지만(그룹 위치 무관), 현재 이 상태에서 표준 머티리얼은 행성뿐이라
+            행성에만 작용한다 — 은하 별·배경은 셰이더/가산이라 조명 무관 */}
         <ambientLight intensity={AMBIENT_INTENSITY} />
         <pointLight
           position={[0, 0, 0]}
