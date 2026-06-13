@@ -981,10 +981,15 @@ body {
   }
 }
 
-/* 콘솔 상태 라인 — 모드·선택 상태를 중계하는 계기 텍스트 */
+/* 콘솔 상태 라인 — 모드·선택 상태를 중계하는 계기 텍스트.
+   화면 절대 중앙에 고정한다 (flex 흐름에서 빼서) — 좌우 클러스터 폭이 뷰마다
+   달라도(함교 vs 항법) 중앙이 흔들리지 않게. 클러스터와 겹치지 않도록 폭을 제한. */
 .deck-status {
-  flex: 1;
-  min-width: 0;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(40%, 22rem);
   text-align: center;
   font-family: var(--font-console);
   font-size: 0.72rem;
