@@ -15,16 +15,15 @@ function TelemetryStrip() {
   return (
     <div className="telemetry-strip" data-caution={isMemoryMode || undefined}>
       <h1 className="top-bar-title">Voyager</h1>
-      <span className="telemetry-seed" title="우주 시드 — 같은 시드는 같은 우주">
-        · 시드 {seed}
-      </span>
+      <span className="telemetry-seed">· 시드 {seed}</span>
       {isMemoryMode ? (
-        <span
-          className="telemetry-caution"
-          role="status"
-          title="이 환경에서는 기록이 저장되지 않아요 — 세션이 끝나면 탐사 기록이 사라집니다"
-        >
+        // 모바일에선 시각적으로 압축되지만(visually-hidden) status 안내는 유지된다
+        <span className="telemetry-caution" role="status">
           기록 미저장 — 메모리 모드
+          <span className="visually-hidden">
+            : 이 환경에서는 기록이 저장되지 않아요 — 세션이 끝나면 탐사 기록이
+            사라집니다
+          </span>
         </span>
       ) : null}
     </div>
@@ -35,16 +34,24 @@ function TelemetryStrip() {
 function SystemFob() {
   const [isOpen, setIsOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     if (isOpen === false) return
 
+    // 닫힐 때 포커스가 팝오버 안에 있었다면 트리거로 복귀 — body 유실 방지
+    const closeAndRestoreFocus = () => {
+      const hadFocusInside = rootRef.current?.contains(document.activeElement) === true
+      setIsOpen(false)
+      if (hadFocusInside) triggerRef.current?.focus()
+    }
+
     const handlePointerDown = (event: PointerEvent) => {
       if (rootRef.current?.contains(event.target as Node)) return
-      setIsOpen(false)
+      closeAndRestoreFocus()
     }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false)
+      if (event.key === 'Escape') closeAndRestoreFocus()
     }
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
@@ -57,17 +64,18 @@ function SystemFob() {
   return (
     <div className="system-fob" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="hud-button hud-button-compact system-fob-key"
         aria-label="시스템 설정"
-        aria-haspopup="true"
         aria-expanded={isOpen}
+        aria-controls="system-fob-popover"
         onClick={() => setIsOpen((wasOpen) => !wasOpen)}
       >
         ⚙
       </button>
       {isOpen ? (
-        <div className="system-fob-popover">
+        <div id="system-fob-popover" className="system-fob-popover">
           <QualitySelect />
         </div>
       ) : null}

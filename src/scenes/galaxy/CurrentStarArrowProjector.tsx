@@ -14,6 +14,11 @@ import { useGameStore } from '@/store'
 /** 화면 가장자리에서 화살표 중심까지 인셋 (px). */
 const EDGE_MARGIN_PX = 36
 
+/** 콘솔 데크 높이 — global.css `--deck-height: clamp(56px, 9vh, 76px)` 미러 (결정 42-c). */
+function deckHeightPx(viewportHeight: number): number {
+  return Math.min(76, Math.max(56, viewportHeight * 0.09))
+}
+
 export function CurrentStarArrowProjector() {
   const seed = useGameStore((state) => state.seed)
   const currentStarId = useGameStore((state) => state.currentStarId)
@@ -75,13 +80,15 @@ export function CurrentStarArrowProjector() {
       return
     }
 
-    // 인셋 경계와의 교점 — 가장자리 안쪽 EDGE_MARGIN_PX 지점
+    // 인셋 경계와의 교점 — 가장자리 안쪽 EDGE_MARGIN_PX 지점.
+    // 하단만 콘솔 데크(결정 42-c) 위로 — 화살표가 조작면에 그려지지 않게.
     const halfW = cx - EDGE_MARGIN_PX
     const halfH = cy - EDGE_MARGIN_PX
+    const halfHBottom = halfH - deckHeightPx(vpH)
     let tMin = Infinity
     if (dx > 0) tMin = Math.min(tMin, halfW / dx)
     else if (dx < 0) tMin = Math.min(tMin, -halfW / dx)
-    if (dy > 0) tMin = Math.min(tMin, halfH / dy)
+    if (dy > 0) tMin = Math.min(tMin, halfHBottom / dy)
     else if (dy < 0) tMin = Math.min(tMin, -halfH / dy)
 
     if (tMin === Infinity || tMin <= 0) {
