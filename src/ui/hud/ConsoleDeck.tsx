@@ -127,26 +127,23 @@ export function ConsoleDeck() {
           >
             ⟳
           </button>
-          {isPerspective ? (
-            <>
-              <button
-                type="button"
-                className="hud-button deck-key deck-key-icon deck-zoom-key"
-                aria-label="축소"
-                onClick={() => cameraActions.zoomOut?.()}
-              >
-                −
-              </button>
-              <button
-                type="button"
-                className="hud-button deck-key deck-key-icon deck-zoom-key"
-                aria-label="확대"
-                onClick={() => cameraActions.zoomIn?.()}
-              >
-                ＋
-              </button>
-            </>
-          ) : null}
+          {/* 줌은 함교(거리 줌)·항법(공전 줌) 양쪽 — 데스크탑은 휠, 터치는 이 키 (CSS coarse 분기) */}
+          <button
+            type="button"
+            className="hud-button deck-key deck-key-icon deck-zoom-key"
+            aria-label="축소"
+            onClick={() => cameraActions.zoomOut?.()}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="hud-button deck-key deck-key-icon deck-zoom-key"
+            aria-label="확대"
+            onClick={() => cameraActions.zoomIn?.()}
+          >
+            ＋
+          </button>
         </div>
       </nav>
     </div>
