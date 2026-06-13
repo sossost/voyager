@@ -17,6 +17,8 @@ export function ShipFrame() {
       <span className="ship-frame-corner ship-frame-corner-tr" />
       <span className="ship-frame-corner ship-frame-corner-bl" />
       <span className="ship-frame-corner ship-frame-corner-br" />
+      <span className="ship-frame-side ship-frame-side-l" />
+      <span className="ship-frame-side ship-frame-side-r" />
     </div>
   )
 }
