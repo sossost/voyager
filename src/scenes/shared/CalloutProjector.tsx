@@ -17,6 +17,12 @@ const EDGE_MARGIN_PX = 14
 const FLIP_X_THRESHOLD_PX = 420
 /** 앵커가 위로 이만큼 가까우면 패널을 아래로 편다 (패널 높이 + 리더 라인). */
 const FLIP_Y_THRESHOLD_PX = 330
+/** 이하 폭에서 패널을 데크 위 슬롯에 도킹한다 (결정 42-f) — CSS 미디어쿼리와 동일 값. */
+const DOCK_MAX_WIDTH_PX = 540
+/** 리더 라인의 CSS 기본 길이 — 도킹 모드에서 scaleX의 분모. */
+const LINE_BASE_LENGTH_PX = 90
+/** 도킹 패널에서 리더 라인이 닿는 지점 — 좌상단 모서리에서의 안쪽 오프셋. */
+const DOCK_LINE_ANCHOR_INSET_PX = 18
 
 function clamp(value: number, min: number, max: number): number {
   if (value < min) return min
@@ -45,6 +51,7 @@ export function CalloutProjector({
   computeWorldPosition,
 }: CalloutProjectorProps) {
   const elementRef = useRef<HTMLElement | null>(null)
+  const wasDockedRef = useRef(false)
   const worldScratch = useMemo(() => new Vector3(), [])
   const forwardScratch = useMemo(() => new Vector3(), [])
 
@@ -87,10 +94,50 @@ export function CalloutProjector({
     )
 
     element.style.visibility = 'visible'
+
+    // 도킹 모드 (결정 42-f) — 패널은 데크 위 고정 슬롯(CSS), 점·리더라인만 천체를 따라간다.
+    // 루트 transform을 비워야 패널의 position:fixed가 뷰포트 기준으로 풀린다.
+    const isDocked = state.size.width <= DOCK_MAX_WIDTH_PX
+    if (isDocked !== wasDockedRef.current) {
+      wasDockedRef.current = isDocked
+      element.classList.toggle('callout-docked', isDocked)
+      if (isDocked === false) {
+        clearInlineTransform(element, '.callout-dot')
+        clearInlineTransform(element, '.callout-line')
+      }
+    }
+
+    if (isDocked) {
+      element.style.transform = ''
+      element.classList.remove('callout-flip-x', 'callout-flip-y')
+
+      const dot = element.querySelector<HTMLElement>('.callout-dot')
+      const line = element.querySelector<HTMLElement>('.callout-line')
+      const panel = element.querySelector<HTMLElement>('.hud-panel')
+      if (dot != null) {
+        dot.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
+      }
+      if (line != null && panel != null) {
+        // 패널은 고정 슬롯이라 rect가 안정적 — transform 쓰기만 하므로 레이아웃 무효화 없음
+        const rect = panel.getBoundingClientRect()
+        const dx = rect.left + DOCK_LINE_ANCHOR_INSET_PX - x
+        const dy = rect.top - y
+        const length = Math.hypot(dx, dy)
+        const angle = Math.atan2(dy, dx)
+        line.style.transform = `translate(${x}px, ${y}px) rotate(${angle}rad) scaleX(${length / LINE_BASE_LENGTH_PX})`
+      }
+      return
+    }
+
     element.style.transform = `translate(${x}px, ${y}px)`
     element.classList.toggle('callout-flip-x', x > state.size.width - FLIP_X_THRESHOLD_PX)
     element.classList.toggle('callout-flip-y', y < FLIP_Y_THRESHOLD_PX)
   })
 
   return null
+}
+
+function clearInlineTransform(root: HTMLElement, childSelector: string): void {
+  const child = root.querySelector<HTMLElement>(childSelector)
+  if (child != null) child.style.transform = ''
 }
