@@ -193,3 +193,20 @@
 - ~~**콜아웃 패널 타이포·여백**~~ — `hud-fact gap 0.6rem`, `line-height 1.45`, `dt 0.8rem`, `dd 0.86rem/45% holo`.
 - ~~**토스트 위치**~~ — `bottom: 6.5rem` (nav controls + 콘솔 밴드 위 safe zone).
 - **퍼스펙티브 뷰 HUD 레이더 전환** — 검토 결과 현재 ShipFrame이 이미 ship/warping 전용이라 별도 작업 불필요.
+
+## K. HUD 플라이트 데크 재설계 (2026-06-13, 결정 42)
+
+> 4시안+3심사 패널로 도출. 빈도 기반 존 체계 — 상세는 결정 42. J 섹션을 부분 대체(NavigationControls·hud-button-nav 폐기). DOM/CSS 전용 — GEN_VERSION·저장 포맷 무관.
+
+### 구현 단계
+
+1. **K-1 골격**: `data-view` 루트 규약 + `ConsoleDeck`(모드 세그먼트 [함교|항법]·상태 라인·⟳·줌) + NavigationControls 삭제 + ShipFrame 밴드 제거 + `--deck-height` 앵커
+2. **K-2 상단**: 텔레메트리 스트립(읽기 전용, 시드 텍스트 격하) + [도감|일지] 하우징 + ⚙ 포브(품질 수납) + 마스터 코션(StorageModeBanner 흡수)
+3. **K-3 워프**: 데크 수납(translateY) + 1px 진행 라인(scaleX, 타임라인 동기)
+4. **K-4 디테일**: 분광 틱 룰러 + 모바일 콜아웃 도킹(≤540px)
+
+### 검증 후 조건부 (v2 후보)
+
+- 워프 조준 마커 트랙 축소판 — 정렬 단계에서 목적지 마커가 중앙 캐럿으로 수렴 (도수 눈금 없는 BEARING 축소판)
+- 콜아웃 방위·거리 행 — 프로젝터 채널 추가·10Hz 갱신, 데스크탑 성능 실측 후
+- 리드아웃 도킹 비행 애니메이션 — 테스트 파급 커서 보류 (결정 42 기각 항목)
