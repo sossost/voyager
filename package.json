@@ -19,6 +19,7 @@
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
+    "@vercel/analytics": "^2.0.1",
     "detect-gpu": "^5.0.70",
     "dexie": "^4.4.3",
     "maath": "^0.10.8",
