@@ -133,9 +133,11 @@ body {
   left: 0;
   right: 0;
   display: flex;
-  align-items: baseline;
+  /* 좌측 텍스트(VOYAGER)와 우측 버튼은 높이가 달라 — 세로 중심을 맞춰 위아래 정렬 */
+  align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  /* 캐노피 코너 브래킷(top/left 10px)과 겹치지 않게 안쪽으로 들인다 — 프레임 밀착 해소 */
+  padding: 1.15rem 1.5rem;
   pointer-events: none;
 }
 
@@ -1645,7 +1647,8 @@ body {
   }
 
   .top-bar {
-    padding: 0.6rem 0.75rem;
+    /* 모바일 브래킷(44px)에서도 살짝 들인다 — 데스크탑보다 작게 */
+    padding: 0.85rem 1rem;
     gap: 0.5rem;
   }
 
