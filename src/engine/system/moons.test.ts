@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { makeStarId, parseSeed } from '../coords'
 import { moonsOf } from './moons'
 import { planetsOf } from './planets'
+import { SOL_STAR_ID } from './sol'
 
 const SEED = parseSeed('TESTMOON')!
 
@@ -75,5 +76,58 @@ describe('moonsOf', () => {
     const after = moonsOf(SEED, p1)
 
     expect(before).toEqual(after)
+  })
+})
+
+describe('moonsOf — 태양계(Sol) 실제 위성', () => {
+  const solPlanets = planetsOf(SEED, SOL_STAR_ID)
+  const moonsByName = (planetIndex: number) =>
+    moonsOf(SEED, solPlanets[planetIndex]!).map((m) => m.name)
+
+  it('시드와 무관하게 동일한 태양계 위성을 반환한다', () => {
+    const other = parseSeed('OTHERSEED')!
+    expect(moonsOf(other, solPlanets[2]!)).toEqual(moonsOf(SEED, solPlanets[2]!))
+  })
+
+  it('수성·금성은 위성이 없다', () => {
+    expect(moonsOf(SEED, solPlanets[0]!)).toHaveLength(0)
+    expect(moonsOf(SEED, solPlanets[1]!)).toHaveLength(0)
+  })
+
+  it('지구는 달 1개를 가진다', () => {
+    expect(moonsByName(2)).toEqual(['달'])
+  })
+
+  it('화성은 포보스·데이모스를 가진다', () => {
+    expect(moonsByName(3)).toEqual(['포보스', '데이모스'])
+  })
+
+  it('목성은 갈릴레이 위성 4개를 가진다', () => {
+    expect(moonsByName(4)).toEqual(['이오', '유로파', '가니메데', '칼리스토'])
+  })
+
+  it('천왕성은 주요 위성 5개를 가진다', () => {
+    expect(moonsByName(6)).toEqual(['미란다', '아리엘', '움브리엘', '티타니아', '오베론'])
+  })
+
+  it('해왕성은 트리톤 1개를 가진다', () => {
+    expect(moonsByName(7)).toEqual(['트리톤'])
+  })
+
+  it('위성은 궤도 거리(orbitFactor) 오름차순으로 정렬된다', () => {
+    const jupiter = moonsOf(SEED, solPlanets[4]!)
+    const factors = jupiter.map((m) => m.orbitFactor)
+    expect(factors).toEqual([...factors].sort((a, b) => a - b))
+  })
+
+  it('렌더 팩터가 [0,1) 범위를 지킨다', () => {
+    for (const planet of solPlanets) {
+      for (const moon of moonsOf(SEED, planet)) {
+        expect(moon.orbitFactor).toBeGreaterThanOrEqual(0)
+        expect(moon.orbitFactor).toBeLessThan(1)
+        expect(moon.phaseFactor).toBeGreaterThanOrEqual(0)
+        expect(moon.phaseFactor).toBeLessThan(1)
+      }
+    }
   })
 })

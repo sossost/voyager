@@ -1,6 +1,5 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DoubleSide } from 'three'
 import type { Group, Mesh, Vector3 } from 'three'
 
 import type { Planet as PlanetData } from '@/engine'
@@ -10,6 +9,7 @@ import { fract } from '@/scenes/shared/fract'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
 import { Moon } from '@/scenes/system/Moon'
+import { PlanetRings } from '@/scenes/system/PlanetRings'
 import {
   bakePlanetTextures,
   disposePlanetTextures,
@@ -169,12 +169,7 @@ export function Planet({ planet }: PlanetProps) {
         </mesh>
       ) : null}
 
-      {planet.hasRings === true ? (
-        <mesh rotation={[-Math.PI / 2 + 0.25, 0, 0]}>
-          <ringGeometry args={[visualRadius * 1.45, visualRadius * 2.65, 64]} />
-          <meshBasicMaterial color="#d4c097" transparent opacity={0.82} side={DoubleSide} depthWrite={true} />
-        </mesh>
-      ) : null}
+      {planet.hasRings === true ? <PlanetRings planetVisualRadius={visualRadius} /> : null}
 
       {planet.hasLife ? <LifeSignalWaves planetRadius={visualRadius} /> : null}
 

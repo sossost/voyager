@@ -2,8 +2,11 @@ import type { PlanetId, Seed } from '../coords'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import type { Planet } from './planets'
+import { SOL_STAR_ID, SOLAR_SYSTEM_MOONS } from './sol'
 
 const INT32_MAX = 2_147_483_647
+
+const NO_MOONS: readonly Moon[] = []
 
 export interface Moon {
   readonly planetId: PlanetId
@@ -14,6 +17,8 @@ export interface Moon {
   readonly phaseFactor: number
   /** 시각 표현(색·크기 변주)용 시드. */
   readonly paletteSeed: number
+  /** 실제 위성 이름 — 태양계 등 큐레이션된 위성에만 존재. 절차 생성 위성은 undefined. */
+  readonly name?: string
 }
 
 const ROCKY_MOON_COUNT_WEIGHTS: readonly WeightedEntry<number>[] = [
@@ -36,6 +41,11 @@ const GAS_MOON_COUNT_WEIGHTS: readonly WeightedEntry<number>[] = [
  * 개별 위성 속성은 (seed, 'moon', planetId, index) 스트림에서 append-only 드로.
  */
 export function moonsOf(seed: Seed, planet: Planet): readonly Moon[] {
+  // 태양계는 절차 생성 대신 실제 위성 상수를 반환한다 (planetsOf의 Sol 분기와 동일 규율).
+  if (planet.starId === SOL_STAR_ID) {
+    return SOLAR_SYSTEM_MOONS.get(planet.id) ?? NO_MOONS
+  }
+
   const countRng = rngFor(seed, 'moon', planet.id)
   const weights = planet.kind === 'rocky' ? ROCKY_MOON_COUNT_WEIGHTS : GAS_MOON_COUNT_WEIGHTS
   const count = countRng.weighted(weights)
