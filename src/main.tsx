@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -21,5 +22,6 @@ if (rootElement == null) {
 createRoot(rootElement).render(
   <StrictMode>
     <BootGate />
+    <Analytics />
   </StrictMode>,
 )
