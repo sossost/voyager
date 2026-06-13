@@ -66,15 +66,20 @@ export function ConsoleDeck() {
   return (
     <div className="console-deck" data-warping={isWarping || undefined}>
       {isWarping ? (
-        <span
-          className="deck-progress"
-          role="progressbar"
-          aria-label="워프 진행"
-          style={{ animationDuration: `${WARP_PROGRESS_MS}ms` }}
-        />
+        <>
+          {/* 짧은 자기완결 연출이라 progressbar 값 갱신 대신 1회 status 안내 */}
+          <span
+            className="deck-progress"
+            aria-hidden="true"
+            style={{ animationDuration: `${WARP_PROGRESS_MS}ms` }}
+          />
+          <span className="visually-hidden" role="status">
+            워프 항행 중
+          </span>
+        </>
       ) : null}
 
-      <div className="deck-tray" aria-hidden={isWarping || undefined}>
+      <nav className="deck-tray" aria-label="조종 콘솔" aria-hidden={isWarping || undefined}>
         <div className="deck-cluster">
           <div className="deck-segment" role="group" aria-label="시점 전환">
             <button
@@ -143,7 +148,7 @@ export function ConsoleDeck() {
             </>
           ) : null}
         </div>
-      </div>
+      </nav>
     </div>
   )
 }

@@ -903,6 +903,10 @@ body {
   padding: 0.45rem 0.95rem;
   border: none;
   background: transparent;
+  /* 하우징이 모따기·블러를 담당 — 키 개별 hud-button 스킨은 리셋 (노치 아티팩트·중복 블러 방지) */
+  clip-path: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   color: var(--color-text-dim);
   font-size: 0.88rem;
   font-weight: 500;
@@ -922,7 +926,13 @@ body {
 
 .deck-segment-key:focus-visible {
   outline: 2px solid var(--color-holo);
-  outline-offset: -4px;
+  /* 하우징 모따기(12px 컷)가 링 모서리를 자르지 않도록 더 안쪽에 */
+  outline-offset: -7px;
+}
+
+/* 기록 모듈 하우징(10px 컷) 안 키도 동일 — 링이 사선 컷에 잘리지 않게 */
+.records-module .records-key:focus-visible {
+  outline-offset: -6px;
 }
 
 /* 활성 셀 — 점등 + 상단 발광 엣지 */
@@ -954,6 +964,20 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* 터치 타깃 44px 보장 — 데스크탑 시각 밀도(42px)는 fine pointer 전용 */
+  .deck-segment-key,
+  .deck-key {
+    min-height: 44px;
+  }
+
+  .deck-key-icon {
+    min-width: 44px;
+  }
+
+  .system-fob-key {
+    min-width: 44px;
   }
 }
 
@@ -1023,6 +1047,11 @@ body {
   transform: translateX(-50%);
   display: grid;
   gap: 0.5rem;
+  /* 레인 자체는 통과, 토스트 박스만 상호작용 — 아래 깔린 UI(팝오버 등) 차단 최소화 */
+  pointer-events: none;
+}
+
+.toast-viewport .toast {
   pointer-events: auto;
 }
 
@@ -1596,9 +1625,18 @@ body {
 }
 
 @media (max-width: 540px) {
-  /* 상단은 1행 고정 (결정 42) — 코션 텍스트만 접는다 (표시등 amber가 신호 유지) */
+  /* 상단은 1행 고정 (결정 42) — 코션은 시각만 접는다 (visually-hidden).
+     display:none은 접근성 트리에서도 제거되므로 role=status 안내가 사라진다.
+     시각 신호는 amber 표시등 점멸 + 헤어라인이 유지한다. */
   .telemetry-caution {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .top-bar {
@@ -1624,6 +1662,13 @@ body {
     top: 4rem;
     bottom: auto;
     width: calc(100vw - 1.5rem);
+  }
+
+  /* 패널 인접 힌트도 상단 알림 레인으로 — 도킹 콜아웃 슬롯과 겹침 방지 */
+  .hint-bubble-right {
+    bottom: auto;
+    top: 4rem;
+    right: 0.75rem;
   }
 
   /* 좁은 폭에선 상태 라인을 접고 키만 남긴다 — 데크 1행 산수 보장 */
@@ -1660,7 +1705,9 @@ body {
 /* ── 모션 감수성 — 장식 애니메이션만 끈다 (스캔 연출은 게임플레이 신호라 유지) */
 
 @media (prefers-reduced-motion: reduce) {
-  .top-bar-title::before {
+  /* 코션 점멸 셀렉터가 특이도 (0,3,1)이라 함께 명시해야 이긴다 — amber 정적 색이 신호 유지 */
+  .top-bar-title::before,
+  .telemetry-strip[data-caution] .top-bar-title::before {
     animation: none;
     opacity: 1;
   }
@@ -1678,8 +1725,10 @@ body {
     animation: none;
   }
 
-  /* 데크 수납은 즉시 — 진행 라인은 게임플레이 신호라 유지 */
-  .deck-tray {
+  /* 데크 수납은 즉시 — 진행 라인은 게임플레이 신호라 유지.
+     워프 상태 셀렉터(0,2,0)보다 높거나 같게 병기해야 트랜지션이 실제로 꺼진다. */
+  .deck-tray,
+  .console-deck[data-warping] .deck-tray {
     transition: none;
   }
 }
