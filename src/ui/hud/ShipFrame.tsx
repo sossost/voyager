@@ -13,10 +13,9 @@ export function ShipFrame() {
 
   return (
     <div className="ship-frame" aria-hidden="true">
+      {/* 하단 모서리는 콘솔 데크(결정 42-c)가 프레임을 대신한다 — 상단 브래킷만 */}
       <span className="ship-frame-corner ship-frame-corner-tl" />
       <span className="ship-frame-corner ship-frame-corner-tr" />
-      <span className="ship-frame-corner ship-frame-corner-bl" />
-      <span className="ship-frame-corner ship-frame-corner-br" />
       <span className="ship-frame-side ship-frame-side-l" />
       <span className="ship-frame-side ship-frame-side-r" />
     </div>

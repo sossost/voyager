@@ -1,5 +1,4 @@
 import { CanvasLayer } from '@/scenes/CanvasLayer'
-import { StorageModeBanner } from '@/ui/common/StorageModeBanner'
 import { ToastViewport } from '@/ui/common/ToastViewport'
 import { WarpFlashOverlay } from '@/ui/common/WarpFlashOverlay'
 import { CodexOverlay } from '@/ui/codex/CodexOverlay'
@@ -28,7 +27,7 @@ export function App() {
         <WarpFlashOverlay />
       </div>
       <div className="layer-system" data-layer="system">
-        <StorageModeBanner />
+        {/* 저장 모드 경고는 텔레메트리 스트립 코션 모드로 흡수 (결정 42-d) */}
         <ToastViewport />
       </div>
     </div>
