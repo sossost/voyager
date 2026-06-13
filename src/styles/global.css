@@ -81,6 +81,13 @@ body {
   z-index: var(--z-canvas);
 }
 
+/* 캔버스 위 모든 제스처는 JS(카메라 리그)가 처리한다 — 브라우저 기본 스크롤·당겨서
+   새로고침을 차단. OrbitControls는 인라인으로 직접 박지만 함교 뷰(ShipCameraRig)는
+   커스텀 포인터라 CSS로 일관되게 덮어야 모바일 드래그가 깨지지 않는다. */
+.layer-canvas canvas {
+  touch-action: none;
+}
+
 .layer-hud {
   position: absolute;
   inset: 0;
