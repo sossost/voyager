@@ -4,6 +4,7 @@ import { Vector3 } from 'three'
 
 import type { Star } from '@/engine'
 import { SECTOR_SIZE } from '@/engine'
+import { consumeStarPickSuppress } from '@/scenes/system/starPickSuppress'
 import { useGameStore } from '@/store'
 
 /** 이 거리(px) 이상 움직였으면 드래그(카메라 조작)로 본다. */
@@ -71,6 +72,9 @@ export function useStarPicking(stars: readonly Star[]) {
     const handlePointerUp = (event: PointerEvent) => {
       if (!isPointerDown) return
       isPointerDown = false
+
+      // 별 본체(3D 메시)를 직접 클릭했으면 그 선택이 우선 — 카탈로그 피킹 1회 건너뛴다.
+      if (consumeStarPickSuppress()) return
 
       const { scene, selectStar } = useGameStore.getState()
       if (scene.kind !== 'galaxy') return

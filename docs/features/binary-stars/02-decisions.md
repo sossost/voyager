@@ -137,6 +137,19 @@
 
 ---
 
+### 11. 별 본체 개별 선택 — 클릭 시 그 별의 정보 패널 (2026-06-15 사용자 피드백)
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A: 본체 클릭 = 개별 선택 (selectedBodyIndex) | 각 별(주성·동반성) 클릭 시 그 별 정보, 직관적. 시점 중심은 이미 질량중심 | 화면공간 카탈로그 피킹과 충돌 — 억제 필요 |
+| B: 시스템 단위 선택만 | 단순 | 동반성 개별 정보 불가 — 사용자 요구 미충족 |
+
+**Chosen:** A. store에 `selectedBodyIndex`(0=주성, 1+=동반성) 추가, `selectStar(starId, bodyIndex?)` 확장. `CurrentSystem`의 각 별 본체에 투명 레이캐스트 프록시 구(`onClick`→`selectStar(currentStarId, index)`). 화면공간 피킹(useStarPicking)과의 충돌은 `starPickSuppress`(본체 pointerdown이 다음 pointerup 1회 억제)로 해소 — 멀리 떨어진 동반성을 클릭해도 이웃 항성계가 잡히지 않는다. `StarInfoPanel`은 선택 본체의 분광형·역할(주성/동반성 근거리·원거리)·이름(이름 A/B/C)을 표시하고 시스템 구성 행은 유지. `StarCalloutProjector`는 우주선 뷰에서 선택 본체의 현재 공전 위치(`bodyPositions`)를 따라간다(퍼스펙티브는 질량중심 근사). **시점 중심 = 질량중심**은 `ShipCameraRig`의 anchor(=`starWorldPosition`=systemGroup 원점=barycenter)로 이미 보장됨 — 별도 변경 불필요.
+
+> 렌더/상태 전용 — GEN_VERSION·저장 포맷 무관. `selectedBodyIndex`는 영속화 대상 아님(선택은 세션 상태).
+
+---
+
 ### Structure (영향 파일)
 
 ```

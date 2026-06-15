@@ -17,6 +17,7 @@ import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
 import { SYSTEM_LOD_DISTANCE } from '@/scenes/system/starCrossfade'
+import { suppressStarPick } from '@/scenes/system/starPickSuppress'
 import { useGameStore } from '@/store'
 
 /**
@@ -63,6 +64,7 @@ interface BodyVisual {
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
   const currentStarId = useGameStore((state) => state.currentStarId)
+  const selectStar = useGameStore((state) => state.selectStar)
   const scene = useGameStore((state) => state.scene)
   const isPerspective = scene.kind === 'galaxy' && scene.view === 'perspective'
   const isWarping = scene.kind === 'warping'
@@ -176,6 +178,21 @@ export function CurrentSystem() {
                 }}
               >
                 <StarSurface radius={body.radius} color={body.color} />
+                {/* 클릭 프록시 — 별 본체를 선택(다중성계는 별마다 개별 선택). 코로나 간섭 없이
+                    레이캐스트만 받는 투명 구. pointerdown에서 카탈로그 피킹을 억제한다. */}
+                <mesh
+                  onPointerDown={(event) => {
+                    event.stopPropagation()
+                    suppressStarPick()
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    selectStar(currentStarId, index)
+                  }}
+                >
+                  <sphereGeometry args={[body.radius * 1.15, 16, 16]} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                </mesh>
                 <pointLight
                   ref={(el) => {
                     bodyLightRefs.current[index] = el

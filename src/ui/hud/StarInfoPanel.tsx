@@ -9,6 +9,7 @@ export function StarInfoPanel() {
   const scene = useGameStore((state) => state.scene)
   const sceneKind = scene.kind
   const selectedStarId = useGameStore((state) => state.selectedStarId)
+  const selectedBodyIndex = useGameStore((state) => state.selectedBodyIndex)
   const currentStarId = useGameStore((state) => state.currentStarId)
   const isVisited = useGameStore(
     (state) => state.selectedStarId != null && state.visitedStars.has(state.selectedStarId),
@@ -30,6 +31,23 @@ export function StarInfoPanel() {
     ' + ',
   )
 
+  // 클릭한 별 (다중성계) — 0=주성, 1+=동반성. 범위를 벗어나면 주성으로 폴백.
+  const bodyIndex =
+    selectedBodyIndex >= 0 && selectedBodyIndex <= star.companions.length ? selectedBodyIndex : 0
+  const selectedCompanion = bodyIndex === 0 ? null : star.companions[bodyIndex - 1] ?? null
+  const bodySpectral = selectedCompanion == null ? star.spectral : selectedCompanion.spectral
+  const bodyName = isMultiple ? `${star.name} ${String.fromCharCode(65 + bodyIndex)}` : star.name
+  const roleLabel =
+    !isMultiple || selectedCompanion == null
+      ? isMultiple
+        ? '주성'
+        : null
+      : selectedCompanion.hierarchy === 'outer'
+        ? '동반성 (원거리)'
+        : star.multiplicity === 'triple'
+          ? '동반성 (근접)'
+          : '동반성'
+
   return (
     // 홀로그램 콜아웃 (결정 37) — StarCalloutProjector가 매 프레임 항성의 화면
     // 좌표로 transform을 갱신한다. 투영 전 첫 프레임 깜빡임 방지로 기본 hidden.
@@ -38,7 +56,7 @@ export function StarInfoPanel() {
       <span className="callout-line" aria-hidden="true" />
       <section className="hud-panel star-info-panel" aria-label="별 정보">
         <header className="hud-panel-header">
-          <h2 className="hud-panel-title">{star.name}</h2>
+          <h2 className="hud-panel-title">{bodyName}</h2>
           <button
             type="button"
             className="hud-icon-button"
@@ -52,8 +70,14 @@ export function StarInfoPanel() {
         <dl className="hud-panel-facts">
           <div className="hud-fact">
             <dt>분광형</dt>
-            <dd>{SPECTRAL_LABELS[star.spectral]}</dd>
+            <dd>{SPECTRAL_LABELS[bodySpectral]}</dd>
           </div>
+          {roleLabel != null ? (
+            <div className="hud-fact">
+              <dt>역할</dt>
+              <dd>{roleLabel}</dd>
+            </div>
+          ) : null}
           {isMultiple ? (
             <div className="hud-fact">
               <dt>구성</dt>
