@@ -81,8 +81,7 @@ export function CurrentSystem() {
   // 워프 중엔 FROM 별을 기준으로 렌더 — currentStarId는 이미 목적지이지만
   // 카메라는 FROM 별 근처이므로 광원·LOD 기준이 FROM이어야 한다.
   const starId = isWarping ? scene.from : currentStarId
-  // 행성·궤도링은 은하 뷰에서만 — 워프 중엔 텍스처 베이크 부담 없이 구체에 집중 (결정 41-c).
-  const showPlanets = scene.kind === 'galaxy'
+  // 행성·궤도링은 은하 뷰에서만 (워프 중엔 구체에 집중, 결정 41-c) — showPlanets는 star 이후 정의.
 
   const systemGroupRef = useRef<Group>(null)
   const planetCenterRef = useRef<Group>(null)
@@ -100,6 +99,9 @@ export function CurrentSystem() {
 
   const star = useMemo(() => starById(seed, starId), [seed, starId])
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
+  // 블랙홀은 행성을 숨긴다 — 강착원반이 내행성 궤도와 겹치고 천문학적으로도 이례적이다
+  // (펄서·왜성·거성은 행성 유지). planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
+  const showPlanets = scene.kind === 'galaxy' && star?.kind !== 'black_hole'
   const worldPosition = useMemo(
     () => starWorldPosition(seed, starId) ?? ([0, 0, 0] as const),
     [seed, starId],

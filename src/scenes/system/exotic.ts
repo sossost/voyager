@@ -19,7 +19,8 @@ export function kindRadiusFactor(kind: StarKind): number {
     case 'pulsar':
       return 0.42
     case 'black_hole':
-      return 0.7
+      // 큰 사건지평선 — 작으면 high 티어 Bloom 번짐이 검은 코어를 흰색으로 메운다.
+      return 1.4
     case 'main_sequence':
       return 1
   }

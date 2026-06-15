@@ -1,49 +1,42 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import {
-  AdditiveBlending,
-  DoubleSide,
-  type Group,
-  type Mesh,
-  RingGeometry,
-  ShaderMaterial,
-  Vector3,
-} from 'three'
+import { AdditiveBlending, DoubleSide, type Mesh, RingGeometry, ShaderMaterial, Vector3 } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
 import { usePrefersReducedMotion } from '@/scenes/shared/useReducedMotion'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
 
 /**
- * 블랙홀 강착원반 — 기울인 평면 라디얼 디스크 + 도플러 비대칭 발광 + 차등 회전 줄무늬 (결정 5).
+ * 블랙홀 강착원반 — 사건지평선을 감싸는 밝은 비대칭 고리 + 안쪽 포톤 링 (결정 5).
  *
- * PlanetRings의 RingGeometry 패턴만 빌리고(머티리얼/텍스처는 토성 전용이라 재사용 불가),
- * 가산 블렌딩·고온 온도 그라데이션·도플러 빔잉·회전은 전부 신규 셰이더다. 풀스크린 포스트 없음
- * — 평면 디스크 1개라 모바일 안전. 도플러 비밍(접근 쪽 증광)이 "상대론적"으로 읽히는 핵심 시그니처.
+ * EHT/가르강튀아 룩: 검은 원반 둘레를 뜨거운 고리가 두르고, 도플러 효과로 한쪽이 더 밝다.
+ * **NaN 안전 셰이더** — 각도는 atan 대신 normalize(position.xy)로 구하고, 제곱은 d*d로,
+ * pow(0,·)/pow(음수,·) 같은 GPU NaN 유발 연산을 쓰지 않는다. (이전 spiral 셰이더의 NaN이
+ * high 티어 Bloom mipmap blur에 번져 전체 화면이 검게 되는 버그가 있었다.)
+ * 카메라 향하는 빌보드 + 로컬 기울기라 어느 각도에서도 비스듬한 타원 고리로 또렷이 보인다.
  */
 
-/** 본체(사건지평선) 반경 배수 — 디스크 안/바깥 모서리. */
-const DISK_INNER = 1.4
-const DISK_OUTER = 3.2
-const THETA_SEGMENTS = 180
-const RADIAL_SEGMENTS = 6
+/** 본체(사건지평선) 반경 배수 — 고리는 본체에 바짝 붙어 시작한다. */
+const DISK_INNER = 1.06
+const DISK_OUTER = 2.4
+const THETA_SEGMENTS = 160
+const RADIAL_SEGMENTS = 8
 /**
- * 디스크는 카메라를 향하는 빌보드 그룹 안에서 로컬로 기울인다 (가르강튀아 룩).
- * 빌보드라 카메라 어느 각도에서도 항상 비스듬한 타원 고리로 또렷이 보인다 — 평면 고리가
- * 월드 고정이면 적도면 시점에서 edge-on이라 사라지는 문제를 막는다. 기울기로 위/아래
- * 절반이 검은 구에 가려져 "원반이 구 뒤로 돌아가는" 페이크 가르강튀아가 된다.
+ * 월드 고정 기울기 — 공전 궤도면(수평)에 가깝게 살짝 기울인다. 빌보드(카메라 추종)가
+ * 아니라 한 자리에 고정이라 시점을 돌려도 원반이 따라 돌지 않는다(자연스러움). 위에서 보면
+ * 타원 고리, 옆에서 보면 가르강튀아처럼 거의 옆모습으로 읽힌다.
  */
-const DISK_TILT_X = 1.12
-const DISK_TILT_Z = 0.16
+const DISK_TILT_X = -Math.PI / 2 + 0.32
+const DISK_TILT_Z = 0.06
 
 const VERTEX_SHADER = /* glsl */ `
   varying float vRadial;
-  varying float vAngle;
-
+  varying vec2 vDir;
   void main() {
     float r = length(position.xy);
     vRadial = clamp((r - ${DISK_INNER.toFixed(2)}) / ${(DISK_OUTER - DISK_INNER).toFixed(2)}, 0.0, 1.0);
-    vAngle = atan(position.y, position.x);
+    // 각도 대신 정규화 방향 — atan(0,0) NaN 회피 (r은 항상 ≥ DISK_INNER > 0이라 안전)
+    vDir = position.xy / r;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `
@@ -52,29 +45,30 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform float uTime;
   uniform float uOpacity;
   varying float vRadial;
-  varying float vAngle;
+  varying vec2 vDir;
 
   void main() {
     // 온도 그라데이션 — 안쪽 청백(뜨겁게) → 바깥 주황(식음)
-    vec3 hot = vec3(0.78, 0.88, 1.05);
-    vec3 cool = vec3(1.05, 0.45, 0.16);
-    vec3 base = mix(hot, cool, pow(vRadial, 0.65));
+    vec3 hot = vec3(0.92, 0.96, 1.12);
+    vec3 cool = vec3(1.12, 0.52, 0.18);
+    vec3 col = mix(hot, cool, sqrt(vRadial));
 
-    // 차등 회전 나선 띠 — 각도+반경에 의존해 휘감기는 나선팔(곧은 스포크가 아니라 소용돌이).
-    // 안쪽이 더 빠르게 흐른다 (케플러 근사).
-    float speed = mix(2.6, 0.9, vRadial);
-    float spiral = 0.72 + 0.28 * sin(vAngle * 5.0 + vRadial * 9.0 - uTime * speed);
-    float fine = 0.88 + 0.12 * sin(vAngle * 23.0 + vRadial * 17.0 + uTime * speed * 0.5);
-    float bands = spiral * fine;
+    // 도플러 비밍 — 접근 쪽(vDir.x>0) 크게 증광 (상대론적 비대칭의 핵심 시그니처)
+    float doppler = 0.3 + 1.1 * (0.5 + 0.5 * vDir.x);
 
-    // 도플러 비밍 — 접근 쪽(cos>0) 증광, 후퇴 쪽 감광. 상대론적 비대칭의 핵심.
-    float doppler = 0.4 + 1.0 * (0.5 + 0.5 * cos(vAngle));
+    // 라디얼 프로파일 — 안쪽 가장자리 밝고 바깥으로 감쇠
+    float body = smoothstep(0.0, 0.07, vRadial) * (1.0 - smoothstep(0.4, 1.0, vRadial));
 
-    // 안/바깥 가장자리 소프트 페이드
-    float edge = smoothstep(0.0, 0.14, vRadial) * (1.0 - smoothstep(0.78, 1.0, vRadial));
+    // 안쪽 포톤 링 — 사건지평선 바로 바깥의 얇고 밝은 띠
+    float pd = (vRadial - 0.05) / 0.05;
+    float photon = exp(-pd * pd) * 0.9;
 
-    float intensity = edge * bands * doppler;
-    gl_FragColor = vec4(base * intensity * 1.5, intensity * uOpacity);
+    // 부드러운 회전 셔머 (atan 없이 vDir·시간으로) — 약하게, 스포크 느낌 방지
+    float shimmer = 0.85 + 0.15 * sin(vDir.x * 7.0 + vDir.y * 4.0 + vRadial * 6.0 + uTime * 1.6);
+
+    float intensity = (body + photon) * doppler * shimmer;
+    intensity = clamp(intensity, 0.0, 4.0);
+    gl_FragColor = vec4(min(col * intensity * 1.5, vec3(6.0)), clamp(intensity, 0.0, 1.0) * uOpacity);
   }
 `
 
@@ -92,7 +86,6 @@ interface AccretionDiskProps {
 }
 
 export function AccretionDisk({ radius }: AccretionDiskProps) {
-  const billboardRef = useRef<Group>(null)
   const meshRef = useRef<Mesh>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
   const geometry = useMemo(() => diskGeometry(), [])
@@ -115,10 +108,8 @@ export function AccretionDisk({ radius }: AccretionDiskProps) {
   useEffect(() => () => material.dispose(), [material])
 
   useFrame((state) => {
-    // reduced-motion: 회전 줄무늬 정지(uTime 고정) — 전정 민감성 배려. 형태는 그대로.
+    // reduced-motion: 회전 셔머 정지(uTime 고정) — 전정 민감성 배려. 형태는 그대로.
     setUniform(material, 'uTime', reducedMotion ? 0 : state.clock.elapsedTime)
-    // 디스크 평면을 카메라 향하게(빌보드) — 어느 각도에서도 비스듬한 타원으로 보인다.
-    billboardRef.current?.quaternion.copy(state.camera.quaternion)
     // 워프 도착 크로스페이드 — StarSurface와 동일 계약 (결정 41-c, 도착 팝인 방지).
     if (meshRef.current != null) {
       const distance = state.camera.position.distanceTo(meshRef.current.getWorldPosition(worldScratch))
@@ -126,15 +117,14 @@ export function AccretionDisk({ radius }: AccretionDiskProps) {
     }
   })
 
+  // 월드 고정 — 빌보드가 아니라 한 자리에 고정된 기울어진 원반.
   return (
-    <group ref={billboardRef}>
-      <mesh
-        ref={meshRef}
-        geometry={geometry}
-        material={material}
-        scale={radius}
-        rotation={[DISK_TILT_X, 0, DISK_TILT_Z]}
-      />
-    </group>
+    <mesh
+      ref={meshRef}
+      geometry={geometry}
+      material={material}
+      scale={radius}
+      rotation={[DISK_TILT_X, 0, DISK_TILT_Z]}
+    />
   )
 }
