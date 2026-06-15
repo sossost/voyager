@@ -1,12 +1,13 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { Group, PointLight } from 'three'
-import { Vector3 } from 'three'
+import { PerspectiveCamera, Vector3 } from 'three'
 
 import type { StarKind } from '@/engine'
 import { planetsOf, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
 import { ExoticBody } from '@/scenes/system/ExoticBody'
 import { kindRadiusFactor } from '@/scenes/system/exotic'
@@ -91,6 +92,7 @@ export function CurrentSystem() {
     Array.from({ length: MAX_BODIES }, () => STAR_LIGHT_INTENSITY_SHIP),
   )
   const lodScratch = useMemo(() => new Vector3(), [])
+  const ndcScratch = useMemo(() => new Vector3(), [])
   const bodyScratch = useMemo(
     () => Array.from({ length: MAX_BODIES }, () => new Vector3()),
     [],
@@ -110,6 +112,8 @@ export function CurrentSystem() {
 
   // 별 본체가 안 보이는 동안(언마운트·워프) 레지스트리를 비운다 — stale 좌표 방지.
   useEffect(() => clearCurrentBodies, [])
+  // 언마운트 시 중력렌즈 비활성 (stale 활성 방지).
+  useEffect(() => clearBlackHoleLens, [])
   // 별 군집을 벗어나도록 행성 궤도를 바깥으로 미는 양 (별/행성 관통 방지).
   const orbitOffset = useMemo(() => (star == null ? 0 : planetClearanceOffset(star)), [star])
 
@@ -206,6 +210,21 @@ export function CurrentSystem() {
       const next = current + (target - current) * lerpFactor
       lightIntensityRefs.current[i] = next
       light.intensity = next
+    }
+
+    // 블랙홀 중력렌즈 — 현재 별이 블랙홀이고 근접(LOD 안)일 때 화면 좌표·반경을 게시한다
+    // (high 티어 포스트 패스 BlackHoleLensing이 읽어 굴절). 그 외엔 비활성(패스스루).
+    if (star != null && star.kind === 'black_hole' && !isWarping && dist < SYSTEM_LOD_DISTANCE) {
+      ndcScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(state.camera)
+      blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
+      const fov = state.camera instanceof PerspectiveCamera ? state.camera.fov : 60
+      const ehWorldRadius = (bodies[0]?.radius ?? STAR_VISUAL_RADIUS) * systemScaleRef.current
+      const halfHeight = dist * Math.tan((fov * Math.PI) / 360)
+      blackHoleLens.radius = halfHeight > 0 ? (ehWorldRadius / halfHeight) * 0.5 : 0
+      blackHoleLens.strength = 0.9
+      blackHoleLens.active = true
+    } else {
+      clearBlackHoleLens()
     }
   })
 
