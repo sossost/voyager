@@ -36,6 +36,7 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
   uniform float uOpacity;
+  uniform float uEmissiveBoost;
   varying vec3 vUnit;
   varying vec3 vNormal;
   varying vec3 vViewDir;
@@ -85,9 +86,10 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
 
     vec3 surface = uColor * (0.68 + 0.55 * granulation) * darkening;
 
-    // 뜨거운 입상반 꼭대기는 1을 넘는 백색(1.45 = Bloom 임계 0.3 대비 증폭 목표)으로
+    // 뜨거운 입상반 꼭대기는 1을 넘는 백색(1.45 = Bloom 임계 0.3 대비 증폭 목표)으로.
+    // uEmissiveBoost: 백색왜성(>1, 강렬) / 적색거성(<1, 은은). 기본 1이면 기존과 동일.
     float hotness = smoothstep(0.72, 0.95, granulation) * facing;
-    surface = mix(surface, vec3(1.45), hotness * 0.5);
+    surface = mix(surface, vec3(1.45), clamp(hotness * 0.5 * uEmissiveBoost, 0.0, 1.0));
 
     gl_FragColor = vec4(surface, uOpacity);
   }
@@ -106,6 +108,7 @@ const CORONA_FRAGMENT_SHADER = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
   uniform float uOpacity;
+  uniform float uEmissiveBoost;
   varying vec2 vUv;
 
   void main() {
@@ -114,19 +117,28 @@ const CORONA_FRAGMENT_SHADER = /* glsl */ `
     float breath = 1.0 + 0.06 * sin(uTime * 0.7);
     float falloff = clamp(1.0 - distanceFromCenter / breath, 0.0, 1.0);
     float glow = pow(falloff, 2.6);
-    // 중심은 백색으로 뜨겁고 가장자리는 분광색으로 식는다
-    vec3 color = mix(uColor, vec3(1.0), glow * 0.55);
-    gl_FragColor = vec4(color * glow, glow * uOpacity);
+    // 중심은 백색으로 뜨겁고 가장자리는 분광색으로 식는다. uEmissiveBoost로 강도 변조(기본 1).
+    vec3 color = mix(uColor, vec3(1.0), clamp(glow * 0.55 * uEmissiveBoost, 0.0, 1.0));
+    gl_FragColor = vec4(color * glow * uEmissiveBoost, glow * uOpacity);
   }
 `
 
 interface StarSurfaceProps {
   readonly radius: number
-  /** 분광형 렌더 색 (SPECTRAL_RENDER). */
+  /** 분광형 렌더 색 (SPECTRAL_RENDER) 또는 이색 천체 색 (EXOTIC_RENDER). */
   readonly color: string
+  /** 핫스팟·코로나 발광 강도 배수 (이색 천체용, 기본 1 = 기존 단일 항성 렌더 불변). */
+  readonly emissiveBoost?: number
+  /** 코로나 크기 배수 (이색 천체용, 기본 1). */
+  readonly coronaScale?: number
 }
 
-export function StarSurface({ radius, color }: StarSurfaceProps) {
+export function StarSurface({
+  radius,
+  color,
+  emissiveBoost = 1,
+  coronaScale = 1,
+}: StarSurfaceProps) {
   const coronaRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
@@ -140,11 +152,12 @@ export function StarSurface({ radius, color }: StarSurfaceProps) {
           uColor: { value: new Color(color) },
           uTime: { value: 0 },
           uOpacity: { value: 1 },
+          uEmissiveBoost: { value: emissiveBoost },
         },
         // 워프 도착 크로스페이드 동안 반투명으로 차오른다 — 정박(근거리)에선 불투명 (결정 41-c)
         transparent: true,
       }),
-    [color],
+    [color, emissiveBoost],
   )
 
   const coronaMaterial = useMemo(
@@ -156,12 +169,13 @@ export function StarSurface({ radius, color }: StarSurfaceProps) {
           uColor: { value: new Color(color) },
           uTime: { value: 0 },
           uOpacity: { value: 1 },
+          uEmissiveBoost: { value: emissiveBoost },
         },
         transparent: true,
         depthWrite: false,
         blending: AdditiveBlending,
       }),
-    [color],
+    [color, emissiveBoost],
   )
 
   useEffect(() => () => surfaceMaterial.dispose(), [surfaceMaterial])
@@ -186,7 +200,7 @@ export function StarSurface({ radius, color }: StarSurfaceProps) {
     }
   })
 
-  const coronaSize = radius * CORONA_SIZE_FACTOR
+  const coronaSize = radius * CORONA_SIZE_FACTOR * coronaScale
 
   return (
     <>

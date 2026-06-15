@@ -3,10 +3,13 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { Group, PointLight } from 'three'
 import { Vector3 } from 'three'
 
+import type { StarKind } from '@/engine'
 import { planetsOf, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
-import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
+import { ExoticBody } from '@/scenes/system/ExoticBody'
+import { kindRadiusFactor } from '@/scenes/system/exotic'
 import {
   bodyLightFactor,
   bodyPositions,
@@ -60,7 +63,14 @@ interface BodyVisual {
   readonly color: string
   readonly radius: number
   readonly lightFactor: number
+  /** 별 종류 — 주성만 이색 가능, 동반성은 항상 main_sequence (결정 7). */
+  readonly kind: StarKind
+  /** point light 색 — 블랙홀은 강착원반 발광색으로 행성을 비춘다(본체는 검은 구). */
+  readonly lightColor: string
 }
+
+/** 블랙홀 강착원반 발광색 — 검은 본체 대신 이 따뜻한 빛이 행성·동반성을 비춘다. */
+const BLACK_HOLE_LIGHT_COLOR = '#ffcaa0'
 
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
@@ -105,19 +115,38 @@ export function CurrentSystem() {
   // 기존 단일 항성 렌더가 한 픽셀도 바뀌지 않게 한다. 동반성만 질량비로 스케일.
   const bodies = useMemo<readonly BodyVisual[]>(() => {
     if (star == null) {
-      return [{ key: 'primary', color: '#ffffff', radius: STAR_VISUAL_RADIUS, lightFactor: 1 }]
+      return [
+        {
+          key: 'primary',
+          color: '#ffffff',
+          radius: STAR_VISUAL_RADIUS,
+          lightFactor: 1,
+          kind: 'main_sequence',
+          lightColor: '#ffffff',
+        },
+      ]
     }
+    // 주성 색·반경은 kind로 분기 — main_sequence는 기존과 동일(분광 색 + STAR_VISUAL_RADIUS).
+    const primaryColor =
+      star.kind === 'main_sequence'
+        ? SPECTRAL_RENDER[star.spectral].color
+        : EXOTIC_RENDER[star.kind].color
     const primary: BodyVisual = {
       key: 'primary',
-      color: SPECTRAL_RENDER[star.spectral].color,
-      radius: STAR_VISUAL_RADIUS,
+      color: primaryColor,
+      // 시각 반경 = 충돌 반경(renderedRadius)과 같은 식 — kindRadiusFactor 공유 (결정 12).
+      radius: STAR_VISUAL_RADIUS * kindRadiusFactor(star.kind),
       lightFactor: 1,
+      kind: star.kind,
+      lightColor: star.kind === 'black_hole' ? BLACK_HOLE_LIGHT_COLOR : primaryColor,
     }
     const companions = star.companions.map<BodyVisual>((companion, index) => ({
       key: `companion-${index}`,
       color: SPECTRAL_RENDER[companion.spectral].color,
       radius: bodyVisualRadius(companion.spectral, STAR_VISUAL_RADIUS),
       lightFactor: bodyLightFactor(companion.spectral),
+      kind: 'main_sequence',
+      lightColor: SPECTRAL_RENDER[companion.spectral].color,
     }))
     return [primary, ...companions]
   }, [star])
@@ -195,7 +224,12 @@ export function CurrentSystem() {
                   bodyGroupRefs.current[index] = el
                 }}
               >
-                <StarSurface radius={body.radius} color={body.color} />
+                {/* 이색 천체(블랙홀·펄서·거성·왜성)는 ExoticBody로 디스패치 — 주성만 가능 (결정 7·14). */}
+                {body.kind === 'main_sequence' ? (
+                  <StarSurface radius={body.radius} color={body.color} />
+                ) : (
+                  <ExoticBody kind={body.kind} radius={body.radius} color={body.color} />
+                )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
                     처리한다 — 모든 뷰(우주선·퍼스펙티브)에서 본체별 선택이 동작한다. */}
                 <pointLight
@@ -204,7 +238,7 @@ export function CurrentSystem() {
                   }}
                   intensity={STAR_LIGHT_INTENSITY_SHIP * body.lightFactor}
                   decay={STAR_LIGHT_DECAY}
-                  color={body.color}
+                  color={body.lightColor}
                 />
               </group>
             ))

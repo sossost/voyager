@@ -1,6 +1,7 @@
 import { Vector3 } from 'three'
 
-import type { SpectralClass, Star } from '@/engine'
+import type { SpectralClass, Star, StarKind } from '@/engine'
+import { kindRadiusFactor } from '@/scenes/system/exotic'
 
 /**
  * 다중성계 렌더 수학 — 질량 룩업·질량중심 공전·circumbinary 판정 (binary-stars 결정 9).
@@ -56,9 +57,19 @@ export function bodyVisualRadius(spectral: SpectralClass, baseRadius: number): n
   return baseRadius * clamped
 }
 
-/** 렌더 반경 — 주성은 STAR_VISUAL_RADIUS 고정(단일성과 동일), 동반성은 질량비. */
-function renderedRadius(spectral: SpectralClass, isPrimary: boolean): number {
-  return isPrimary ? STAR_VISUAL_RADIUS : bodyVisualRadius(spectral, STAR_VISUAL_RADIUS)
+/**
+ * 렌더 반경 — 주성은 STAR_VISUAL_RADIUS, 동반성은 질량비. 이색 천체(kind)는 종류별
+ * 배수를 곱한다 (결정 12) — 적색거성 크게/백색왜성 작게. main_sequence는 ×1(기존 불변).
+ * kind는 주성에만 존재하므로 동반성 호출은 기본값 main_sequence를 쓴다.
+ * CurrentSystem의 시각 메시 반경과 **반드시 같은 식**을 써야 별/행성 관통이 없다.
+ */
+function renderedRadius(
+  spectral: SpectralClass,
+  isPrimary: boolean,
+  kind: StarKind = 'main_sequence',
+): number {
+  const base = isPrimary ? STAR_VISUAL_RADIUS : bodyVisualRadius(spectral, STAR_VISUAL_RADIUS)
+  return base * kindRadiusFactor(kind)
 }
 
 /**
@@ -122,7 +133,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
     const companionMass = massOf(companion.spectral)
     const totalMass = primaryMass + companionMass
     const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
-    const rPrimary = renderedRadius(star.spectral, true)
+    const rPrimary = renderedRadius(star.spectral, true, star.kind)
     const rCompanion = renderedRadius(companion.spectral, false)
     const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
     const aPrimary = (aTotal * companionMass) / totalMass
@@ -150,7 +161,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
 
   // 내부 레벨 — 주성과 inner가 Bi를 공전 (먼저 풀어 inner 쌍의 외곽 반경을 구한다).
   const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
-  const rPrimary = renderedRadius(star.spectral, true)
+  const rPrimary = renderedRadius(star.spectral, true, star.kind)
   const rInnerBody = renderedRadius(inner.spectral, false)
   const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
   const aPrimary = (aTotalInner * innerMass) / innerPairMass
@@ -195,7 +206,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
  */
 function stellarClearanceRadius(star: Star): number {
   const primaryMass = massOf(star.spectral)
-  const rPrimary = renderedRadius(star.spectral, true)
+  const rPrimary = renderedRadius(star.spectral, true, star.kind)
 
   if (star.multiplicity === 'binary') {
     const companion = star.companions[0]
