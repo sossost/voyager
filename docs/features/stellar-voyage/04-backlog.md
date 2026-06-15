@@ -114,8 +114,8 @@
 
 > **🔝 우선순위 격상 (2026-06-15).** 엔진 확장(쌍성계 / 이색 천체 / 사실성 v2)을 다음 작업으로. 모두 출력 분포가 바뀌므로 **`/yc:brainstorm` → GEN_VERSION 범프 + 골든 재생성**이 선행. 철칙 2·3(GEN_VERSION 규칙·draw append-only) 숙지 필수.
 > - ✅ **쌍성계 = GEN_VERSION 4** 완료 (2026-06-15) — E-5#3 참조. (`feature/binary-stars` → main 머지)
-> - **▶️ 진행 중 = 이색 천체 (G-c-9)** — `/yc:brainstorm` 완료 (2026-06-15) → `docs/features/exotic-bodies/`(01-spec·02-decisions, 적대 검증 1회 반영). 천체 셋=블랙홀+펄서+백색왜성+적색거성(성운 제외), 통합=별 스트림 내 새 `kind`(append 마지막 draw), **GEN_VERSION 4→5 예정**, 블랙홀=페이크 적층(중력렌즈 v1 제외), 게임플레이=명소+현상 도감(워프 커밋 트리거). **다음 = `/yc:plan`.**
-> - ⏸️ 사실성 v2 (G-c-11) — 그다음. 이색 천체 후 진행.
+> - ✅ **이색 천체 = GEN_VERSION 5** 구현 완료 (2026-06-15) → `docs/features/exotic-bodies/`(01-spec·02-decisions·03-plan). `feature/exotic-bodies`, 8커밋(docs+6페이즈+리뷰), 전 게이트 green(typecheck·lint·test 235·coverage 97%·build·e2e LIFE1)·다중렌즈 코드리뷰(CRITICAL 0). 블랙홀·펄서·백색왜성·적색거성 = 별 `kind`(append 마지막 draw, O/B만 블랙홀·펄서) + 페이크 가르강튀아 렌더(중력렌즈 v1 제외) + 현상 도감(`discoveredPhenomena`, 옵션 b). **다음 = PR → main 머지.**
+> - ⏸️ 사실성 v2 (G-c-11) — 그다음. 이색 천체 머지 후 진행.
 > - **GEN_VERSION 번호는 구현 시점에 배정** — 다음 범프(이색 천체) = 5 예정, 그다음 = 6. **"미리 번호 박지 말 것"** — v3가 이미 적용된 걸 모르고 "쌍성계=3"이라 적었다가 4로 정정한 전례 있음.
 
 ~~10. **Sol 고정 시작 항성계 — 태양계 베이스**~~ — ✅ 완료 (2026-06-12, G-c-10)
@@ -138,7 +138,7 @@
     **선행 필요:** `/yc:brainstorm` (LIFE1 처리 방식·지구 UX 확정)
 
 ~~8. **위성(달)**~~ — ✅ 완료: `engine/system/moons.ts`(위성 전용 rngFor 스트림 격리, GEN_VERSION 불필요) + `scenes/system/Moon.tsx`(행성 그룹 자식 미니 궤도). PR #14에서 Sol 위성을 실제 데이터로 고정(`SOLAR_SYSTEM_MOONS` 16종).
-9. **▶️ 이색 천체: 블랙홀·펄서·백색왜성·적색거성 — 진행 중 (1순위)** — `/yc:brainstorm` ✅ 완료 (2026-06-15) → **`docs/features/exotic-bodies/`** (01-spec·02-decisions, 5렌즈 적대 검증 1회 반영). 별 종류 변경 = **GEN_VERSION 4→5 예정**(구현 직전 version.ts 실측 후 확정) + 골든 재생성. 성운은 비범위(별도 후속). **다음 단계: `/yc:plan`.**
+~~9. **이색 천체: 블랙홀·펄서·백색왜성·적색거성**~~ — ✅ **구현 완료** (2026-06-15, GEN_VERSION 5) → `docs/features/exotic-bodies/`. `feature/exotic-bodies` 8커밋. 별 `kind` append draw(블랙홀·펄서는 O/B에서만 = 자연 희귀) + 페이크 가르강튀아(그림자+도플러 강착원반+포톤 호, 풀스크린 렌즈 비범위) + 펄서 제트·점멸 + 거성/왜성 StarSurface 변조 + 블랙홀 맵 링 + 현상 도감(`discoveredPhenomena` 옵션 b). 골든 재생성 diff = 별당 +kind 키만(planets/aliens/companions 불변). 성운은 비범위(별도 후속). **다음: PR → main 머지.**
 
     **brainstorm에서 정할 열린 질문 (스코프가 큼):**
     - **종류·분포**: 어떤 천체를 넣나(블랙홀/중성자성·펄서/성운/백색왜성/적색거성 등), 각 희귀도·은하 내 분포(중심부 편중? 나선팔?). 별 스트림에 새 `kind`로 넣을지, 별도 엔티티 스트림으로 격리할지 (격리하면 GEN_VERSION 무관 가능 — 단 별밭 자체를 바꾸면 범프 불가피).
