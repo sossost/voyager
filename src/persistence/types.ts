@@ -13,7 +13,8 @@ export type HintKey = 'first-enter' | 'first-star-select' | 'first-life-planet'
  */
 export interface PhenomenonDiscovery {
   readonly starId: StarId
-  readonly kind: StarKind
+  /** 이색 천체만 기록된다 — 주계열성 제외(불가능 상태를 타입으로 차단). data/phenomena의 PhenomenonKind와 동일. */
+  readonly kind: Exclude<StarKind, 'main_sequence'>
   readonly discoveredAt: number
 }
 

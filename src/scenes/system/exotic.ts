@@ -31,13 +31,22 @@ export interface SurfaceModulation {
   readonly coronaScale: number
 }
 
+const NEUTRAL_MODULATION: SurfaceModulation = { emissiveBoost: 1, coronaScale: 1 }
+
 export function surfaceModulationOf(kind: StarKind): SurfaceModulation {
   switch (kind) {
     case 'red_giant':
       return { emissiveBoost: 0.45, coronaScale: 1.5 }
     case 'white_dwarf':
       return { emissiveBoost: 1.7, coronaScale: 0.7 }
-    default:
-      return { emissiveBoost: 1, coronaScale: 1 }
+    // 펄서·블랙홀은 StarSurface가 아니라 전용 컴포넌트(Pulsar·BlackHole)가 그린다 — 중립값.
+    case 'pulsar':
+    case 'black_hole':
+    case 'main_sequence':
+      return NEUTRAL_MODULATION
+    default: {
+      const _exhaustive: never = kind
+      return _exhaustive
+    }
   }
 }

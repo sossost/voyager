@@ -171,7 +171,6 @@ function PhenomenaTab() {
   const byKind = useMemo(() => {
     const map = new Map<PhenomenonKind, PhenomenonStat>()
     for (const discovery of discoveredPhenomena) {
-      if (discovery.kind === 'main_sequence') continue
       const prev = map.get(discovery.kind)
       map.set(discovery.kind, {
         count: (prev?.count ?? 0) + 1,

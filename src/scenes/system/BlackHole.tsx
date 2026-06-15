@@ -1,6 +1,13 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { AdditiveBlending, type Group, type Mesh, ShaderMaterial, Vector3 } from 'three'
+import {
+  AdditiveBlending,
+  type Group,
+  type Mesh,
+  MeshBasicMaterial,
+  ShaderMaterial,
+  Vector3,
+} from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
 import { AccretionDisk } from '@/scenes/system/AccretionDisk'
@@ -28,8 +35,8 @@ const ARC_VERTEX_SHADER = /* glsl */ `
 
 // 사건지평선 둘레의 얇은 포톤 링을, 상단 반구 + 접근 쪽에서만 밝히는 부분 호(크레센트).
 // 하단-후퇴 쪽은 0으로 사라져 "감싸는 막"이 아니라 디스크의 렌즈된 연장으로 읽힌다 (결정 31).
+// 정적 형태라 uTime 없음 — 회전·점멸은 디스크가 담당한다.
 const ARC_FRAGMENT_SHADER = /* glsl */ `
-  uniform float uTime;
   uniform float uOpacity;
   varying vec2 vUv;
 
@@ -66,7 +73,7 @@ export function BlackHole({ radius }: BlackHoleProps) {
       new ShaderMaterial({
         vertexShader: ARC_VERTEX_SHADER,
         fragmentShader: ARC_FRAGMENT_SHADER,
-        uniforms: { uTime: { value: 0 }, uOpacity: { value: 1 } },
+        uniforms: { uOpacity: { value: 1 } },
         transparent: true,
         depthWrite: false,
         blending: AdditiveBlending,
@@ -74,17 +81,26 @@ export function BlackHole({ radius }: BlackHoleProps) {
     [],
   )
 
+  // 사건지평선 — 검은 구. 도착 크로스페이드에 동참하도록 transparent + opacity 구동
+  // (결정 41-c, StarSurface와 동일 계약). depthWrite는 유지해 디스크 far side를 가린다(렌즈 없는 룩).
+  const sphereMaterial = useMemo(
+    () => new MeshBasicMaterial({ color: '#000000', transparent: true, depthWrite: true }),
+    [],
+  )
+
   useEffect(() => () => arcMaterial.dispose(), [arcMaterial])
+  useEffect(() => () => sphereMaterial.dispose(), [sphereMaterial])
 
   useFrame((state) => {
-    setUniform(arcMaterial, 'uTime', state.clock.elapsedTime)
     // 포톤 호 빌보드 — 항상 카메라를 향한다 (상단 호가 화면 위로 휘어 보이게).
     arcGroupRef.current?.quaternion.copy(state.camera.quaternion)
     if (arcMeshRef.current != null) {
       const distance = state.camera.position.distanceTo(
         arcMeshRef.current.getWorldPosition(worldScratch),
       )
-      setUniform(arcMaterial, 'uOpacity', 1 - crossfadeProgress(distance))
+      const opacity = 1 - crossfadeProgress(distance)
+      setUniform(arcMaterial, 'uOpacity', opacity)
+      sphereMaterial.opacity = opacity
     }
   })
 
@@ -92,10 +108,9 @@ export function BlackHole({ radius }: BlackHoleProps) {
 
   return (
     <>
-      {/* 사건지평선 — 깨끗한 불투명 검은 구. 디스크의 far side를 가린다(렌즈 없는 룩). */}
-      <mesh>
+      {/* 사건지평선 — 검은 구. renderOrder=-1로 디스크보다 먼저 그려 깊이를 써서 far side를 가린다. */}
+      <mesh material={sphereMaterial} renderOrder={-1}>
         <sphereGeometry args={[radius, SPHERE_SEGMENTS, SPHERE_SEGMENTS]} />
-        <meshBasicMaterial color="#000000" />
       </mesh>
 
       <AccretionDisk radius={radius} />
