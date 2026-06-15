@@ -41,14 +41,10 @@ const FRAGMENT = /* glsl */ `
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     outputColor = inputColor;
     if (uActive < 0.5) return;
+    // 사건지평선 그림자만 — 깨끗한 검은 코어. 명시적 포톤 링은 그리지 않는다(이중 링/CD 방지):
+    // 렌즈된 강착원반이 그림자 둘레에 자연스러운 밝은 고리를 만든다.
     vec2 d = toAspect(vUv - uCenter); // 원래 화면 좌표(vUv) 기준
-    float dist = length(d);
-    float rs = uRadius;
-    if (dist < rs) { outputColor = vec4(0.0, 0.0, 0.0, 1.0); return; } // 사건지평선 그림자
-    // 아인슈타인(포톤) 링 — 광자구 바로 바깥의 밝은 띠
-    float rd = (dist - rs * 1.05) / (rs * 0.06);
-    float ring = exp(-rd * rd);
-    outputColor.rgb += vec3(1.0, 0.93, 0.8) * ring * 0.85;
+    if (length(d) < uRadius) outputColor = vec4(0.0, 0.0, 0.0, 1.0);
   }
 `
 

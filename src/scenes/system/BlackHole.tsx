@@ -5,6 +5,7 @@ import { AdditiveBlending, type Group, type Mesh, ShaderMaterial, Vector3 } from
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
 import { AccretionDisk } from '@/scenes/system/AccretionDisk'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
+import { useGameStore } from '@/store'
 
 /**
  * 블랙홀 — 페이크 적층(결정 5): ① 깨끗한 검은 사건지평선 구(결정 31) ② 월드 고정 차등 회전
@@ -58,6 +59,8 @@ export function BlackHole({ radius }: BlackHoleProps) {
   const ringGroupRef = useRef<Group>(null)
   const ringMeshRef = useRef<Mesh>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
+  // high 티어에선 중력렌즈가 포톤 링을 만든다 → 페이크 EHT 링은 medium/low에서만 (이중 링/CD 방지).
+  const showFakeRing = useGameStore((state) => state.qualityTier !== 'high')
 
   const ringMaterial = useMemo(
     () =>
@@ -98,12 +101,14 @@ export function BlackHole({ radius }: BlackHoleProps) {
 
       <AccretionDisk radius={radius} />
 
-      {/* EHT 포톤 링 — 사건지평선을 두르는 밝은 비대칭 고리 (depthTest off로 구 위에) */}
-      <group ref={ringGroupRef}>
-        <mesh ref={ringMeshRef} material={ringMaterial} renderOrder={1}>
-          <planeGeometry args={[ringSize, ringSize]} />
-        </mesh>
-      </group>
+      {/* EHT 포톤 링 — medium/low 전용 (high는 중력렌즈가 대신). depthTest off로 구 위에. */}
+      {showFakeRing ? (
+        <group ref={ringGroupRef}>
+          <mesh ref={ringMeshRef} material={ringMaterial} renderOrder={1}>
+            <planeGeometry args={[ringSize, ringSize]} />
+          </mesh>
+        </group>
+      ) : null}
     </>
   )
 }
