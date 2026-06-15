@@ -11,6 +11,7 @@ import {
   bodyPositions,
   bodyVisualRadius,
   isCircumbinary,
+  planetClearanceOffset,
   STAR_VISUAL_RADIUS,
 } from '@/scenes/system/multiplicity'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
@@ -95,6 +96,8 @@ export function CurrentSystem() {
     [seed, starId],
   )
   const circumbinary = useMemo(() => (star == null ? false : isCircumbinary(star)), [star])
+  // 별 군집을 벗어나도록 행성 궤도를 바깥으로 미는 양 (별/행성 관통 방지).
+  const orbitOffset = useMemo(() => (star == null ? 0 : planetClearanceOffset(star)), [star])
 
   // 별 N개의 시각 속성 — 주성 반경은 단일성과 동일(STAR_VISUAL_RADIUS)하게 유지해
   // 기존 단일 항성 렌더가 한 픽셀도 바뀌지 않게 한다. 동반성만 질량비로 스케일.
@@ -209,8 +212,8 @@ export function CurrentSystem() {
           <group ref={planetCenterRef}>
             {planets.map((planet) => (
               <group key={planet.id}>
-                <OrbitRing radius={orbitRadiusOf(planet)} />
-                <Planet planet={planet} />
+                <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
+                <Planet planet={planet} orbitOffset={orbitOffset} />
               </group>
             ))}
           </group>

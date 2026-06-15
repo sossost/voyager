@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from 'react'
 import type { Vector3 } from 'three'
 
-import { planetById } from '@/engine'
+import { planetById, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { CalloutProjector } from '@/scenes/shared/CalloutProjector'
+import { planetClearanceOffset } from '@/scenes/system/multiplicity'
 import { planetOrbitPosition } from '@/scenes/system/Planet'
 import { useGameStore } from '@/store'
 
@@ -34,16 +35,22 @@ export function PlanetCalloutProjector() {
     [seed, currentStarId],
   )
 
+  // 행성 궤도 바깥밀기 — CurrentSystem과 동일 소스라야 콜아웃이 행성을 정확히 따라간다.
+  const orbitOffset = useMemo(() => {
+    const star = starById(seed, currentStarId)
+    return star == null ? 0 : planetClearanceOffset(star)
+  }, [seed, currentStarId])
+
   const computeWorldPosition = useCallback(
     (out: Vector3, elapsedSeconds: number) => {
       if (planet == null) return false
-      planetOrbitPosition(planet, elapsedSeconds, out)
+      planetOrbitPosition(planet, elapsedSeconds, out, orbitOffset)
       out.x += starOffset[0]
       out.y += starOffset[1]
       out.z += starOffset[2]
       return true
     },
-    [planet, starOffset],
+    [planet, starOffset, orbitOffset],
   )
 
   return (
