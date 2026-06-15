@@ -30,8 +30,8 @@ function seedOf(value: string): Seed {
 }
 
 describe('우주 생성물 골든 마스터', () => {
-  it('GEN_VERSION은 3이다 — 스냅샷이 바뀌면 이 값을 올려야 한다', () => {
-    expect(GEN_VERSION).toBe(3)
+  it('GEN_VERSION은 4이다 — 스냅샷이 바뀌면 이 값을 올려야 한다', () => {
+    expect(GEN_VERSION).toBe(4)
   })
 
   it('SPECIES_CATALOG 전체 구조가 영구히 같다 (allowedParts 내부 순서 포함)', () => {

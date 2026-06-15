@@ -61,6 +61,21 @@ describe('씬 전이 가드', () => {
     expect(store.getState().selectedStarId).toBeNull() // 워프 중 — 무시
   })
 
+  it('selectStar는 bodyIndex를 기록하고 미지정 시 주성(0)으로 둔다 (다중성계)', () => {
+    store.getState().selectStar(target, 2)
+    expect(store.getState().selectedStarId).toBe(target)
+    expect(store.getState().selectedBodyIndex).toBe(2)
+
+    // 미지정 = 주성(0)
+    store.getState().selectStar(startStarId)
+    expect(store.getState().selectedBodyIndex).toBe(0)
+
+    // 해제 시 0으로 리셋
+    store.getState().selectStar(null)
+    expect(store.getState().selectedStarId).toBeNull()
+    expect(store.getState().selectedBodyIndex).toBe(0)
+  })
+
   it('warpTo는 다른 별로만, 은하 뷰에서만 가능하다', () => {
     store.getState().warpTo(startStarId)
     expect(store.getState().scene).toEqual({ kind: 'galaxy', view: 'ship' }) // 현재 별로 워프 불가

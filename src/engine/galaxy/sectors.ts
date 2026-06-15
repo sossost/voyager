@@ -1,7 +1,7 @@
 import type { Seed, SectorCoords, StarId } from '../coords'
 import { makeStarId } from '../coords'
 import { starName } from '../naming/names'
-import type { WeightedEntry } from '../rng/streams'
+import type { Rng, WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import { SECTOR_SIZE, sectorDensity } from './density'
 import { SOL_STAR_ID, SOL_LOCAL_POS, SOL_SECTOR } from '../system/sol'
@@ -21,6 +21,47 @@ const SPECTRAL_WEIGHTS: readonly WeightedEntry<SpectralClass>[] = [
   { value: 'O', weight: 1 },
 ]
 
+/** 질량 내림차순 분광형 — 동반성을 "주성 이하 질량"으로 제약할 때 인덱스 기준. */
+const SPECTRAL_BY_MASS: readonly SpectralClass[] = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
+
+/** 항성계 다중도 — 태양형 별의 실제 다중성 비율(~45%)에 근접 (결정 3). */
+export type Multiplicity = 'single' | 'binary' | 'triple'
+
+const MULTIPLICITY_WEIGHTS: readonly WeightedEntry<Multiplicity>[] = [
+  { value: 'single', weight: 55 },
+  { value: 'binary', weight: 33 },
+  { value: 'triple', weight: 12 },
+]
+
+/** 동반성 궤도 편심 상한 — 실제 쌍성의 흔한 편심대. */
+const ECC_MAX = 0.6
+/**
+ * 동반성 궤도 반장축(추상 AU-유사) 범위. 렌더가 스케일·circumbinary 임계를 해석한다 (결정 9).
+ * 계층형 삼중성: inner는 근접 쌍, outer는 멀리 도는 제3성 (결정 6).
+ */
+const BINARY_SEP_MIN = 1.0
+const BINARY_SEP_SPAN = 11.0
+const INNER_SEP_MIN = 0.8
+const INNER_SEP_SPAN = 1.7
+const OUTER_SEP_MIN = 8.0
+const OUTER_SEP_SPAN = 10.0
+
+/**
+ * 계층형 삼중성에서 동반성의 역할.
+ * inner = 주성과 근접 쌍을 이룸 / outer = 그 쌍의 질량중심을 멀리서 공전.
+ */
+export interface Companion {
+  /** 동반성 분광형 — 주성 이하 질량으로 제약된다. */
+  readonly spectral: SpectralClass
+  /** 궤도 반장축 (추상 AU-유사) — 렌더가 스케일·임계를 해석. */
+  readonly separation: number
+  /** 궤도 편심 [0, ECC_MAX). */
+  readonly eccentricity: number
+  /** 초기 공전 위상 [0, 1) → ×2π. */
+  readonly phase: number
+  readonly hierarchy: 'inner' | 'outer'
+}
+
 export interface Star {
   readonly id: StarId
   readonly sector: SectorCoords
@@ -28,15 +69,66 @@ export interface Star {
   readonly localPos: readonly [number, number, number]
   readonly spectral: SpectralClass
   readonly name: string
+  /** 항성계 다중도 (결정 1·2) — single은 동반성 없음. */
+  readonly multiplicity: Multiplicity
+  /** 동반성 목록 — single:[] / binary:1 / triple:2([inner, outer]). */
+  readonly companions: readonly Companion[]
 }
 
-/** 태양 — 모든 시드에서 섹터(26,0,10) 인덱스 0에 고정 배치된다 (G-c-10). */
+/**
+ * 동반성 분광형 가중치 — 주성 질량 이하(SPECTRAL_BY_MASS 인덱스 ≥ 주성)만 남겨 재정규화 (결정 5).
+ * weighted()가 합을 재정규화하므로 부분집합을 그대로 넘기면 된다.
+ */
+function companionWeightsAtMost(
+  primary: SpectralClass,
+): readonly WeightedEntry<SpectralClass>[] {
+  const minIndex = SPECTRAL_BY_MASS.indexOf(primary)
+  return SPECTRAL_WEIGHTS.filter((entry) => SPECTRAL_BY_MASS.indexOf(entry.value) >= minIndex)
+}
+
+/** 태양 — 모든 시드에서 섹터(26,0,10) 인덱스 0에 고정 배치된다 (G-c-10). 단일성 고정. */
 export const SOL_STAR: Star = {
   id: SOL_STAR_ID,
   sector: SOL_SECTOR,
   localPos: SOL_LOCAL_POS,
   spectral: 'G',
   name: '태양',
+  multiplicity: 'single',
+  companions: [],
+}
+
+/**
+ * 동반성 draw — 주성 스트림에서 다중성 직후 호출된다 (append-only).
+ * draw 순서(companion당): spectral → separation → eccentricity → phase.
+ * 계층형 삼중성: companion[0]=inner(근접), companion[1]=outer(원거리) (결정 6).
+ */
+function drawCompanions(
+  starRng: Rng,
+  multiplicity: Multiplicity,
+  primarySpectral: SpectralClass,
+): readonly Companion[] {
+  if (multiplicity === 'single') return []
+  const count = multiplicity === 'binary' ? 1 : 2
+
+  const companions: Companion[] = []
+  for (let c = 0; c < count; c++) {
+    const hierarchy: Companion['hierarchy'] =
+      multiplicity === 'triple' && c === 1 ? 'outer' : 'inner'
+    const spectral = starRng.weighted(companionWeightsAtMost(primarySpectral))
+    const sepMin =
+      hierarchy === 'outer' ? OUTER_SEP_MIN : multiplicity === 'binary' ? BINARY_SEP_MIN : INNER_SEP_MIN
+    const sepSpan =
+      hierarchy === 'outer'
+        ? OUTER_SEP_SPAN
+        : multiplicity === 'binary'
+          ? BINARY_SEP_SPAN
+          : INNER_SEP_SPAN
+    const separation = sepMin + starRng.next() * sepSpan
+    const eccentricity = starRng.next() * ECC_MAX
+    const phase = starRng.next()
+    companions.push({ spectral, separation, eccentricity, phase, hierarchy })
+  }
+  return companions
 }
 
 /**
@@ -74,9 +166,13 @@ export function starsInSector(seed: Seed, sector: SectorCoords): readonly Star[]
       starRng.next() * SECTOR_SIZE,
     ] as const
     const spectral = starRng.weighted(SPECTRAL_WEIGHTS)
+    // ── append (GEN_VERSION 4): 다중성 — 위 4 draw 값은 보존된다 ──
+    const multiplicity = starRng.weighted(MULTIPLICITY_WEIGHTS)
+    const companions = drawCompanions(starRng, multiplicity, spectral)
+    // name은 별도 'name' 스트림이라 위 append와 순서 무관 (스트림 격리)
     const name = starName(rngFor(seed, 'name', id))
 
-    stars.push({ id, sector, localPos, spectral, name })
+    stars.push({ id, sector, localPos, spectral, name, multiplicity, companions })
   }
   return stars
 }

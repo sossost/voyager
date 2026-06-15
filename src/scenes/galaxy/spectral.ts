@@ -1,4 +1,4 @@
-import type { SpectralClass } from '@/engine'
+import type { Multiplicity, SpectralClass } from '@/engine'
 
 /**
  * 분광형별 렌더 속성 — 실제 항성 색온도를 단순화한 팔레트.
@@ -23,4 +23,11 @@ export const SPECTRAL_LABELS: Readonly<Record<SpectralClass, string>> = {
   G: 'G형 (황색 — 태양형)',
   K: 'K형 (주황색)',
   M: 'M형 (적색 왜성)',
+}
+
+/** 항성계 다중도 라벨 (binary-stars) — 단일성은 콜아웃에서 별도 표기하지 않는다. */
+export const MULTIPLICITY_LABELS: Readonly<Record<Multiplicity, string>> = {
+  single: '단일성',
+  binary: '쌍성계',
+  triple: '삼중성계',
 }

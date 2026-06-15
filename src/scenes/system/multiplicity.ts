@@ -1,0 +1,252 @@
+import { Vector3 } from 'three'
+
+import type { SpectralClass, Star } from '@/engine'
+
+/**
+ * 다중성계 렌더 수학 — 질량 룩업·질량중심 공전·circumbinary 판정 (binary-stars 결정 9).
+ *
+ * 엔진은 raw 파라미터(separation·eccentricity·phase)만 생성한다. 질량·궤도 스케일·
+ * 임계값은 모두 이 렌더 레이어의 관심사다. 공전각은 elapsed 시간 함수라 결정론·
+ * GEN_VERSION과 무관하다. 좌표는 systemGroup 원점(= inner barycenter) 상대.
+ */
+
+/** 분광형별 상대 질량 — 질량중심 분할·시각 반경·광도 보정에 쓰는 근사값. */
+export const SPECTRAL_MASS: Readonly<Record<SpectralClass, number>> = {
+  O: 16,
+  B: 8,
+  A: 2,
+  F: 1.3,
+  G: 1,
+  K: 0.7,
+  M: 0.3,
+}
+
+export function massOf(spectral: SpectralClass): number {
+  return SPECTRAL_MASS[spectral]
+}
+
+/** 주성 시각 반경 — CurrentSystem·SelectedStarMarker 공용 단일 소스. */
+export const STAR_VISUAL_RADIUS = 3
+
+/** 추상 separation(AU-유사) → 렌더 유닛 변환. (CurrentSystem ORBIT_SCALE=6과 균형) */
+const COMPANION_ORBIT_SCALE = 3.2
+/** 공전 각속도 기준(rad/s) — separation^1.5에 반비례(케플러 근사). */
+const ORBIT_ANGULAR_BASE = 0.5
+const FULL_TURN = Math.PI * 2
+
+/**
+ * 충돌 방지 튜닝 (사용자 피드백 2026-06-15 — 별/행성 관통).
+ * 별 시각 반경(3)이 궤도 스케일 대비 커서, 가까운 쌍은 서로 관통하고 멀리 도는 별은
+ * 행성 궤도를 가른다. 렌더에서 세 가지로 막는다:
+ *  - 근점거리(periapsis)가 두 별 표면 사이 간격을 확보하도록 반장축에 하한.
+ *  - 편심을 렌더에서 축소 — 근점 충돌 완화 (생성 편심은 보존, 시각만).
+ *  - 별 군집 전체를 감싸는 반경을 구해 행성 궤도를 그만큼 바깥으로 민다.
+ */
+const ECC_RENDER_FACTOR = 0.4
+const PAIR_SURFACE_GAP = 2.4
+const MAX_PAIR_SEMIMAJOR = 11
+/** 행성 최내곽 궤도 기준(orbitRadiusOf 최소 ≈ 8.6)보다 보수적으로 낮게 — 여유분. */
+const FIRST_PLANET_REFERENCE = 8
+const PLANET_CLEARANCE_MARGIN = 2.5
+
+/** 동반성 시각 반경 — 주성 반경에 질량 세제곱근비를 곱하고 시각 균형을 위해 클램프. */
+export function bodyVisualRadius(spectral: SpectralClass, baseRadius: number): number {
+  const ratio = Math.cbrt(massOf(spectral) / massOf('G'))
+  const clamped = Math.min(Math.max(ratio, 0.5), 1.8)
+  return baseRadius * clamped
+}
+
+/** 렌더 반경 — 주성은 STAR_VISUAL_RADIUS 고정(단일성과 동일), 동반성은 질량비. */
+function renderedRadius(spectral: SpectralClass, isPrimary: boolean): number {
+  return isPrimary ? STAR_VISUAL_RADIUS : bodyVisualRadius(spectral, STAR_VISUAL_RADIUS)
+}
+
+/**
+ * 쌍의 반장축(질량중심 기준 두 별 중심 거리) — 표면 간격 확보 하한 + 군집 상한 클램프.
+ * periapsis = aTotal·(1−eccEff) ≥ rA + rB + 간격 이 되도록 하한을 둔다.
+ */
+function pairSemiMajor(rawSep: number, rA: number, rB: number, eccEff: number): number {
+  const raw = rawSep * COMPANION_ORBIT_SCALE
+  const minSemi = (rA + rB + PAIR_SURFACE_GAP) / (1 - eccEff)
+  // 비충돌(하한)이 군집 상한보다 우선한다.
+  return Math.max(minSemi, Math.min(raw, MAX_PAIR_SEMIMAJOR))
+}
+
+/** 동반성 광도 보정 계수 — 질량 제곱근비 클램프 (Phase 5 튜닝 대상). */
+export function bodyLightFactor(spectral: SpectralClass): number {
+  const ratio = Math.sqrt(massOf(spectral) / massOf('G'))
+  return Math.min(Math.max(ratio, 0.35), 1.5)
+}
+
+/**
+ * 행성 궤도 중심을 질량중심(원점)에 둘지 여부.
+ * 다중성계는 모두 질량중심을 공전한다(circumbinary) — 행성은 항상 "쌍성 전체의 질량중심"
+ * 기준 (사용자 피드백 2026-06-15, 결정 8 개정). 단일성은 주성=질량중심이라 동일.
+ */
+export function isCircumbinary(star: Star): boolean {
+  return star.multiplicity !== 'single'
+}
+
+/** 별 개수 = 주성 1 + 동반성. (out 배열 사전 할당 크기 산정용) */
+export function bodyCount(star: Star): number {
+  return 1 + star.companions.length
+}
+
+/** 타원 극형식 반경 — 초점(질량중심)에서의 거리. r(θ)=a(1-e²)/(1+e·cosθ). */
+function ellipseRadius(semiMajor: number, eccentricity: number, theta: number): number {
+  return (semiMajor * (1 - eccentricity * eccentricity)) / (1 + eccentricity * Math.cos(theta))
+}
+
+/**
+ * 시간 t의 각 별 위치(원점 = inner barycenter 상대)를 out에 채운다.
+ * out[0]=주성, out[1..]=companions 순서. 반환값 = 채운 개수.
+ * 할당을 피하려고 out(길이 ≥ bodyCount)을 재사용한다 (useFrame 규율).
+ *
+ * 질량중심 보존: 두 별은 같은 진근점이각 θ를 공유하고 반대편에 위치하며
+ * 반장축이 질량 반비례(a1·m1 = a2·m2)라 m₁r₁ + m₂r₂ = 0 이 항상 성립한다.
+ */
+export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3[]): number {
+  const primaryMass = massOf(star.spectral)
+
+  if (star.multiplicity === 'single') {
+    out[0]?.set(0, 0, 0)
+    return 1
+  }
+
+  if (star.multiplicity === 'binary') {
+    const companion = star.companions[0]
+    if (companion == null) {
+      out[0]?.set(0, 0, 0)
+      return 1
+    }
+    const companionMass = massOf(companion.spectral)
+    const totalMass = primaryMass + companionMass
+    const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
+    const rPrimary = renderedRadius(star.spectral, true)
+    const rCompanion = renderedRadius(companion.spectral, false)
+    const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
+    const aPrimary = (aTotal * companionMass) / totalMass
+    const aCompanion = (aTotal * primaryMass) / totalMass
+    const omega = ORBIT_ANGULAR_BASE / Math.pow(companion.separation, 1.5)
+    const theta = companion.phase * FULL_TURN + elapsed * omega
+    const rBase = ellipseRadius(1, eccEff, theta)
+    const dirX = Math.cos(theta)
+    const dirZ = Math.sin(theta)
+    out[0]?.set(-dirX * aPrimary * rBase, 0, -dirZ * aPrimary * rBase)
+    out[1]?.set(dirX * aCompanion * rBase, 0, dirZ * aCompanion * rBase)
+    return 2
+  }
+
+  // triple — 계층형: 외부 레벨(inner쌍 ↔ outer)이 원점을, 내부 레벨(주성 ↔ inner)이 Bi를 공전.
+  const inner = star.companions[0]
+  const outer = star.companions[1]
+  if (inner == null || outer == null) {
+    out[0]?.set(0, 0, 0)
+    return 1
+  }
+  const innerMass = massOf(inner.spectral)
+  const outerMass = massOf(outer.spectral)
+  const innerPairMass = primaryMass + innerMass
+
+  // 내부 레벨 — 주성과 inner가 Bi를 공전 (먼저 풀어 inner 쌍의 외곽 반경을 구한다).
+  const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
+  const rPrimary = renderedRadius(star.spectral, true)
+  const rInnerBody = renderedRadius(inner.spectral, false)
+  const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
+  const aPrimary = (aTotalInner * innerMass) / innerPairMass
+  const aInner = (aTotalInner * primaryMass) / innerPairMass
+  // inner 쌍이 Bi 둘레로 차지하는 반경 — 외부 별과의 비충돌 하한 계산에 쓴다.
+  const innerPairExtent = Math.max(
+    aPrimary * (1 + eccInnerEff) + rPrimary,
+    aInner * (1 + eccInnerEff) + rInnerBody,
+  )
+
+  // 외부 레벨 — inner 쌍의 질량중심(Bi)과 outer가 원점을 공전. inner 쌍을 반경
+  // innerPairExtent의 한 천체로 취급해 outer가 쌍을 가르지 않도록 한다.
+  const eccOuterEff = outer.eccentricity * ECC_RENDER_FACTOR
+  const rOuterBody = renderedRadius(outer.spectral, false)
+  const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
+  const totalOuterMass = innerPairMass + outerMass
+  const aBi = (aTotalOuter * outerMass) / totalOuterMass
+  const aOuter = (aTotalOuter * innerPairMass) / totalOuterMass
+  const omegaOuter = ORBIT_ANGULAR_BASE / Math.pow(outer.separation, 1.5)
+  const thetaOuter = outer.phase * FULL_TURN + elapsed * omegaOuter
+  const rOuter = ellipseRadius(1, eccOuterEff, thetaOuter)
+  const oX = Math.cos(thetaOuter)
+  const oZ = Math.sin(thetaOuter)
+  const biX = -oX * aBi * rOuter
+  const biZ = -oZ * aBi * rOuter
+
+  const omegaInner = ORBIT_ANGULAR_BASE / Math.pow(inner.separation, 1.5)
+  const thetaInner = inner.phase * FULL_TURN + elapsed * omegaInner
+  const rInner = ellipseRadius(1, eccInnerEff, thetaInner)
+  const iX = Math.cos(thetaInner)
+  const iZ = Math.sin(thetaInner)
+
+  out[0]?.set(biX - iX * aPrimary * rInner, 0, biZ - iZ * aPrimary * rInner)
+  out[1]?.set(biX + iX * aInner * rInner, 0, biZ + iZ * aInner * rInner)
+  out[2]?.set(oX * aOuter * rOuter, 0, oZ * aOuter * rOuter)
+  return 3
+}
+
+/**
+ * 별 군집이 질량중심(원점)에서 닿는 최대 반경 — 가장 바깥 별의 원점거리(apoapsis) + 그 별 반경.
+ * 행성 궤도를 이만큼 바깥으로 밀어 별/행성 관통을 막는다 (planetClearanceOffset).
+ */
+function stellarClearanceRadius(star: Star): number {
+  const primaryMass = massOf(star.spectral)
+  const rPrimary = renderedRadius(star.spectral, true)
+
+  if (star.multiplicity === 'binary') {
+    const companion = star.companions[0]
+    if (companion == null) return rPrimary
+    const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
+    const rCompanion = renderedRadius(companion.spectral, false)
+    const totalMass = primaryMass + massOf(companion.spectral)
+    const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
+    const primaryReach = (aTotal * massOf(companion.spectral)) / totalMass
+    const companionReach = (aTotal * primaryMass) / totalMass
+    return Math.max(
+      primaryReach * (1 + eccEff) + rPrimary,
+      companionReach * (1 + eccEff) + rCompanion,
+    )
+  }
+
+  if (star.multiplicity === 'triple') {
+    const inner = star.companions[0]
+    const outer = star.companions[1]
+    if (inner == null || outer == null) return rPrimary
+    const innerPairMass = primaryMass + massOf(inner.spectral)
+    const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
+    const rInnerBody = renderedRadius(inner.spectral, false)
+    const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
+    const aPrimary = (aTotalInner * massOf(inner.spectral)) / innerPairMass
+    const aInner = (aTotalInner * primaryMass) / innerPairMass
+    const innerPairExtent = Math.max(
+      aPrimary * (1 + eccInnerEff) + rPrimary,
+      aInner * (1 + eccInnerEff) + rInnerBody,
+    )
+    const eccOuterEff = outer.eccentricity * ECC_RENDER_FACTOR
+    const rOuterBody = renderedRadius(outer.spectral, false)
+    const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
+    const totalOuterMass = innerPairMass + massOf(outer.spectral)
+    const aBi = (aTotalOuter * massOf(outer.spectral)) / totalOuterMass
+    const aOuter = (aTotalOuter * innerPairMass) / totalOuterMass
+    return Math.max(
+      aBi * (1 + eccOuterEff) + innerPairExtent, // inner 쌍이 Bi와 함께 닿는 최대 반경
+      aOuter * (1 + eccOuterEff) + rOuterBody,
+    )
+  }
+
+  return rPrimary
+}
+
+/**
+ * 행성 궤도를 바깥으로 미는 양 — 최내곽 행성이 별 군집을 벗어나도록.
+ * 단일성·여유 있는 경우 0. CurrentSystem·Planet·PlanetCalloutProjector가 공유한다.
+ */
+export function planetClearanceOffset(star: Star): number {
+  if (star.multiplicity === 'single') return 0
+  const clearance = stellarClearanceRadius(star) + PLANET_CLEARANCE_MARGIN
+  return Math.max(0, clearance - FIRST_PLANET_REFERENCE)
+}

@@ -88,18 +88,19 @@ export function createGameStore(options: CreateGameStoreOptions) {
     // 첫 화면은 시작 별의 우주선 뷰 — 항성계가 은하 좌표에 통합되어 별도 'system' kind가 없다 (결정 41)
     scene: { kind: 'galaxy', view: 'ship' } satisfies SceneState,
     selectedStarId: null,
+    selectedBodyIndex: 0,
     selectedPlanetId: null,
     pendingArrival: false,
 
-    selectStar(starId) {
+    selectStar(starId, bodyIndex = 0) {
       if (get().scene.kind !== 'galaxy') return // ship·perspective 양쪽에서 별 선택 가능 (결정 41-f)
       // 새 선택은 행성 선택을 닫는다 — 콜아웃은 한 번에 하나 (결정 42-f 도킹 슬롯 전제).
       // 해제(null)는 상대 선택을 건드리지 않는다 (빈 공간 탭이 행성 패널을 닫지 않게).
       if (starId != null) {
-        set({ selectedStarId: starId, selectedPlanetId: null })
+        set({ selectedStarId: starId, selectedBodyIndex: bodyIndex, selectedPlanetId: null })
         return
       }
-      set({ selectedStarId: null })
+      set({ selectedStarId: null, selectedBodyIndex: 0 })
     },
 
     selectPlanet(planetId) {

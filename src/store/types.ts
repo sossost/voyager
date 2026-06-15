@@ -39,13 +39,19 @@ export type QualityMode = 'auto' | 'manual'
 export interface SceneSlice {
   readonly scene: SceneState
   readonly selectedStarId: StarId | null
+  /**
+   * 선택한 항성계 안에서 어느 별인지 (다중성계) — 0=주성, 1+=동반성 index+1.
+   * selectedStarId가 null이면 의미 없다. 단일성계는 항상 0.
+   */
+  readonly selectedBodyIndex: number
   readonly selectedPlanetId: PlanetId | null
   /**
    * 워프 도착 직후 한 번만 true — 우주선 뷰 진입 시 도착 확대 연출을 트리거한다 (결정 41-c 보강).
    * 뷰 토글(perspective↔ship)이 아니라 워프 도착만 표지하도록 onWarpComplete만 set, 카메라가 소비.
    */
   readonly pendingArrival: boolean
-  selectStar(starId: StarId | null): void
+  /** bodyIndex: 다중성계에서 클릭한 별 (0=주성). 미지정 시 주성(0). */
+  selectStar(starId: StarId | null, bodyIndex?: number): void
   selectPlanet(planetId: PlanetId | null): void
   warpTo(target: StarId): void
   onWarpComplete(): void

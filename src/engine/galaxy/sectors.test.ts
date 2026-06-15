@@ -8,6 +8,7 @@ import {
   SECTOR_SIZE,
   sectorDensity,
 } from './density'
+import type { SpectralClass } from './sectors'
 import { MAX_STARS_PER_SECTOR, SOL_STAR, starsInSector } from './sectors'
 import { SOL_SECTOR, SOL_STAR_ID, SOL_LOCAL_POS } from '../system/sol'
 
@@ -119,5 +120,106 @@ describe('starsInSector', () => {
 
   it('SOL_STAR 좌표는 SOL_LOCAL_POS와 일치한다', () => {
     expect(SOL_STAR.localPos).toEqual(SOL_LOCAL_POS)
+  })
+
+  it('SOL_STAR는 단일성이고 동반성이 없다', () => {
+    expect(SOL_STAR.multiplicity).toBe('single')
+    expect(SOL_STAR.companions).toEqual([])
+  })
+})
+
+/** 질량 내림차순 — 동반성 제약 검증용. */
+const SPECTRAL_BY_MASS: readonly SpectralClass[] = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
+
+/** 은하 평면을 훑어 충분한 표본의 별을 모은다 (분포·불변식 검증용). */
+function sampleStars(sampleSeed: Seed) {
+  const stars = []
+  for (let sx = -20; sx <= 20; sx++) {
+    for (let sz = -20; sz <= 20; sz++) {
+      stars.push(...starsInSector(sampleSeed, { sx, sy: 0, sz }))
+    }
+  }
+  return stars
+}
+
+describe('다중성계 (binary-stars, GEN_VERSION 4)', () => {
+  const sample = sampleStars(seedOf('MULTIPLICITY'))
+
+  it('companions 개수는 multiplicity와 일치한다 (single:0 binary:1 triple:2)', () => {
+    for (const star of sample) {
+      const expected = star.multiplicity === 'single' ? 0 : star.multiplicity === 'binary' ? 1 : 2
+      expect(star.companions.length).toBe(expected)
+    }
+  })
+
+  it('삼중성은 [inner, outer] 계층형이다', () => {
+    const triples = sample.filter((s) => s.multiplicity === 'triple')
+    expect(triples.length).toBeGreaterThan(0)
+    for (const star of triples) {
+      expect(star.companions[0]?.hierarchy).toBe('inner')
+      expect(star.companions[1]?.hierarchy).toBe('outer')
+    }
+  })
+
+  it('모든 동반성 분광형은 주성 이하 질량이다 (SPECTRAL_BY_MASS 인덱스 ≥ 주성)', () => {
+    for (const star of sample) {
+      const primaryIndex = SPECTRAL_BY_MASS.indexOf(star.spectral)
+      for (const companion of star.companions) {
+        expect(SPECTRAL_BY_MASS.indexOf(companion.spectral)).toBeGreaterThanOrEqual(primaryIndex)
+      }
+    }
+  })
+
+  it('동반성 궤도 파라미터는 유효 범위 안에 있다', () => {
+    for (const star of sample) {
+      for (const companion of star.companions) {
+        expect(companion.separation).toBeGreaterThan(0)
+        expect(companion.eccentricity).toBeGreaterThanOrEqual(0)
+        expect(companion.eccentricity).toBeLessThan(0.6)
+        expect(companion.phase).toBeGreaterThanOrEqual(0)
+        expect(companion.phase).toBeLessThan(1)
+      }
+    }
+  })
+
+  it('계층형 삼중성에서 outer 동반성이 inner보다 멀다', () => {
+    const triples = sample.filter((s) => s.multiplicity === 'triple')
+    for (const star of triples) {
+      const inner = star.companions[0]
+      const outer = star.companions[1]
+      if (inner == null || outer == null) continue
+      expect(outer.separation).toBeGreaterThan(inner.separation)
+    }
+  })
+
+  it('다중성 분포가 목표 비율 근방이다 (single≈55 / binary≈33 / triple≈12)', () => {
+    const counts = { single: 0, binary: 0, triple: 0 }
+    for (const star of sample) counts[star.multiplicity]++
+    const total = sample.length
+    expect(total).toBeGreaterThan(500) // 표본 충분성
+    // 허용 오차 ±6%p — 표본이 수백~수천이라 충분히 수렴
+    expect(counts.single / total).toBeGreaterThan(0.49)
+    expect(counts.single / total).toBeLessThan(0.61)
+    expect(counts.binary / total).toBeGreaterThan(0.27)
+    expect(counts.binary / total).toBeLessThan(0.39)
+    expect(counts.triple / total).toBeGreaterThan(0.06)
+    expect(counts.triple / total).toBeLessThan(0.18)
+  })
+
+  it('M형 주성은 동반성도 항상 M형이다 (질량 제약 경계)', () => {
+    const mPrimaries = sample.filter((s) => s.spectral === 'M' && s.companions.length > 0)
+    expect(mPrimaries.length).toBeGreaterThan(0)
+    for (const star of mPrimaries) {
+      for (const companion of star.companions) {
+        expect(companion.spectral).toBe('M')
+      }
+    }
+  })
+
+  it('같은 (seed, sector)는 companions까지 동일하다 (결정론)', () => {
+    const sector = { sx: 5, sy: 0, sz: -3 }
+    const a = starsInSector(seedOf('DETERM'), sector)
+    const b = starsInSector(seedOf('DETERM'), sector)
+    expect(a).toEqual(b)
   })
 })
