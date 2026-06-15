@@ -8,7 +8,7 @@ import {
   SECTOR_SIZE,
   sectorDensity,
 } from './density'
-import type { SpectralClass } from './sectors'
+import type { SpectralClass, StarKind } from './sectors'
 import { MAX_STARS_PER_SECTOR, SOL_STAR, starsInSector } from './sectors'
 import { SOL_SECTOR, SOL_STAR_ID, SOL_LOCAL_POS } from '../system/sol'
 
@@ -126,6 +126,10 @@ describe('starsInSector', () => {
     expect(SOL_STAR.multiplicity).toBe('single')
     expect(SOL_STAR.companions).toEqual([])
   })
+
+  it('SOL_STAR는 주계열성이다 (kind = main_sequence)', () => {
+    expect(SOL_STAR.kind).toBe('main_sequence')
+  })
 })
 
 /** 질량 내림차순 — 동반성 제약 검증용. */
@@ -220,6 +224,67 @@ describe('다중성계 (binary-stars, GEN_VERSION 4)', () => {
     const sector = { sx: 5, sy: 0, sz: -3 }
     const a = starsInSector(seedOf('DETERM'), sector)
     const b = starsInSector(seedOf('DETERM'), sector)
+    expect(a).toEqual(b)
+  })
+})
+
+/** 별 종류 — 주계열성 + 이색 천체 4종. */
+const STAR_KINDS: readonly StarKind[] = [
+  'main_sequence',
+  'red_giant',
+  'white_dwarf',
+  'pulsar',
+  'black_hole',
+]
+
+/** 대질량 분광형 — 블랙홀·펄서의 진화 종착이 되는 별. */
+const MASSIVE_CLASSES: readonly SpectralClass[] = ['O', 'B']
+
+describe('이색 천체 (exotic-bodies, GEN_VERSION 5)', () => {
+  const sample = sampleStars(seedOf('STARKINDS'))
+
+  it('표본이 분포 검증에 충분하다', () => {
+    expect(sample.length).toBeGreaterThan(500)
+  })
+
+  it('모든 별은 유효한 kind를 가진다', () => {
+    for (const star of sample) {
+      expect(STAR_KINDS).toContain(star.kind)
+    }
+  })
+
+  it('주계열성이 압도적 다수다 (long-tail 희귀도)', () => {
+    const mainSequence = sample.filter((s) => s.kind === 'main_sequence').length
+    expect(mainSequence / sample.length).toBeGreaterThan(0.8)
+  })
+
+  it('이색 천체는 long-tail이다 (전체 exotic 비율 상한)', () => {
+    const exotic = sample.filter((s) => s.kind !== 'main_sequence').length
+    expect(exotic / sample.length).toBeLessThan(0.2)
+  })
+
+  it('블랙홀·펄서는 대질량(O/B) 분광형에서만 출현한다', () => {
+    for (const star of sample) {
+      if (star.kind === 'black_hole' || star.kind === 'pulsar') {
+        expect(MASSIVE_CLASSES).toContain(star.spectral)
+      }
+    }
+  })
+
+  it('블랙홀·펄서는 전체의 ~1% 미만으로 희귀하다', () => {
+    const remnants = sample.filter((s) => s.kind === 'black_hole' || s.kind === 'pulsar').length
+    expect(remnants / sample.length).toBeLessThan(0.02)
+  })
+
+  it('적색거성·백색왜성은 우주에 실제로 존재한다', () => {
+    expect(sample.some((s) => s.kind === 'red_giant')).toBe(true)
+    expect(sample.some((s) => s.kind === 'white_dwarf')).toBe(true)
+  })
+
+  it('같은 (seed, sector)는 kind까지 동일하다 (결정론)', () => {
+    const sector = { sx: 7, sy: 0, sz: -2 }
+    const a = starsInSector(seedOf('KINDDETERM'), sector)
+    const b = starsInSector(seedOf('KINDDETERM'), sector)
     expect(a).toEqual(b)
   })
 })

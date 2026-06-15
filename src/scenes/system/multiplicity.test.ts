@@ -13,6 +13,7 @@ function makeStar(overrides: Partial<Star>): Star {
     name: 'Test',
     multiplicity: 'single',
     companions: [],
+    kind: 'main_sequence',
     ...overrides,
   }
 }

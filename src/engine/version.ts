@@ -16,5 +16,10 @@
  *   (binary-stars 결정 7). 기존 localPos·spectral 값은 보존되고 planetsOf 무변경이라
  *   행성·외계 출력은 그대로다. 골든의 별 직렬화에 신규 필드가 추가되어 스냅샷이 바뀐다.
  *   Sol은 조기 분기로 동반성 draw 미실행 → 단일성 유지, LIFE1 무영향.
+ * v5 (2026-06-15): 이색 천체 — 별 'star' 스트림 마지막에 kind append (exotic-bodies 결정 9).
+ *   companions(가변 draw) 뒤 마지막 draw라 기존 localPos·spectral·multiplicity·companions
+ *   값은 보존되고 planetsOf·alienAt·moons·drawCompanions 무변경이라 행성·외계·위성·동반성
+ *   출력은 그대로다. 골든의 별 직렬화에 신규 kind 필드가 추가되어 스냅샷이 바뀐다.
+ *   Sol은 루프 내 조기 continue로 kind draw 미실행 → main_sequence 유지, LIFE1 무영향.
  */
-export const GEN_VERSION = 4
+export const GEN_VERSION = 5

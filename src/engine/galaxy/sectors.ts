@@ -33,6 +33,58 @@ const MULTIPLICITY_WEIGHTS: readonly WeightedEntry<Multiplicity>[] = [
   { value: 'triple', weight: 12 },
 ]
 
+/**
+ * 별 종류 (결정 2) — 주계열성 + 이색 천체 4종.
+ * 적색거성·백색왜성은 진화 후기 상태, 펄서·블랙홀은 대질량성의 종착.
+ */
+export type StarKind = 'main_sequence' | 'red_giant' | 'white_dwarf' | 'pulsar' | 'black_hole'
+
+/**
+ * 분광형별 kind 가중치 (결정 4) — 천문학적 사실성:
+ * 블랙홀·펄서는 대질량 O/B에서만(=전체의 ~0.4%로 자연 희귀), 적색거성·백색왜성은
+ * 중저질량의 흔한 진화 상태. 어디서나 주계열성이 압도적 다수(long-tail, 결정 3).
+ * weighted()는 테이블과 무관하게 next() 1회만 소비하므로 append-only·결정론에 영향 없다.
+ */
+const KIND_WEIGHTS_BY_SPECTRAL: Readonly<Record<SpectralClass, readonly WeightedEntry<StarKind>[]>> = {
+  O: [
+    { value: 'main_sequence', weight: 78 },
+    { value: 'red_giant', weight: 6 },
+    { value: 'pulsar', weight: 10 },
+    { value: 'black_hole', weight: 6 },
+  ],
+  B: [
+    { value: 'main_sequence', weight: 85 },
+    { value: 'red_giant', weight: 6 },
+    { value: 'pulsar', weight: 6 },
+    { value: 'black_hole', weight: 3 },
+  ],
+  A: [
+    { value: 'main_sequence', weight: 90 },
+    { value: 'red_giant', weight: 6 },
+    { value: 'white_dwarf', weight: 4 },
+  ],
+  F: [
+    { value: 'main_sequence', weight: 92 },
+    { value: 'red_giant', weight: 5 },
+    { value: 'white_dwarf', weight: 3 },
+  ],
+  G: [
+    { value: 'main_sequence', weight: 92 },
+    { value: 'red_giant', weight: 5 },
+    { value: 'white_dwarf', weight: 3 },
+  ],
+  K: [
+    { value: 'main_sequence', weight: 90 },
+    { value: 'red_giant', weight: 8 },
+    { value: 'white_dwarf', weight: 2 },
+  ],
+  M: [
+    { value: 'main_sequence', weight: 93 },
+    { value: 'red_giant', weight: 6 },
+    { value: 'white_dwarf', weight: 1 },
+  ],
+}
+
 /** 동반성 궤도 편심 상한 — 실제 쌍성의 흔한 편심대. */
 const ECC_MAX = 0.6
 /**
@@ -73,6 +125,8 @@ export interface Star {
   readonly multiplicity: Multiplicity
   /** 동반성 목록 — single:[] / binary:1 / triple:2([inner, outer]). */
   readonly companions: readonly Companion[]
+  /** 별 종류 (이색 천체, GEN_VERSION 5) — 주성에만 존재. 'star' 스트림 마지막 draw. */
+  readonly kind: StarKind
 }
 
 /**
@@ -95,6 +149,7 @@ export const SOL_STAR: Star = {
   name: '태양',
   multiplicity: 'single',
   companions: [],
+  kind: 'main_sequence',
 }
 
 /**
@@ -169,10 +224,13 @@ export function starsInSector(seed: Seed, sector: SectorCoords): readonly Star[]
     // ── append (GEN_VERSION 4): 다중성 — 위 4 draw 값은 보존된다 ──
     const multiplicity = starRng.weighted(MULTIPLICITY_WEIGHTS)
     const companions = drawCompanions(starRng, multiplicity, spectral)
+    // ── append (GEN_VERSION 5): 이색 천체 kind — 위 draw 값은 모두 보존된다.
+    //    companions가 가변 draw를 소비해도 kind는 항상 그 뒤 마지막 draw다 (append-only).
+    const kind = starRng.weighted(KIND_WEIGHTS_BY_SPECTRAL[spectral])
     // name은 별도 'name' 스트림이라 위 append와 순서 무관 (스트림 격리)
     const name = starName(rngFor(seed, 'name', id))
 
-    stars.push({ id, sector, localPos, spectral, name, multiplicity, companions })
+    stars.push({ id, sector, localPos, spectral, name, multiplicity, companions, kind })
   }
   return stars
 }
