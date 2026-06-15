@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 
 import { starById } from '@/engine/galaxy/position'
-import { MULTIPLICITY_LABELS, SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
+import { MULTIPLICITY_LABELS, SPECTRAL_LABELS, STAR_KIND_LABELS } from '@/scenes/galaxy/spectral'
 import { useGameStore } from '@/store'
 
 export function StarInfoPanel() {
@@ -68,6 +68,13 @@ export function StarInfoPanel() {
         </header>
 
         <dl className="hud-panel-facts">
+          {/* 이색 천체 종류 — 주성(동반성 미선택)이고 주계열성이 아닐 때만 (kind는 주성에만) */}
+          {selectedCompanion == null && star.kind !== 'main_sequence' ? (
+            <div className="hud-fact">
+              <dt>종류</dt>
+              <dd>{STAR_KIND_LABELS[star.kind]}</dd>
+            </div>
+          ) : null}
           <div className="hud-fact">
             <dt>분광형</dt>
             <dd>{SPECTRAL_LABELS[bodySpectral]}</dd>
