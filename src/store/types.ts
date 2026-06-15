@@ -1,5 +1,5 @@
 import type { AlienIndividual, IndividualId, PlanetId, Seed, StarId } from '@/engine'
-import type { CollectionEntry } from '@/persistence/types'
+import type { CollectionEntry, PhenomenonDiscovery } from '@/persistence/types'
 
 /**
  * 은하 공간의 두 시점 (결정 34·41) — 항성계 씬이 은하에 통합되어 'system' kind가 사라졌다.
@@ -72,6 +72,8 @@ export interface PlayerSlice {
   readonly discoveredSpecies: ReadonlyMap<string, number>
   /** 수집 기록 전체 — 도감 상세(개체 목록)용 캐시. */
   readonly collectionEntries: readonly CollectionEntry[]
+  /** 발견한 이색 천체 — 현상 도감 캐시 (warpTo가 도착 별이 이색이면 추가). */
+  readonly discoveredPhenomena: readonly PhenomenonDiscovery[]
   /** 생명체 행성 탐사 — 조우 판정·캐시 갱신·영속화를 한 곳에서 처리한다. */
   explore(planetId: PlanetId): void
 }
