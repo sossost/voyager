@@ -11,6 +11,7 @@ import {
 } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
+import { usePrefersReducedMotion } from '@/scenes/shared/useReducedMotion'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
 
 /**
@@ -95,6 +96,7 @@ export function AccretionDisk({ radius }: AccretionDiskProps) {
   const meshRef = useRef<Mesh>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
   const geometry = useMemo(() => diskGeometry(), [])
+  const reducedMotion = usePrefersReducedMotion()
 
   const material = useMemo(
     () =>
@@ -113,7 +115,8 @@ export function AccretionDisk({ radius }: AccretionDiskProps) {
   useEffect(() => () => material.dispose(), [material])
 
   useFrame((state) => {
-    setUniform(material, 'uTime', state.clock.elapsedTime)
+    // reduced-motion: 회전 줄무늬 정지(uTime 고정) — 전정 민감성 배려. 형태는 그대로.
+    setUniform(material, 'uTime', reducedMotion ? 0 : state.clock.elapsedTime)
     // 디스크 평면을 카메라 향하게(빌보드) — 어느 각도에서도 비스듬한 타원으로 보인다.
     billboardRef.current?.quaternion.copy(state.camera.quaternion)
     // 워프 도착 크로스페이드 — StarSurface와 동일 계약 (결정 41-c, 도착 팝인 방지).

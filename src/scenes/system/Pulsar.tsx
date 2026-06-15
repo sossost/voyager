@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { AdditiveBlending, type Group, ShaderMaterial, Vector3 } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
+import { usePrefersReducedMotion } from '@/scenes/shared/useReducedMotion'
 import { StarSurface } from '@/scenes/system/StarSurface'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
 
@@ -54,6 +55,7 @@ export function Pulsar({ radius, color }: PulsarProps) {
   const rootRef = useRef<Group>(null)
   const spinRef = useRef<Group>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
+  const reducedMotion = usePrefersReducedMotion()
 
   const jetLen = radius * JET_LEN_FACTOR
   const jetBase = radius * JET_BASE_FACTOR
@@ -75,10 +77,12 @@ export function Pulsar({ radius, color }: PulsarProps) {
   useEffect(() => () => jetMaterial.dispose(), [jetMaterial])
 
   useFrame((state, delta) => {
-    // 자전 — 자기축이 어긋나 빔이 원뿔을 쓴다 (등대).
-    if (spinRef.current != null) spinRef.current.rotation.y += SPIN_RATE * delta
+    // reduced-motion: 자전·점멸 정지, 제트는 정적 표시 (광과민성·전정 민감성 배려).
+    if (spinRef.current != null && !reducedMotion) spinRef.current.rotation.y += SPIN_RATE * delta
     // 관측 점멸 — ≤3Hz, 완전 소등하지 않음(대비 상한, 광과민성).
-    const pulse = PULSE_MIN + (1 - PULSE_MIN) * (0.5 + 0.5 * Math.sin(TWO_PI * BLINK_HZ * state.clock.elapsedTime))
+    const pulse = reducedMotion
+      ? 1
+      : PULSE_MIN + (1 - PULSE_MIN) * (0.5 + 0.5 * Math.sin(TWO_PI * BLINK_HZ * state.clock.elapsedTime))
     setUniform(jetMaterial, 'uPulse', pulse)
     // 워프 도착 크로스페이드 (StarSurface 본체와 동일 계약).
     if (rootRef.current != null) {

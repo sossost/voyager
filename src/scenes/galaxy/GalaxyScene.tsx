@@ -4,6 +4,7 @@ import { starWorldPosition } from '@/engine/galaxy/position'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { CurrentStarArrowProjector } from '@/scenes/galaxy/CurrentStarArrowProjector'
 import { CurrentStarBeacon } from '@/scenes/galaxy/CurrentStarBeacon'
+import { BlackHoleMapRings } from '@/scenes/galaxy/BlackHoleMapRings'
 import { GalaxyNebula } from '@/scenes/galaxy/GalaxyNebula'
 import { GalaxyStarField } from '@/scenes/galaxy/GalaxyStarField'
 import { JourneyPath } from '@/scenes/galaxy/JourneyPath'
@@ -98,6 +99,8 @@ export function GalaxyScene() {
         visitedStars={visitedStars}
         currentStarId={anchorStarId}
       />
+      {/* 블랙홀 맵 마커 — 검은 점이라 안 보이는 블랙홀을 가산 링으로 찾을 수 있게 (결정 10) */}
+      <BlackHoleMapRings stars={stars} />
       {/* 현재 항성계 — 모든 뷰(우주선·퍼스펙티브)와 워프에서 별 구체를 은하 좌표에 직접
           렌더한다. 크로스페이드가 거리에 따라 포인트↔구체를 핸드오프하므로 퍼스펙티브에서
           줌아웃하면 자연히 점으로 돌아간다. 행성은 워프 중엔 베이크하지 않는다 (결정 41) */}
