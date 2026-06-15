@@ -3,7 +3,12 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Matrix4, Quaternion, Vector3 } from 'three'
 
 import { starWorldPosition } from '@/engine'
-import { WARP_IGNITION_PROGRESS, WARP_STAGE_A_MS } from '@/scenes/warp/warpTimeline'
+import {
+  WARP_AIM_PROGRESS,
+  WARP_IGNITION_PROGRESS,
+  WARP_RECOIL_PROGRESS,
+  WARP_STAGE_A_MS,
+} from '@/scenes/warp/warpTimeline'
 import { useGameStore } from '@/store'
 
 /**
@@ -12,9 +17,10 @@ import { useGameStore } from '@/store'
  * 워프는 항상 1인칭(우주선 시점)에서 경험한다. 발동 뷰에 따라 진입이 갈린다:
  *  - 우주선 뷰: 정박 포즈에서 목표 별 방향으로 부드럽게 회전(예열 홀드 동안).
  *  - 퍼스펙티브 뷰: 우주선 포즈로 컷(줌아웃 시) 또는 근접 스윕(줌인 시) 후 목표로 회전.
- * 예열은 세 박자다: ① 목표 응시 정렬(회전) → ② 시선 고정한 채 목표 반대로 반동(wind-up,
- * 도착 줌인과 대칭) → ③ 점화(WARP_IGNITION_PROGRESS) 시점에 그 풀백 지점에서 목표 방향
- * 큐빅 가속 돌진(뿜). 회전과 반동을 겹치지 않게 분리해야 후퇴가 또렷이 읽힌다.
+ * 예열은 네 박자다: ① 목표 응시 정렬(회전) → ② 정렬 고정 대기(엔진 예열·긴장 적재) →
+ * ③ 시선 고정한 채 목표 반대로 반동(wind-up, 도착 줌인과 대칭) → ④ 점화
+ * (WARP_IGNITION_PROGRESS) 시점에 풀백 지점에서 목표 방향 큐빅 가속 돌진(뿜).
+ * 회전·대기·반동을 겹치지 않게 분리해야 각 박자가 또렷이 읽힌다.
  * 별밭 시차가 이동감을, 스트리크가 속도감을 만든다. OrbitControls는 워프 동안 비활성 —
  * 타임라인은 ref 기반, store 쓰기 없음 (철칙 6).
  */
@@ -28,12 +34,6 @@ const SHIP_OFFSET_DISTANCE = 30
  * 후퇴(목표가 화면 중앙 고정)"로 또렷이 읽힌다. 돌진 시작점이 곧 이 풀백 지점이라 연속적.
  */
 const DEPARTURE_PULLBACK_DISTANCE = 70
-/**
- * 정렬 완료 지점 (스테이지 A 진행도) — 여기까지 목표 응시 회전을 끝내고,
- * 이후 점화(WARP_IGNITION_PROGRESS)까지는 시선을 고정한 채 뒤로 반동한다.
- * 반동과 회전을 겹치지 않게 분리해야 후퇴가 묻히지 않는다.
- */
-const WARP_AIM_PROGRESS = 0.1
 /** 목표 방향 돌진 거리 상한 (월드 단위) — 가까운 별로 워프해도 과하지 않게. */
 const MAX_DOLLY_DISTANCE = 2_200
 /** 돌진 시작점에서 목표까지 거리 대비 돌진 비율 — 목표 항성을 지나치지 않는다. */
@@ -165,18 +165,25 @@ export function WarpCameraRig() {
       return
     }
 
+    if (progress < WARP_RECOIL_PROGRESS) {
+      // ② 대기 단계 — 정렬을 마치고 목표를 응시한 채 살짝 멈춘다 (엔진 예열·긴장 적재)
+      camera.position.copy(pose.shipPosition)
+      camera.quaternion.copy(aimQuat)
+      return
+    }
+
     if (progress < WARP_IGNITION_PROGRESS) {
-      // ② 반동 단계 — 정렬을 고정한 채(목표 응시) 목표 반대로 물러선다 (wind-up).
+      // ③ 반동 단계 — 정렬을 고정한 채(목표 응시) 목표 반대로 물러선다 (wind-up).
       // 축 방향 순수 후퇴라 목표가 중앙에 박힌 채 배경만 멀어진다.
       const recoil = easeOut(
-        clamp01((progress - WARP_AIM_PROGRESS) / (WARP_IGNITION_PROGRESS - WARP_AIM_PROGRESS)),
+        clamp01((progress - WARP_RECOIL_PROGRESS) / (WARP_IGNITION_PROGRESS - WARP_RECOIL_PROGRESS)),
       )
       camera.position.lerpVectors(pose.shipPosition, pose.launchPosition, recoil)
       camera.quaternion.copy(aimQuat)
       return
     }
 
-    // ③ 돌진(뿜) 단계 — 풀백 지점에서 목표 방향 큐빅 가속 (rush=0이 곧 풀백 지점이라 연속적)
+    // ④ 돌진(뿜) 단계 — 풀백 지점에서 목표 방향 큐빅 가속 (rush=0이 곧 풀백 지점이라 연속적)
     const rushLocal = clamp01((progress - WARP_IGNITION_PROGRESS) / (1 - WARP_IGNITION_PROGRESS))
     const rush = rushLocal * rushLocal * rushLocal
     camera.position

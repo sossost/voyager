@@ -16,7 +16,13 @@ export const WARP_FOV_REST = 60
 export const WARP_FOV_PEAK = 85
 
 /**
- * 점화 시점 (스테이지 A 진행도 0~1) — 발동 즉시 우주선 시점으로 컷되고(결정 34),
- * 이 진행도까지는 홀드(엔진 예열 — 전진 크리프). 이후 스트리크·FOV 서지·돌진이 함께 켜진다.
+ * 예열 박자의 분기점 (스테이지 A 진행도 0~1) — WarpCameraRig(카메라)와 WarpReadout(HUD)이 공유한다.
+ *  ① 정렬 [0, AIM)           — 목표 응시 회전
+ *  ② 대기 [AIM, RECOIL)      — 정렬 고정 텀(엔진 예열)
+ *  ③ 반동 [RECOIL, IGNITION) — 목표 반대로 후퇴(wind-up)
+ *  ④ 돌진 [IGNITION, 1]      — 큐빅 가속(뿜) + 스트리크·FOV 서지 동시 점화
+ * 발동 즉시 우주선 시점으로 컷된다(결정 34). 예열 4박자를 담도록 점화를 0.18→0.24로 연장.
  */
-export const WARP_IGNITION_PROGRESS = 0.18
+export const WARP_AIM_PROGRESS = 0.09
+export const WARP_RECOIL_PROGRESS = 0.14
+export const WARP_IGNITION_PROGRESS = 0.24
