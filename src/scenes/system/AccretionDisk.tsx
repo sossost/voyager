@@ -63,10 +63,16 @@ const FRAGMENT_SHADER = /* glsl */ `
     float pd = (vRadial - 0.05) / 0.05;
     float photon = exp(-pd * pd) * 0.9;
 
-    // 부드러운 회전 셔머 (atan 없이 vDir·시간으로) — 약하게, 스포크 느낌 방지
-    float shimmer = 0.85 + 0.15 * sin(vDir.x * 7.0 + vDir.y * 4.0 + vRadial * 6.0 + uTime * 1.6);
+    // 차등 회전 소용돌이 — 안쪽이 빠르게 흐른다(케플러). atan 없이 회전행렬로 vDir을
+    // 시간만큼 돌려 나선 줄무늬가 휘감겨 흐르게 한다(NaN 안전). 토성 고리 느낌을 벗어나는 핵심.
+    float t = uTime * mix(2.6, 0.7, vRadial);
+    float cs = cos(t);
+    float sn = sin(t);
+    vec2 rd = vec2(cs * vDir.x - sn * vDir.y, sn * vDir.x + cs * vDir.y);
+    float swirl = 0.55 + 0.45 * sin(rd.x * 9.0 + rd.y * 5.0 + vRadial * 16.0);
+    float fine = 0.85 + 0.15 * sin(rd.y * 23.0 - rd.x * 13.0 + vRadial * 30.0);
 
-    float intensity = (body + photon) * doppler * shimmer;
+    float intensity = (body + photon) * doppler * swirl * fine;
     intensity = clamp(intensity, 0.0, 4.0);
     gl_FragColor = vec4(min(col * intensity * 1.5, vec3(6.0)), clamp(intensity, 0.0, 1.0) * uOpacity);
   }
