@@ -11,6 +11,7 @@ import {
   bodyPositions,
   bodyVisualRadius,
   isCircumbinary,
+  STAR_VISUAL_RADIUS,
 } from '@/scenes/system/multiplicity'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
@@ -30,8 +31,7 @@ import { useGameStore } from '@/store'
  * 더한다 (PlanetCalloutProjector). 렌더 전용 — GEN_VERSION·저장 포맷 무관.
  */
 
-/** 항성 시각 반경 — ORBIT_SCALE 축소(6)에 맞춰 3으로 조정, 코로나 글로우로 시각적으로 더 크게 보인다. */
-const STAR_VISUAL_RADIUS = 3
+// STAR_VISUAL_RADIUS는 multiplicity.ts에서 임포트 — SelectedStarMarker와 공용 (코로나 글로우로 더 크게 보인다).
 // SYSTEM_LOD_DISTANCE는 starCrossfade.ts에서 임포트 — 궤도링 페이드와 같은 임계 공유 (백로그 H-3).
 /**
  * 항성 포인트라이트 — 조명은 그룹 스케일과 무관하게 월드 좌표로 작동한다.

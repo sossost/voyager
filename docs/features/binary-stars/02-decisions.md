@@ -99,8 +99,8 @@
 | A: 분리거리 기반 적응 (근접=주위연성 / 원거리=주성 궤도) | 천문학적 사실성(P-type vs S-type), `planetsOf` 생성 draw 불변(행성 골든 보존) | 궤도 중심 분기 로직 필요 |
 | B: 항상 주성 궤도 | 단순 | 근접 쌍성에서 행성이 한 별만 도는 비현실 |
 
-**Chosen:** 분리거리 기반 적응 (렌더 시 궤도 중심만 변경)
-**Reason:** B-모델의 행성 사실성을 생성 분포 변경 없이 흡수하는 핵심 트릭. `planetsOf()`는 그대로 두고 *렌더 배치 기준점*만 근접 쌍성=질량중심, 원거리=주성으로 분기 → 행성 생성 골든 값 100% 보존, GEN_VERSION 영향은 별 스트림 한정.
+**Chosen:** ~~분리거리 기반 적응~~ → **항상 질량중심 공전(circumbinary)** (2026-06-15 사용자 피드백으로 개정)
+**Reason:** 초안은 근접=질량중심·원거리=주성(S-type)으로 분기했으나, 사용자가 "행성은 쌍성 전체의 질량중심을 기준으로 돌아야 한다"고 명확히 함. S-type(원거리 쌍성에서 행성이 주성 추종)은 직관과 어긋나고 시각도 혼란스러워 폐지. **모든 다중성계에서 행성은 질량중심(systemGroup 원점)을 공전**한다 — `isCircumbinary`는 `multiplicity !== 'single'`로 단순화, `CIRCUMBINARY_THRESHOLD` 제거. `planetsOf()`는 여전히 무변경(행성 골든 보존). 단일성은 주성=질량중심이라 동일.
 
 ---
 
@@ -147,6 +147,8 @@
 **Chosen:** A. store에 `selectedBodyIndex`(0=주성, 1+=동반성) 추가, `selectStar(starId, bodyIndex?)` 확장. `CurrentSystem`의 각 별 본체에 투명 레이캐스트 프록시 구(`onClick`→`selectStar(currentStarId, index)`). 화면공간 피킹(useStarPicking)과의 충돌은 `starPickSuppress`(본체 pointerdown이 다음 pointerup 1회 억제)로 해소 — 멀리 떨어진 동반성을 클릭해도 이웃 항성계가 잡히지 않는다. `StarInfoPanel`은 선택 본체의 분광형·역할(주성/동반성 근거리·원거리)·이름(이름 A/B/C)을 표시하고 시스템 구성 행은 유지. `StarCalloutProjector`는 우주선 뷰에서 선택 본체의 현재 공전 위치(`bodyPositions`)를 따라간다(퍼스펙티브는 질량중심 근사). **시점 중심 = 질량중심**은 `ShipCameraRig`의 anchor(=`starWorldPosition`=systemGroup 원점=barycenter)로 이미 보장됨 — 별도 변경 불필요.
 
 > 렌더/상태 전용 — GEN_VERSION·저장 포맷 무관. `selectedBodyIndex`는 영속화 대상 아님(선택은 세션 상태).
+
+**포커스 마커 (SelectedStarMarker) 보강:** 선택 링이 카탈로그 좌표(=질량중심)가 아니라 *클릭한 별의 현재 공전 위치*를 따라간다. 현재 항성계의 별(큰 구체)을 선택하면 본체를 감싸는 헤일로 크기(`bodyRadius×1.55`)로 키우고 `depthTest=false`로 구체에 가려지지 않게 렌더 — 멀리 있는 카탈로그 별(포인트 스프라이트)은 기존 고정 크기. 이전엔 다중성계에서 링이 빈 질량중심에 떠 별과 분리돼 보였다(사용자 피드백).
 
 ---
 

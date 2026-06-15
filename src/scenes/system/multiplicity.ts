@@ -25,10 +25,11 @@ export function massOf(spectral: SpectralClass): number {
   return SPECTRAL_MASS[spectral]
 }
 
+/** 주성 시각 반경 — CurrentSystem·SelectedStarMarker 공용 단일 소스. */
+export const STAR_VISUAL_RADIUS = 3
+
 /** 추상 separation(AU-유사) → 렌더 유닛 변환. (CurrentSystem ORBIT_SCALE=6과 균형) */
 const COMPANION_ORBIT_SCALE = 4
-/** 이 분리거리(추상 AU) 미만이면 근접 → 행성이 질량중심을 공전(circumbinary). */
-const CIRCUMBINARY_THRESHOLD = 5.5
 /** 공전 각속도 기준(rad/s) — separation^1.5에 반비례(케플러 근사). */
 const ORBIT_ANGULAR_BASE = 0.5
 const FULL_TURN = Math.PI * 2
@@ -48,13 +49,11 @@ export function bodyLightFactor(spectral: SpectralClass): number {
 
 /**
  * 행성 궤도 중심을 질량중심(원점)에 둘지 여부.
- * 근접 쌍성·삼중성 → 질량중심 공전(circumbinary). 원거리 쌍성 → 주성 추종(S-type).
+ * 다중성계는 모두 질량중심을 공전한다(circumbinary) — 행성은 항상 "쌍성 전체의 질량중심"
+ * 기준 (사용자 피드백 2026-06-15, 결정 8 개정). 단일성은 주성=질량중심이라 동일.
  */
 export function isCircumbinary(star: Star): boolean {
-  if (star.multiplicity === 'single') return false
-  if (star.multiplicity === 'triple') return true
-  const separation = star.companions[0]?.separation ?? Number.POSITIVE_INFINITY
-  return separation < CIRCUMBINARY_THRESHOLD
+  return star.multiplicity !== 'single'
 }
 
 /** 별 개수 = 주성 1 + 동반성. (out 배열 사전 할당 크기 산정용) */

@@ -1,10 +1,9 @@
 import { useCallback, useMemo } from 'react'
-import { Vector3 } from 'three'
+import type { Vector3 } from 'three'
 
-import { planetById, starById } from '@/engine'
+import { planetById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { CalloutProjector } from '@/scenes/shared/CalloutProjector'
-import { bodyPositions, isCircumbinary } from '@/scenes/system/multiplicity'
 import { planetOrbitPosition } from '@/scenes/system/Planet'
 import { useGameStore } from '@/store'
 
@@ -17,9 +16,8 @@ import { useGameStore } from '@/store'
  * 이 투영기는 궤도 수식(별 원점 상대)에 현재 별의 월드 좌표를 더해 보정한다 —
  * CurrentSystem의 `<group position={별 월드}>` 오프셋과 같은 값.
  *
- * 다중성계(binary-stars): S-type(원거리)에선 행성이 주성을 추종하므로 주성의 현재
- * 공전 위치를 더한다 (CurrentSystem planetCenter와 동일 소스 — bodyPositions).
- * circumbinary면 행성이 질량중심(원점)을 돌아 추가 오프셋 없음.
+ * 다중성계(binary-stars): 행성은 항상 질량중심(원점)을 공전하므로(circumbinary,
+ * 결정 8 개정) 별 오프셋만 더하면 단일성과 동일하다 — 추가 보정 없음.
  */
 export function PlanetCalloutProjector() {
   const seed = useGameStore((state) => state.seed)
@@ -31,34 +29,21 @@ export function PlanetCalloutProjector() {
     [seed, selectedPlanetId],
   )
 
-  const star = useMemo(() => starById(seed, currentStarId), [seed, currentStarId])
-
   const starOffset = useMemo(
     () => starWorldPosition(seed, currentStarId) ?? ([0, 0, 0] as const),
     [seed, currentStarId],
   )
 
-  const followsPrimary = useMemo(
-    () => star != null && star.multiplicity !== 'single' && !isCircumbinary(star),
-    [star],
-  )
-
-  const bodyScratch = useMemo(() => [new Vector3(), new Vector3(), new Vector3()], [])
-
   const computeWorldPosition = useCallback(
     (out: Vector3, elapsedSeconds: number) => {
       if (planet == null) return false
       planetOrbitPosition(planet, elapsedSeconds, out)
-      if (followsPrimary && star != null) {
-        bodyPositions(star, elapsedSeconds, bodyScratch)
-        out.add(bodyScratch[0] as Vector3)
-      }
       out.x += starOffset[0]
       out.y += starOffset[1]
       out.z += starOffset[2]
       return true
     },
-    [planet, star, followsPrimary, bodyScratch, starOffset],
+    [planet, starOffset],
   )
 
   return (

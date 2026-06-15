@@ -33,9 +33,7 @@
    - **쌍성**: 주성 + 동반성 1개가 공통 질량중심을 공전(편심 궤도).
    - **삼중성(계층형)**: 근접 쌍(주성 + 내부 동반성)이 가까이 공전하고, 외부 동반성이 그 쌍의 질량중심을 멀리서 공전.
 3. 각 별은 분광형에 맞는 크기·색·광도로 렌더되고, 별마다 point light가 행성을 비춘다.
-4. 행성 배치는 분리거리에 적응한다:
-   - **근접 쌍성**: 행성이 계의 질량중심을 도는 **주위연성 궤도(circumbinary, 타투인식)**.
-   - **원거리 쌍성**: 행성은 주성 궤도를 돌고, 동반성은 멀리 빛나는 제2태양.
+4. 행성은 **항상 계의 질량중심(barycenter)을 공전**한다 — 주위연성 궤도(circumbinary, 타투인식). (2026-06-15 개정: 초안의 원거리=주성 S-type은 폐지. 결정 8 참조)
 5. 플레이어가 별을 선택하면 콜아웃/StarInfoPanel에 등급과 구성별 분광형이 표시된다 (예: "쌍성계 · G2V + M4V").
 
 ### Error Cases
@@ -125,7 +123,8 @@ for each companion:
 - [ ] THE SYSTEM SHALL 모든 동반성의 분광형을 주성 분광형 이하(질량 ≤ 주성)로 제약한다.
 - [ ] WHILE 다중성계가 LOD 거리 안에서 렌더되는 동안 THE SYSTEM SHALL 각 별을 질량중심 기준으로 실시간 공전시킨다(편심 반영, ref+useFrame, store 미사용).
 - [ ] THE SYSTEM SHALL 별마다 분광 색의 point light를 배치해 행성을 이중/삼중 조명한다.
-- [ ] WHERE 근접 쌍성일 때 THE SYSTEM SHALL 행성 궤도 중심을 계 질량중심에 둔다(주위연성). WHERE 원거리 쌍성일 때 주성에 둔다.
+- [ ] WHILE 다중성계의 행성이 렌더되는 동안 THE SYSTEM SHALL 행성 궤도 중심을 계 질량중심에 둔다(항상 circumbinary).
+- [ ] WHEN 다중성계의 별(주성·동반성)을 클릭할 때 THE SYSTEM SHALL 그 별의 정보 패널과 포커스 링을 그 별에 띄운다.
 - [ ] WHEN 다중성계 별을 선택할 때 THE SYSTEM SHALL 콜아웃에 등급과 구성별 분광형을 표시한다.
 - [ ] IF 별이 Sol(`SOL_STAR_ID`)이면 THEN THE SYSTEM SHALL 단일성으로 처리하고 동반성 draw를 실행하지 않는다.
 - [ ] THE SYSTEM SHALL `planetsOf()`의 행성 생성 draw·분포를 변경하지 않는다(행성 골든 값 보존).

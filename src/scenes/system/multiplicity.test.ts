@@ -93,18 +93,19 @@ describe('multiplicity render math', () => {
     expect(a[1]?.toArray()).toEqual(b[1]?.toArray())
   })
 
-  it('isCircumbinary: 근접 쌍성 true, 원거리 쌍성 false, 삼중성 항상 true, 단일성 false', () => {
+  it('isCircumbinary: 다중성계는 항상 질량중심 공전(true), 단일성만 false', () => {
     expect(isCircumbinary(makeStar({ multiplicity: 'single' }))).toBe(false)
     expect(
       isCircumbinary(
         makeStar({ multiplicity: 'binary', companions: [companion({ separation: 2 })] }),
       ),
     ).toBe(true)
+    // 원거리 쌍성도 질량중심 공전 (S-type 폐지 — 사용자 피드백)
     expect(
       isCircumbinary(
         makeStar({ multiplicity: 'binary', companions: [companion({ separation: 10 })] }),
       ),
-    ).toBe(false)
+    ).toBe(true)
     expect(
       isCircumbinary(
         makeStar({
