@@ -6,6 +6,7 @@ import { ShipFrame } from '@/ui/hud/ShipFrame'
 import { StarInfoPanel } from '@/ui/hud/StarInfoPanel'
 import { SystemReadout } from '@/ui/hud/SystemReadout'
 import { TopBar } from '@/ui/hud/TopBar'
+import { WarpReadout } from '@/ui/hud/WarpReadout'
 import { useGameStore } from '@/store'
 
 /** 뷰 3상태 → data-view 루트 규약 (결정 42-a) — CSS 분기의 단일 진입점. */
@@ -24,6 +25,7 @@ export function HudLayer() {
       <ShipFrame />
       <TopBar />
       <SystemReadout />
+      <WarpReadout />
       <StarInfoPanel />
       <PlanetPanel />
       <ConsoleDeck />

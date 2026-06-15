@@ -645,6 +645,107 @@ body {
   }
 }
 
+/* ── 워프 함교 리드아웃 — 워프 중 목적지·드라이브 단계 (도착 리드아웃의 출발 대칭) */
+
+.warp-readout {
+  position: absolute;
+  top: 4.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: min(20rem, 64vw);
+  text-align: center;
+  font-family: var(--font-console);
+  letter-spacing: 0.14em;
+  color: var(--color-holo-strong);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--color-holo) 65%, transparent);
+  pointer-events: none;
+  animation: warp-readout-in 0.5s ease-out both;
+}
+
+.warp-readout-target {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.warp-readout-target::before {
+  content: '▸ ';
+  color: color-mix(in srgb, var(--color-holo) 70%, transparent);
+}
+
+.warp-readout-phase {
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  color: color-mix(in srgb, var(--color-holo) 80%, var(--color-text-dim));
+}
+
+/* 점프 단계 — 라벨이 청백으로 점멸해 "발사" 신호 */
+.warp-readout[data-phase='jump'] .warp-readout-phase {
+  color: var(--color-holo-strong);
+  animation: warp-readout-jump 0.45s ease-in-out infinite;
+}
+
+/* 충전 바 — 트랙 위로 채움이 차오른다 (CSS만, 프레임당 갱신 없음) */
+.warp-readout-bar {
+  width: 100%;
+  height: 3px;
+  margin-top: 0.1rem;
+  background: color-mix(in srgb, var(--color-holo) 16%, transparent);
+  overflow: hidden;
+}
+
+.warp-readout-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-holo) 55%, transparent),
+    var(--color-holo-strong)
+  );
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: warp-charge linear both;
+}
+
+/* 점프 도달 — 가득 찬 바가 발광 (맥동은 라벨이 맡아 인라인 duration 충돌 회피) */
+.warp-readout[data-phase='jump'] .warp-readout-bar-fill {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-holo) 80%, transparent);
+}
+
+@keyframes warp-readout-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes warp-charge {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes warp-readout-jump {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 /* 우주선 캐노피 프레임 — 우주선 뷰/워프 전용 시점 표지 (장식, 포인터 통과) */
 .ship-frame {
   position: absolute;
@@ -1734,6 +1835,18 @@ body {
   /* 페이드 없이 정적 표시 — 소멸은 JS 타이머가 보장한다 */
   .system-readout {
     animation: none;
+  }
+
+  /* 워프 리드아웃 — 페이드·점멸 없이 정적. 단계 라벨은 JS 타이머가 갱신, 충전 바는
+     채움 애니메이션을 끄고 가득 찬 상태로 표시(진행은 단계 텍스트로 전달). */
+  .warp-readout,
+  .warp-readout[data-phase='jump'] .warp-readout-phase {
+    animation: none;
+  }
+
+  .warp-readout-bar-fill {
+    animation: none;
+    transform: scaleX(1);
   }
 
   .system-fob-popover {
