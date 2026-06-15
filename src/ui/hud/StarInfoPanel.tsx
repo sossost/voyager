@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 
 import { starById } from '@/engine/galaxy/position'
-import { SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
+import { MULTIPLICITY_LABELS, SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
 import { useGameStore } from '@/store'
 
 export function StarInfoPanel() {
@@ -25,6 +25,10 @@ export function StarInfoPanel() {
   if (sceneKind !== 'galaxy' || selectedStarId == null || star == null) return null
 
   const isCurrentStar = selectedStarId === currentStarId
+  const isMultiple = star.multiplicity !== 'single'
+  const composition = [star.spectral, ...star.companions.map((companion) => companion.spectral)].join(
+    ' + ',
+  )
 
   return (
     // 홀로그램 콜아웃 (결정 37) — StarCalloutProjector가 매 프레임 항성의 화면
@@ -50,6 +54,14 @@ export function StarInfoPanel() {
             <dt>분광형</dt>
             <dd>{SPECTRAL_LABELS[star.spectral]}</dd>
           </div>
+          {isMultiple ? (
+            <div className="hud-fact">
+              <dt>구성</dt>
+              <dd>
+                {MULTIPLICITY_LABELS[star.multiplicity]} · {composition}
+              </dd>
+            </div>
+          ) : null}
           <div className="hud-fact">
             <dt>상태</dt>
             <dd>

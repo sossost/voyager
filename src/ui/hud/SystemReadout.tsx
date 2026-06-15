@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { starById } from '@/engine/galaxy/position'
-import { SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
+import { MULTIPLICITY_LABELS, SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
 import { useGameStore } from '@/store'
 
 /**
@@ -51,7 +51,10 @@ export function SystemReadout() {
   return (
     <p className="system-readout" role="status">
       <span className="system-readout-name">{star.name}</span>
-      <span className="system-readout-spectral">{SPECTRAL_LABELS[star.spectral]}</span>
+      <span className="system-readout-spectral">
+        {SPECTRAL_LABELS[star.spectral]}
+        {star.multiplicity !== 'single' ? ` · ${MULTIPLICITY_LABELS[star.multiplicity]}` : ''}
+      </span>
     </p>
   )
 }

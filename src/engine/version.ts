@@ -12,5 +12,9 @@
  * v2 (2026-06-11): 나선팔 밀도 함수 + MAX_STARS_PER_SECTOR 80→5 (결정 21).
  * v3 (2026-06-11): 수직 두께 렌즈형 프로파일 — 중심 5 → 가장자리 1.2섹터 테이퍼 (결정 32).
  *   sy=0 평면 밀도는 불변이라 originStar·LIFE1 시작 항성계는 그대로다.
+ * v4 (2026-06-15): 쌍성/삼중성 — 별 'star' 스트림에 multiplicity·companions append
+ *   (binary-stars 결정 7). 기존 localPos·spectral 값은 보존되고 planetsOf 무변경이라
+ *   행성·외계 출력은 그대로다. 골든의 별 직렬화에 신규 필드가 추가되어 스냅샷이 바뀐다.
+ *   Sol은 조기 분기로 동반성 draw 미실행 → 단일성 유지, LIFE1 무영향.
  */
-export const GEN_VERSION = 3
+export const GEN_VERSION = 4
