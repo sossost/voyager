@@ -144,7 +144,9 @@
 | A: 본체 클릭 = 개별 선택 (selectedBodyIndex) | 각 별(주성·동반성) 클릭 시 그 별 정보, 직관적. 시점 중심은 이미 질량중심 | 화면공간 카탈로그 피킹과 충돌 — 억제 필요 |
 | B: 시스템 단위 선택만 | 단순 | 동반성 개별 정보 불가 — 사용자 요구 미충족 |
 
-**Chosen:** A. store에 `selectedBodyIndex`(0=주성, 1+=동반성) 추가, `selectStar(starId, bodyIndex?)` 확장. `CurrentSystem`의 각 별 본체에 투명 레이캐스트 프록시 구(`onClick`→`selectStar(currentStarId, index)`). 화면공간 피킹(useStarPicking)과의 충돌은 `starPickSuppress`(본체 pointerdown이 다음 pointerup 1회 억제)로 해소 — 멀리 떨어진 동반성을 클릭해도 이웃 항성계가 잡히지 않는다. `StarInfoPanel`은 선택 본체의 분광형·역할(주성/동반성 근거리·원거리)·이름(이름 A/B/C)을 표시하고 시스템 구성 행은 유지. `StarCalloutProjector`는 우주선 뷰에서 선택 본체의 현재 공전 위치(`bodyPositions`)를 따라간다(퍼스펙티브는 질량중심 근사). **시점 중심 = 질량중심**은 `ShipCameraRig`의 anchor(=`starWorldPosition`=systemGroup 원점=barycenter)로 이미 보장됨 — 별도 변경 불필요.
+**Chosen:** A. store에 `selectedBodyIndex`(0=주성, 1+=동반성) 추가, `selectStar(starId, bodyIndex?)` 확장. 선택은 **화면공간 피킹**으로 통일 — `CurrentSystem`이 별들의 *월드 위치·반경*을 `currentBodies` 레지스트리에 매 프레임 게시(뷰 스케일 반영), `useStarPicking`이 클릭 시 각 본체를 투영해 *화면상 디스크(코로나 글로우 포함, 구체 반경×2.4)* 안이면 그 본체를 선택한다. 큰 우주선 뷰 별은 디스크 전체가, 작은 퍼스펙티브 별은 하한 반경이 클릭 가능 — **두 뷰 모두 본체별 선택 동작**(레이캐스트 프록시·억제 플래그 폐기). `StarInfoPanel`은 선택 본체의 분광형·역할(주성/동반성 근거리·원거리)·이름(A/B/C)을 표시하고 시스템 구성 행은 유지.
+
+**콜아웃·포커스 마커 위치**: 우주선 뷰에선 선택 본체의 현재 공전 위치(`currentBodies`)를 따라가 본체에 정확히 붙는다. **퍼스펙티브에선 별이 작고 빠르게 공전해 콜아웃이 떨려 클릭 불가** → 질량중심(카탈로그 좌표=카메라 초점=화면 중앙)에 고정해 안정화. 본체 *선택*(어느 별인지)은 두 뷰 모두 동작하므로 패널 내용은 항상 정확하다. **시점 중심 = 질량중심**은 `ShipCameraRig`·`CameraRig`의 focus(=`starWorldPosition`=systemGroup 원점=barycenter)로 이미 보장됨.
 
 > 렌더/상태 전용 — GEN_VERSION·저장 포맷 무관. `selectedBodyIndex`는 영속화 대상 아님(선택은 세션 상태).
 

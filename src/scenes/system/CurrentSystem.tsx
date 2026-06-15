@@ -1,11 +1,12 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { Group, PointLight } from 'three'
 import { Vector3 } from 'three'
 
 import { planetsOf, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
 import {
   bodyLightFactor,
   bodyPositions,
@@ -19,7 +20,6 @@ import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
 import { SYSTEM_LOD_DISTANCE } from '@/scenes/system/starCrossfade'
-import { suppressStarPick } from '@/scenes/system/starPickSuppress'
 import { useGameStore } from '@/store'
 
 /**
@@ -65,7 +65,6 @@ interface BodyVisual {
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
   const currentStarId = useGameStore((state) => state.currentStarId)
-  const selectStar = useGameStore((state) => state.selectStar)
   const scene = useGameStore((state) => state.scene)
   const isPerspective = scene.kind === 'galaxy' && scene.view === 'perspective'
   const isWarping = scene.kind === 'warping'
@@ -96,6 +95,9 @@ export function CurrentSystem() {
     [seed, starId],
   )
   const circumbinary = useMemo(() => (star == null ? false : isCircumbinary(star)), [star])
+
+  // 별 본체가 안 보이는 동안(언마운트·워프) 레지스트리를 비운다 — stale 좌표 방지.
+  useEffect(() => clearCurrentBodies, [])
   // 별 군집을 벗어나도록 행성 궤도를 바깥으로 미는 양 (별/행성 관통 방지).
   const orbitOffset = useMemo(() => (star == null ? 0 : planetClearanceOffset(star)), [star])
 
@@ -137,17 +139,30 @@ export function CurrentSystem() {
     group.scale.setScalar(systemScaleRef.current)
 
     // 별 위치 — 질량중심 공전 (원점 = inner barycenter). 단일성은 주성이 원점 고정.
-    if (star != null) {
+    if (star != null && !isWarping) {
+      const scale = systemScaleRef.current
       const bodyCount = bodyPositions(star, state.clock.elapsedTime, bodyScratch)
       for (let i = 0; i < bodyCount; i++) {
-        bodyGroupRefs.current[i]?.position.copy(bodyScratch[i] as Vector3)
+        const local = bodyScratch[i] as Vector3
+        bodyGroupRefs.current[i]?.position.copy(local)
+        // 월드 좌표 게시 — 스케일 반영(= barycenter + scale·local). 피킹·마커·콜아웃 단일 소스.
+        ;(currentBodies.positions[i] as Vector3).set(
+          worldPosition[0] + local.x * scale,
+          worldPosition[1] + local.y * scale,
+          worldPosition[2] + local.z * scale,
+        )
+        currentBodies.radii[i] = (bodies[i] as BodyVisual).radius * scale
       }
-      // 행성 궤도 중심 — circumbinary면 질량중심(원점), 아니면 주성 추종 (S-type).
+      currentBodies.starId = currentStarId
+      currentBodies.count = bodyCount
+      // 행성 궤도 중심 — 항상 질량중심(원점) 공전 (circumbinary, 결정 8 개정).
       const center = planetCenterRef.current
       if (center != null) {
         if (circumbinary) center.position.set(0, 0, 0)
         else center.position.copy(bodyScratch[0] as Vector3)
       }
+    } else if (isWarping) {
+      clearCurrentBodies()
     }
 
     // 광원: 별마다 강도 보간 — 퍼스펙티브 스케일 보정 × 질량 광도 계수.
@@ -181,21 +196,8 @@ export function CurrentSystem() {
                 }}
               >
                 <StarSurface radius={body.radius} color={body.color} />
-                {/* 클릭 프록시 — 별 본체를 선택(다중성계는 별마다 개별 선택). 코로나 간섭 없이
-                    레이캐스트만 받는 투명 구. pointerdown에서 카탈로그 피킹을 억제한다. */}
-                <mesh
-                  onPointerDown={(event) => {
-                    event.stopPropagation()
-                    suppressStarPick()
-                  }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    selectStar(currentStarId, index)
-                  }}
-                >
-                  <sphereGeometry args={[body.radius * 1.15, 16, 16]} />
-                  <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-                </mesh>
+                {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
+                    처리한다 — 모든 뷰(우주선·퍼스펙티브)에서 본체별 선택이 동작한다. */}
                 <pointLight
                   ref={(el) => {
                     bodyLightRefs.current[index] = el

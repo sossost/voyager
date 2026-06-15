@@ -4,15 +4,65 @@ import { Vector3 } from 'three'
 
 import type { Star } from '@/engine'
 import { SECTOR_SIZE } from '@/engine'
-import { consumeStarPickSuppress } from '@/scenes/system/starPickSuppress'
+import { currentBodies } from '@/scenes/system/currentBodies'
 import { useGameStore } from '@/store'
 
 /** 이 거리(px) 이상 움직였으면 드래그(카메라 조작)로 본다. */
 const CLICK_SLOP_PX = 6
 /** 마우스 히트 반경 — 터치는 2배 (모바일 AC, 결정 20). */
 const BASE_HIT_RADIUS_PX = 14
+/** 별 본체 히트 반경 = 화면상 구체 반경 × 이 배수 — 코로나 글로우 디스크까지 포함. */
+const STAR_HIT_RADIUS_FACTOR = 2.4
 
 const projected = new Vector3()
+const bodyCenter = new Vector3()
+const bodyEdge = new Vector3()
+const cameraRight = new Vector3()
+
+/**
+ * 현재 항성계 별 본체 중 클릭에 가장 가까운 것 — 화면공간, 본체의 *화면상 반경*까지 히트로
+ * 본다(큰 구체는 디스크 전체 클릭 가능, 작은 퍼스펙티브 별은 하한 반경). currentBodies는
+ * CurrentSystem이 뷰 스케일까지 반영해 게시하므로 우주선·퍼스펙티브 모두에서 정확하다.
+ * 반환: 본체 인덱스(0=주성) 또는 -1.
+ */
+function pickNearestBody(
+  pointer: { clientX: number; clientY: number },
+  rect: DOMRect,
+  camera: Parameters<Vector3['project']>[0],
+  hitFloorPx: number,
+): number {
+  let nearest = -1
+  let nearestDistance = Number.POSITIVE_INFINITY
+  cameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion)
+
+  for (let i = 0; i < currentBodies.count; i++) {
+    const world = currentBodies.positions[i]
+    if (world == null) continue
+    bodyCenter.copy(world).project(camera)
+    if (bodyCenter.z > 1 || bodyCenter.z < -1) continue
+    const cx = rect.left + ((bodyCenter.x + 1) / 2) * rect.width
+    const cy = rect.top + ((1 - bodyCenter.y) / 2) * rect.height
+
+    // 화면상 반경 = 중심과 (중심 + 카메라우측·월드반경)의 화면 거리.
+    bodyEdge
+      .copy(cameraRight)
+      .multiplyScalar(currentBodies.radii[i] ?? 0)
+      .add(world)
+      .project(camera)
+    const ex = rect.left + ((bodyEdge.x + 1) / 2) * rect.width
+    const ey = rect.top + ((1 - bodyEdge.y) / 2) * rect.height
+    const screenRadius = Math.hypot(ex - cx, ey - cy)
+
+    // 코로나 글로우까지 포함해 보이는 별 디스크 전체를 클릭 가능하게 — 구체 반경의 배수.
+    const hitRadius = Math.max(hitFloorPx, screenRadius * STAR_HIT_RADIUS_FACTOR)
+    const distance = Math.hypot(cx - pointer.clientX, cy - pointer.clientY)
+    if (distance < hitRadius && distance < nearestDistance) {
+      nearestDistance = distance
+      nearest = i
+    }
+  }
+  return nearest
+}
 
 function pickNearestStar(
   pointer: { clientX: number; clientY: number },
@@ -73,23 +123,26 @@ export function useStarPicking(stars: readonly Star[]) {
       if (!isPointerDown) return
       isPointerDown = false
 
-      // 별 본체(3D 메시)를 직접 클릭했으면 그 선택이 우선 — 카탈로그 피킹 1회 건너뛴다.
-      if (consumeStarPickSuppress()) return
-
       const { scene, selectStar } = useGameStore.getState()
       if (scene.kind !== 'galaxy') return
 
       const dragDistance = Math.hypot(event.clientX - downX, event.clientY - downY)
       if (dragDistance > CLICK_SLOP_PX) return
 
+      const rect = element.getBoundingClientRect()
       const hitRadius = event.pointerType === 'touch' ? BASE_HIT_RADIUS_PX * 2 : BASE_HIT_RADIUS_PX
-      const star = pickNearestStar(
-        event,
-        element.getBoundingClientRect(),
-        camera,
-        starsRef.current,
-        hitRadius,
-      )
+
+      // 현재 항성계 본체 우선 — 다중성계는 본체별 선택, 큰 구체는 디스크 전체가 클릭 가능.
+      if (currentBodies.starId != null && currentBodies.count >= 1) {
+        const bodyIndex = pickNearestBody(event, rect, camera, hitRadius)
+        if (bodyIndex >= 0) {
+          selectStar(currentBodies.starId, bodyIndex)
+          return
+        }
+      }
+
+      // 그 외 — 카탈로그 별(포인트 스프라이트) 피킹.
+      const star = pickNearestStar(event, rect, camera, starsRef.current, hitRadius)
       selectStar(star?.id ?? null)
     }
 

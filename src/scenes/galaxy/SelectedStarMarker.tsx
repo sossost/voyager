@@ -1,10 +1,9 @@
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
-import { DoubleSide, type Group, Vector3 } from 'three'
+import { DoubleSide, type Group } from 'three'
 
-import { starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
-import { bodyPositions, bodyVisualRadius, STAR_VISUAL_RADIUS } from '@/scenes/system/multiplicity'
+import { currentBodies } from '@/scenes/system/currentBodies'
 import { useGameStore } from '@/store'
 
 const PULSE_SPEED = 4
@@ -20,66 +19,52 @@ const BODY_HALO_FACTOR = 1.55
 /**
  * 선택한 별 주위의 맥동하는 링 — 항상 카메라를 향한다.
  *
- * 다중성계(binary-stars): 클릭한 별(주성·동반성)의 *현재 공전 위치*에 링을 건다.
- * 현재 항성계의 별(큰 구체)을 선택하면 본체를 감싸는 헤일로 크기로 키우고 depthTest를 꺼서
- * 구체에 가려지지 않게 한다 — 멀리 있는 카탈로그 별(포인트)은 기존 고정 크기.
- * 우주선 뷰(스케일 1)에선 본체에 정확히 붙고, 그 외(퍼스펙티브 1/8)에선 오프셋 스케일을
- * 알 수 없어 질량중심에 고정 크기로 붙인다 — StarCalloutProjector와 같은 근사.
+ * 다중성계(binary-stars): 클릭한 별(주성·동반성)의 *현재 월드 위치*(currentBodies, 뷰
+ * 스케일 반영)에 링을 건다. 현재 항성계의 별(구체)을 선택하면 본체를 감싸는 헤일로 크기로
+ * 키우고 depthTest를 꺼서 구체에 가려지지 않게 한다 — 우주선·퍼스펙티브 모두 정확하다.
+ * 멀리 있는 카탈로그 별(포인트)은 카탈로그 좌표에 고정 크기 링.
  */
 export function SelectedStarMarker() {
   const seed = useGameStore((state) => state.seed)
   const selectedStarId = useGameStore((state) => state.selectedStarId)
   const selectedBodyIndex = useGameStore((state) => state.selectedBodyIndex)
-  const currentStarId = useGameStore((state) => state.currentStarId)
   const isShipView = useGameStore(
     (state) => state.scene.kind === 'galaxy' && state.scene.view === 'ship',
   )
   const groupRef = useRef<Group>(null)
 
-  const base = useMemo(
+  const catalogPosition = useMemo(
     () => (selectedStarId == null ? null : starWorldPosition(seed, selectedStarId)),
     [seed, selectedStarId],
   )
-  const star = useMemo(
-    () => (selectedStarId == null ? null : starById(seed, selectedStarId)),
-    [seed, selectedStarId],
-  )
-
-  // 현재 항성계 별 = 큰 구체로 렌더되므로 본체를 감싸는 헤일로 크기 + 본체 추종.
-  const isCurrentSystem = selectedStarId != null && selectedStarId === currentStarId
-  const encirclesBody = isShipView && isCurrentSystem && star != null
-  const followsBody = encirclesBody && star.multiplicity !== 'single'
-
-  const targetRadius = useMemo(() => {
-    if (!encirclesBody || star == null) return DISTANT_RING_RADIUS
-    const index =
-      selectedBodyIndex >= 0 && selectedBodyIndex <= star.companions.length ? selectedBodyIndex : 0
-    const spectral = index === 0 ? star.spectral : star.companions[index - 1]?.spectral ?? star.spectral
-    const bodyRadius =
-      index === 0 ? STAR_VISUAL_RADIUS : bodyVisualRadius(spectral, STAR_VISUAL_RADIUS)
-    return bodyRadius * BODY_HALO_FACTOR
-  }, [encirclesBody, star, selectedBodyIndex])
-
-  const bodyScratch = useMemo(() => [new Vector3(), new Vector3(), new Vector3()], [])
 
   useFrame((state) => {
     const group = groupRef.current
-    if (group == null || base == null) return
+    if (group == null) return
 
-    group.position.set(base[0], base[1], base[2])
-    if (followsBody && star != null) {
-      const count = bodyPositions(star, state.clock.elapsedTime, bodyScratch)
-      const index = selectedBodyIndex >= 0 && selectedBodyIndex < count ? selectedBodyIndex : 0
-      group.position.add(bodyScratch[index] as Vector3)
+    // 우주선 뷰에서 현재 항성계의 별이면 게시된 본체 월드 좌표·반경에 헤일로를 건다.
+    // 퍼스펙티브에선 별이 작고 빠르게 공전해 링이 떨리므로 질량중심(카탈로그 좌표)에 둔다.
+    const isCurrentBody =
+      isShipView &&
+      selectedStarId != null &&
+      currentBodies.starId === selectedStarId &&
+      selectedBodyIndex < currentBodies.count
+    let radius = DISTANT_RING_RADIUS
+    if (isCurrentBody) {
+      const pos = currentBodies.positions[selectedBodyIndex]
+      if (pos != null) group.position.copy(pos)
+      radius = (currentBodies.radii[selectedBodyIndex] ?? DISTANT_RING_RADIUS) * BODY_HALO_FACTOR
+    } else if (catalogPosition != null) {
+      group.position.set(catalogPosition[0], catalogPosition[1], catalogPosition[2])
     }
 
     // 시각 연출 전용 — 초월함수는 scenes/에서 허용 (결정 14)
     const pulse = 1 + PULSE_AMPLITUDE * Math.sin(state.clock.elapsedTime * PULSE_SPEED)
-    group.scale.setScalar(targetRadius * pulse)
+    group.scale.setScalar(radius * pulse)
     group.quaternion.copy(state.camera.quaternion)
   })
 
-  if (base == null) return null
+  if (catalogPosition == null) return null
 
   return (
     <group ref={groupRef}>
