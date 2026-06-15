@@ -5,8 +5,8 @@ import { Matrix4, Quaternion, Vector3 } from 'three'
 import { starWorldPosition } from '@/engine'
 import {
   WARP_AIM_PROGRESS,
+  WARP_CHARGE_PROGRESS,
   WARP_IGNITION_PROGRESS,
-  WARP_RECOIL_PROGRESS,
   WARP_STAGE_A_MS,
 } from '@/scenes/warp/warpTimeline'
 import { useGameStore } from '@/store'
@@ -17,10 +17,10 @@ import { useGameStore } from '@/store'
  * 워프는 항상 1인칭(우주선 시점)에서 경험한다. 발동 뷰에 따라 진입이 갈린다:
  *  - 우주선 뷰: 정박 포즈에서 목표 별 방향으로 부드럽게 회전(예열 홀드 동안).
  *  - 퍼스펙티브 뷰: 우주선 포즈로 컷(줌아웃 시) 또는 근접 스윕(줌인 시) 후 목표로 회전.
- * 예열은 네 박자다: ① 목표 응시 정렬(회전) → ② 정렬 고정 대기(엔진 예열·긴장 적재) →
- * ③ 시선 고정한 채 목표 반대로 반동(wind-up, 도착 줌인과 대칭) → ④ 점화
- * (WARP_IGNITION_PROGRESS) 시점에 풀백 지점에서 목표 방향 큐빅 가속 돌진(뿜).
- * 회전·대기·반동을 겹치지 않게 분리해야 각 박자가 또렷이 읽힌다.
+ * 시퀀스는 다섯 박자다: ① 목표 응시 정렬(회전) → ②③ 정렬 고정 대기·충전(카메라 정지,
+ * 상단 게이지만 0→100%) → ④ 게이지 만충 후 시선 고정한 채 목표 반대로 반동(wind-up,
+ * 도착 줌인과 대칭) → ⑤ 점화(WARP_IGNITION_PROGRESS)에 풀백 지점에서 목표 방향 큐빅
+ * 가속 돌진(뿜). 연출(반동·돌진)은 게이지 만충 후에 시작한다 — 회전·반동·돌진이 겹치지 않아야 읽힌다.
  * 별밭 시차가 이동감을, 스트리크가 속도감을 만든다. OrbitControls는 워프 동안 비활성 —
  * 타임라인은 ref 기반, store 쓰기 없음 (철칙 6).
  */
@@ -165,25 +165,26 @@ export function WarpCameraRig() {
       return
     }
 
-    if (progress < WARP_RECOIL_PROGRESS) {
-      // ② 대기 단계 — 정렬을 마치고 목표를 응시한 채 살짝 멈춘다 (엔진 예열·긴장 적재)
+    if (progress < WARP_CHARGE_PROGRESS) {
+      // ②③ 대기·충전 단계 — 카메라는 정렬 포즈에 정지하고, 상단 게이지만 차오른다.
+      // 연출(반동·돌진)은 게이지가 다 찬 뒤(WARP_CHARGE_PROGRESS)에야 시작한다.
       camera.position.copy(pose.shipPosition)
       camera.quaternion.copy(aimQuat)
       return
     }
 
     if (progress < WARP_IGNITION_PROGRESS) {
-      // ③ 반동 단계 — 정렬을 고정한 채(목표 응시) 목표 반대로 물러선다 (wind-up).
+      // ④ 반동 단계 — 게이지 만충 후, 정렬을 고정한 채(목표 응시) 목표 반대로 물러선다 (wind-up).
       // 축 방향 순수 후퇴라 목표가 중앙에 박힌 채 배경만 멀어진다.
       const recoil = easeOut(
-        clamp01((progress - WARP_RECOIL_PROGRESS) / (WARP_IGNITION_PROGRESS - WARP_RECOIL_PROGRESS)),
+        clamp01((progress - WARP_CHARGE_PROGRESS) / (WARP_IGNITION_PROGRESS - WARP_CHARGE_PROGRESS)),
       )
       camera.position.lerpVectors(pose.shipPosition, pose.launchPosition, recoil)
       camera.quaternion.copy(aimQuat)
       return
     }
 
-    // ④ 돌진(뿜) 단계 — 풀백 지점에서 목표 방향 큐빅 가속 (rush=0이 곧 풀백 지점이라 연속적)
+    // ⑤ 돌진(뿜) 단계 — 풀백 지점에서 목표 방향 큐빅 가속 (rush=0이 곧 풀백 지점이라 연속적)
     const rushLocal = clamp01((progress - WARP_IGNITION_PROGRESS) / (1 - WARP_IGNITION_PROGRESS))
     const rush = rushLocal * rushLocal * rushLocal
     camera.position

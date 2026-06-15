@@ -16,13 +16,16 @@ export const WARP_FOV_REST = 60
 export const WARP_FOV_PEAK = 85
 
 /**
- * 예열 박자의 분기점 (스테이지 A 진행도 0~1) — WarpCameraRig(카메라)와 WarpReadout(HUD)이 공유한다.
- *  ① 정렬 [0, AIM)           — 목표 응시 회전
- *  ② 대기 [AIM, RECOIL)      — 정렬 고정 텀(엔진 예열)
- *  ③ 반동 [RECOIL, IGNITION) — 목표 반대로 후퇴(wind-up)
- *  ④ 돌진 [IGNITION, 1]      — 큐빅 가속(뿜) + 스트리크·FOV 서지 동시 점화
- * 발동 즉시 우주선 시점으로 컷된다(결정 34). 예열 4박자를 담도록 점화를 0.18→0.24로 연장.
+ * 워프 시퀀스 박자 (스테이지 A 진행도 0~1) — WarpCameraRig(카메라)와 WarpReadout(게이지·라벨)이 공유.
+ *  ① 정렬 [0, AIM)            — 목표 응시 회전
+ *  ② 대기 [AIM, HOLD)         — 정렬 고정, 게이지 충전 직전 텀
+ *  ③ 충전 [HOLD, CHARGE)      — 상단 게이지가 0→100% 차오른다 (카메라 정지)
+ *  ④ 반동 [CHARGE, IGNITION)  — 게이지 만충 → 목표 반대로 후퇴(wind-up)
+ *  ⑤ 돌진 [IGNITION, 1]       — 큐빅 가속(뿜) + 스트리크·FOV 서지 동시 점화
+ * 발동 즉시 우주선 시점으로 컷된다(결정 34). 카메라는 ②③ 동안 정지(게이지만 진행) —
+ * 반동·돌진 연출은 게이지 만충(CHARGE) 후에 시작한다(사용자 피드백). 점화를 0.38로 둬 충전을 충분히 보인다.
  */
-export const WARP_AIM_PROGRESS = 0.09
-export const WARP_RECOIL_PROGRESS = 0.14
-export const WARP_IGNITION_PROGRESS = 0.24
+export const WARP_AIM_PROGRESS = 0.07
+export const WARP_HOLD_PROGRESS = 0.11
+export const WARP_CHARGE_PROGRESS = 0.32
+export const WARP_IGNITION_PROGRESS = 0.38

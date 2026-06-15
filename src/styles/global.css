@@ -711,12 +711,9 @@ body {
   animation: warp-charge linear both;
 }
 
-/* 점프 도달 — 가득 찬 바가 한 번 발광 맥동 */
+/* 점프 도달 — 가득 찬 바가 발광 (맥동은 라벨이 맡아 인라인 duration 충돌 회피) */
 .warp-readout[data-phase='jump'] .warp-readout-bar-fill {
   box-shadow: 0 0 10px color-mix(in srgb, var(--color-holo) 80%, transparent);
-  animation:
-    warp-charge linear both,
-    warp-readout-jump 0.45s ease-in-out infinite;
 }
 
 @keyframes warp-readout-in {
@@ -1847,8 +1844,7 @@ body {
     animation: none;
   }
 
-  .warp-readout-bar-fill,
-  .warp-readout[data-phase='jump'] .warp-readout-bar-fill {
+  .warp-readout-bar-fill {
     animation: none;
     transform: scaleX(1);
   }
