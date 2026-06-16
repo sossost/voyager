@@ -1,8 +1,8 @@
-import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
+import { useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useRef } from "react";
 
-import { cameraActions } from '@/scenes/shared/cameraActions'
-import { useGameStore } from '@/store'
+import { cameraActions } from "@/scenes/shared/cameraActions";
+import { useGameStore } from "@/store";
 
 /**
  * 우주선 1인칭 시점 리그 (결정 36·41) — 회전축이 카메라 자신이다.
@@ -19,187 +19,204 @@ import { useGameStore } from '@/store'
  */
 
 /**
- * 우주선 정박 위치 — 현재 별 기준 오프셋 (별을 살짝 내려다보며 시작한다).
- * 거리 ≈63유닛 — 항성계 전체(Neptune ≤29유닛)가 시야에 들어오는 거리.
+ * 우주선 정박 거리 ≈63유닛 — 항성계 전체(Neptune ≤29유닛)가 시야에 들어오는 거리.
+ * 시선 고도(elevationDeg)에 따라 Y/Z 오프셋을 분해한다(거리 고정, 각도만 변경).
  */
-const SHIP_OFFSET_X = 0
-const SHIP_OFFSET_Y = 20
-const SHIP_OFFSET_Z = 60
-
-/** 시작 피치 — 정박 위치에서 현재 별을 바라보는 각도. */
-const INITIAL_PITCH = -Math.asin(
-  SHIP_OFFSET_Y /
-    Math.sqrt(SHIP_OFFSET_X ** 2 + SHIP_OFFSET_Y ** 2 + SHIP_OFFSET_Z ** 2),
-)
+const SHIP_DISTANCE = 63.25;
+/** 기본 시선 고도(도) — 별을 살짝 내려다본다. 블랙홀계는 더 낮게(옆에서) 본다. */
+const DEFAULT_ELEVATION_DEG = 20;
 
 /** 드래그 감도 (rad/px) — 화면 가로 한 번 드래그 ≈ 반 바퀴. */
-const LOOK_SENSITIVITY = 0.0042
+const LOOK_SENSITIVITY = 0.0042;
 /** 수직 시선 한계 — 천정/천저에서 짐벌락 직전까지. */
-const PITCH_LIMIT = Math.PI / 2 - 0.08
+const PITCH_LIMIT = Math.PI / 2 - 0.08;
 
 /** 시선 감쇠 — 클수록 즉각, 작을수록 부드럽게 따라온다. */
-const LOOK_DAMPING = 9
+const LOOK_DAMPING = 9;
 
 /**
  * 함교 거리 줌 — 정박 오프셋에 곱하는 배율. 1.0 = 정박(가장 멀리, 항성계 전체),
  * 아래로 갈수록 별/행성에 가까이. "좀만 확대" 의도라 범위를 좁게 둔다.
  */
-const SHIP_ZOOM_MIN = 0.55
-const SHIP_ZOOM_DEFAULT = 1.0
+const SHIP_ZOOM_MIN = 0.55;
+const SHIP_ZOOM_DEFAULT = 1.0;
 /** 휠 한 틱(deltaY≈100)당 배율 변화. */
-const SHIP_ZOOM_WHEEL_STEP = 0.0009
+const SHIP_ZOOM_WHEEL_STEP = 0.0009;
 /** 줌 버튼 한 번당 배율 변화. */
-const SHIP_ZOOM_BUTTON_STEP = 0.12
+const SHIP_ZOOM_BUTTON_STEP = 0.12;
 
 /** 도착 확대 — 정박 거리의 이 배수에서 시작해 1배(정박)로 빨려든다. */
-const ARRIVAL_START_DISTANCE_MULTIPLIER = 2.4
+const ARRIVAL_START_DISTANCE_MULTIPLIER = 2.4;
 /**
  * 도착 줌인 길이. easeInOut으로 가속 구간(큰 움직임)이 플래시 페이드아웃(0.65s)이 걷히는
  * 동안 드러나도록 충분히 길게 둔다 — 플래시 뒤에서 다 끝나버리면 확대가 안 보인다.
  */
-const ARRIVAL_DURATION_S = 1.5
+const ARRIVAL_DURATION_S = 1.5;
 
 function clamp(value: number, min: number, max: number): number {
-  if (value < min) return min
-  if (value > max) return max
-  return value
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
 }
 
 /** easeInOutCubic — 천천히 가속해(플래시 뒤) 페이드가 걷힐 때 크게 들어오고 살며시 멈춘다. */
 function easeInOut(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 interface ShipCameraRigProps {
   /** 현재 별의 월드 좌표 — 우주선이 이 옆에 정박한다. */
-  readonly anchor: readonly [number, number, number]
+  readonly anchor: readonly [number, number, number];
+  /** 시선 고도(도) — 정박 시 별을 내려다보는 각도. 블랙홀계는 낮게(옆에서). */
+  readonly elevationDeg?: number;
 }
 
-export function ShipCameraRig({ anchor }: ShipCameraRigProps) {
-  const camera = useThree((state) => state.camera)
-  const gl = useThree((state) => state.gl)
+export function ShipCameraRig({
+  anchor,
+  elevationDeg = DEFAULT_ELEVATION_DEG,
+}: ShipCameraRigProps) {
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
 
-  const targetYaw = useRef(0)
-  const targetPitch = useRef(INITIAL_PITCH)
-  const currentYaw = useRef(0)
-  const currentPitch = useRef(INITIAL_PITCH)
-  const dragPointer = useRef<{ id: number; x: number; y: number } | null>(null)
-  const targetZoom = useRef(SHIP_ZOOM_DEFAULT)
-  const currentZoom = useRef(SHIP_ZOOM_DEFAULT)
+  // 거리는 고정, 고도만 분해 — 블랙홀계 8° / 그 외 20°.
+  const elevationRad = (elevationDeg * Math.PI) / 180;
+  const offsetY = SHIP_DISTANCE * Math.sin(elevationRad);
+  const offsetZ = SHIP_DISTANCE * Math.cos(elevationRad);
+  const initialPitch = -elevationRad;
+
+  const targetYaw = useRef(0);
+  const targetPitch = useRef(initialPitch);
+  const currentYaw = useRef(0);
+  const currentPitch = useRef(initialPitch);
+  const dragPointer = useRef<{ id: number; x: number; y: number } | null>(null);
+  const targetZoom = useRef(SHIP_ZOOM_DEFAULT);
+  const currentZoom = useRef(SHIP_ZOOM_DEFAULT);
 
   // 복귀 버튼 — 시선·거리를 정박 포즈로 즉시 리셋한다. 줌 버튼은 거리를 좁은 범위로 조절.
   useEffect(() => {
     const setZoom = (next: number) => {
-      targetZoom.current = clamp(next, SHIP_ZOOM_MIN, SHIP_ZOOM_DEFAULT)
-    }
+      targetZoom.current = clamp(next, SHIP_ZOOM_MIN, SHIP_ZOOM_DEFAULT);
+    };
     cameraActions.reset = () => {
-      targetYaw.current = 0
-      targetPitch.current = INITIAL_PITCH
-      setZoom(SHIP_ZOOM_DEFAULT)
-    }
-    cameraActions.zoomIn = () => setZoom(targetZoom.current - SHIP_ZOOM_BUTTON_STEP)
-    cameraActions.zoomOut = () => setZoom(targetZoom.current + SHIP_ZOOM_BUTTON_STEP)
+      targetYaw.current = 0;
+      targetPitch.current = initialPitch;
+      setZoom(SHIP_ZOOM_DEFAULT);
+    };
+    cameraActions.zoomIn = () =>
+      setZoom(targetZoom.current - SHIP_ZOOM_BUTTON_STEP);
+    cameraActions.zoomOut = () =>
+      setZoom(targetZoom.current + SHIP_ZOOM_BUTTON_STEP);
     return () => {
-      cameraActions.reset = null
-      cameraActions.zoomIn = null
-      cameraActions.zoomOut = null
-    }
-  }, [])
+      cameraActions.reset = null;
+      cameraActions.zoomIn = null;
+      cameraActions.zoomOut = null;
+    };
+  }, [initialPitch]);
 
   // 도착 확대 — 마운트가 워프 도착이면(pendingArrival) 줌인을 시작하고 플래그를 소비한다.
   // 뷰 토글로 마운트했으면 작동하지 않는다 (pendingArrival=false → 즉시 정박).
-  const arrivalStartRef = useRef<number | null>(null)
-  const isArrivingRef = useRef(false)
+  const arrivalStartRef = useRef<number | null>(null);
+  const isArrivingRef = useRef(false);
   useEffect(() => {
-    if (!useGameStore.getState().pendingArrival) return
-    isArrivingRef.current = true
-    arrivalStartRef.current = null
-    useGameStore.getState().consumeArrival()
-  }, [])
+    if (!useGameStore.getState().pendingArrival) return;
+    isArrivingRef.current = true;
+    arrivalStartRef.current = null;
+    useGameStore.getState().consumeArrival();
+  }, []);
 
   // 드래그 = 시선 회전 — 캔버스에만 붙여 HUD와 간섭하지 않는다
   useEffect(() => {
-    const element = gl.domElement
+    const element = gl.domElement;
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.isPrimary === false) return
-      dragPointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY }
-    }
+      if (event.isPrimary === false) return;
+      dragPointer.current = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+      };
+    };
 
     const handlePointerMove = (event: PointerEvent) => {
-      const drag = dragPointer.current
-      if (drag == null || drag.id !== event.pointerId) return
-      const deltaX = event.clientX - drag.x
-      const deltaY = event.clientY - drag.y
-      drag.x = event.clientX
-      drag.y = event.clientY
+      const drag = dragPointer.current;
+      if (drag == null || drag.id !== event.pointerId) return;
+      const deltaX = event.clientX - drag.x;
+      const deltaY = event.clientY - drag.y;
+      drag.x = event.clientX;
+      drag.y = event.clientY;
 
-      targetYaw.current += deltaX * LOOK_SENSITIVITY
+      targetYaw.current += deltaX * LOOK_SENSITIVITY;
       targetPitch.current = clamp(
         targetPitch.current + deltaY * LOOK_SENSITIVITY,
         -PITCH_LIMIT,
-        PITCH_LIMIT,
-      )
-    }
+        PITCH_LIMIT
+      );
+    };
 
     const handlePointerEnd = (event: PointerEvent) => {
-      if (dragPointer.current?.id === event.pointerId) dragPointer.current = null
-    }
+      if (dragPointer.current?.id === event.pointerId)
+        dragPointer.current = null;
+    };
 
     // 휠 = 거리 줌 — 위로 굴리면(deltaY<0) 별에 가까이 당긴다
     const handleWheel = (event: WheelEvent) => {
-      event.preventDefault()
+      event.preventDefault();
       targetZoom.current = clamp(
         targetZoom.current + event.deltaY * SHIP_ZOOM_WHEEL_STEP,
         SHIP_ZOOM_MIN,
-        SHIP_ZOOM_DEFAULT,
-      )
-    }
+        SHIP_ZOOM_DEFAULT
+      );
+    };
 
-    element.addEventListener('pointerdown', handlePointerDown)
-    element.addEventListener('wheel', handleWheel, { passive: false })
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerEnd)
-    window.addEventListener('pointercancel', handlePointerEnd)
+    element.addEventListener("pointerdown", handlePointerDown);
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerEnd);
+    window.addEventListener("pointercancel", handlePointerEnd);
 
     return () => {
-      element.removeEventListener('pointerdown', handlePointerDown)
-      element.removeEventListener('wheel', handleWheel)
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerEnd)
-      window.removeEventListener('pointercancel', handlePointerEnd)
-    }
-  }, [gl])
+      element.removeEventListener("pointerdown", handlePointerDown);
+      element.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerEnd);
+      window.removeEventListener("pointercancel", handlePointerEnd);
+    };
+  }, [gl]);
 
   useFrame((state, delta) => {
-    const blend = 1 - Math.exp(-LOOK_DAMPING * delta)
-    currentYaw.current += (targetYaw.current - currentYaw.current) * blend
-    currentPitch.current += (targetPitch.current - currentPitch.current) * blend
-    currentZoom.current += (targetZoom.current - currentZoom.current) * blend
+    const blend = 1 - Math.exp(-LOOK_DAMPING * delta);
+    currentYaw.current += (targetYaw.current - currentYaw.current) * blend;
+    currentPitch.current +=
+      (targetPitch.current - currentPitch.current) * blend;
+    currentZoom.current += (targetZoom.current - currentZoom.current) * blend;
 
     // 정박 배율은 사용자 거리 줌(currentZoom). 도착 중엔 먼 배율에서 그 줌으로 빨려든다 —
     // 같은 방향 스케일만 키우므로 피치 불변(별이 계속 중앙).
-    let offsetScale = currentZoom.current
+    let offsetScale = currentZoom.current;
     if (isArrivingRef.current) {
-      if (arrivalStartRef.current == null) arrivalStartRef.current = state.clock.elapsedTime
-      const progress = (state.clock.elapsedTime - arrivalStartRef.current) / ARRIVAL_DURATION_S
+      if (arrivalStartRef.current == null)
+        arrivalStartRef.current = state.clock.elapsedTime;
+      const progress =
+        (state.clock.elapsedTime - arrivalStartRef.current) /
+        ARRIVAL_DURATION_S;
       if (progress >= 1) {
-        isArrivingRef.current = false
+        isArrivingRef.current = false;
       } else {
         offsetScale =
           ARRIVAL_START_DISTANCE_MULTIPLIER +
-          (currentZoom.current - ARRIVAL_START_DISTANCE_MULTIPLIER) * easeInOut(progress)
+          (currentZoom.current - ARRIVAL_START_DISTANCE_MULTIPLIER) *
+            easeInOut(progress);
       }
     }
 
     camera.position.set(
-      anchor[0] + SHIP_OFFSET_X * offsetScale,
-      anchor[1] + SHIP_OFFSET_Y * offsetScale,
-      anchor[2] + SHIP_OFFSET_Z * offsetScale,
-    )
-    camera.rotation.order = 'YXZ'
-    camera.rotation.set(currentPitch.current, currentYaw.current, 0)
-  })
+      anchor[0],
+      anchor[1] + offsetY * offsetScale,
+      anchor[2] + offsetZ * offsetScale
+    );
+    camera.rotation.order = "YXZ";
+    camera.rotation.set(currentPitch.current, currentYaw.current, 0);
+  });
 
-  return null
+  return null;
 }

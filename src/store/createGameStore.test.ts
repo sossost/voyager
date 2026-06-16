@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { PlanetId, Seed, StarId } from '@/engine'
+import type { PlanetId, Seed, Star, StarId, StarKind } from '@/engine'
 import { originStar, parseSeed, starsInSector } from '@/engine'
 import { MemoryDriver } from '@/persistence/memoryDriver'
 import type { GameStoreApi } from './createGameStore'
@@ -26,6 +26,38 @@ function otherStarId(): StarId {
 }
 
 const target = otherStarId()
+
+// 블랙홀은 대질량 O/B의 종착이라 매우 희귀(평면 sy=0만으론 표본에 2개가 안 잡힌다).
+// 수직 두께 전체(±SAMPLE_SY_SPAN)를 훑어 동종 블랙홀 2개를 확보한다.
+const SAMPLE_XZ_SPAN = 12
+const SAMPLE_SY_SPAN = 4
+
+/** 시작 별 주변 3D 박스를 훑어 테스트용 별 표본을 모은다 (이색 천체 발견 테스트용). */
+function sampleStars(): Star[] {
+  const stars: Star[] = []
+  for (let sx = -SAMPLE_XZ_SPAN; sx <= SAMPLE_XZ_SPAN; sx++) {
+    for (let sy = -SAMPLE_SY_SPAN; sy <= SAMPLE_SY_SPAN; sy++) {
+      for (let sz = -SAMPLE_XZ_SPAN; sz <= SAMPLE_XZ_SPAN; sz++) {
+        stars.push(...starsInSector(seed, { sx, sy, sz }))
+      }
+    }
+  }
+  return stars
+}
+
+const allStars = sampleStars()
+// 같은 종류가 2개 이상 있는 이색 kind를 골라 A·B 두 별을 확보 (최초/두 번째 발견 구분 테스트).
+// 이번 PR=블랙홀만 (거성·왜성·펄서는 후속 PR에서 EXOTIC_KINDS에 추가).
+const EXOTIC_KINDS: readonly StarKind[] = ['black_hole']
+const pairKind = EXOTIC_KINDS.find(
+  (kind) => allStars.filter((s) => s.id !== startStarId && s.kind === kind).length >= 2,
+)
+if (pairKind == null) throw new Error('테스트용 동종 이색 천체 2개를 찾지 못했습니다')
+const sameKindStars = allStars.filter((s) => s.id !== startStarId && s.kind === pairKind)
+const exoticStarA = sameKindStars[0] as Star
+const exoticStarB = sameKindStars[1] as Star
+const mainStar = allStars.find((s) => s.id !== startStarId && s.kind === 'main_sequence')
+if (mainStar == null) throw new Error('테스트용 주계열성을 찾지 못했습니다')
 
 let store: GameStoreApi
 let driver: MemoryDriver
@@ -59,6 +91,21 @@ describe('씬 전이 가드', () => {
     store.getState().warpTo(target) // 워프 시작 → selectedStarId 리셋
     store.getState().selectStar(startStarId)
     expect(store.getState().selectedStarId).toBeNull() // 워프 중 — 무시
+  })
+
+  it('selectStar는 bodyIndex를 기록하고 미지정 시 주성(0)으로 둔다 (다중성계)', () => {
+    store.getState().selectStar(target, 2)
+    expect(store.getState().selectedStarId).toBe(target)
+    expect(store.getState().selectedBodyIndex).toBe(2)
+
+    // 미지정 = 주성(0)
+    store.getState().selectStar(startStarId)
+    expect(store.getState().selectedBodyIndex).toBe(0)
+
+    // 해제 시 0으로 리셋
+    store.getState().selectStar(null)
+    expect(store.getState().selectedStarId).toBeNull()
+    expect(store.getState().selectedBodyIndex).toBe(0)
   })
 
   it('warpTo는 다른 별로만, 은하 뷰에서만 가능하다', () => {
@@ -211,6 +258,58 @@ describe('영속화 실패 처리', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('현상 발견 (exotic-bodies)', () => {
+  it('이색 천체로 워프하면 현상이 기록되고 최초 발견 토스트가 뜬다', () => {
+    expect(store.getState().discoveredPhenomena).toHaveLength(0)
+
+    store.getState().warpTo(exoticStarA.id)
+
+    const discoveries = store.getState().discoveredPhenomena
+    expect(discoveries).toHaveLength(1)
+    expect(discoveries[0]).toMatchObject({ starId: exoticStarA.id, kind: exoticStarA.kind })
+    expect(store.getState().toasts.some((toast) => toast.message.includes('최초 발견'))).toBe(true)
+  })
+
+  it('주계열성으로 워프하면 현상은 기록되지 않는다', () => {
+    store.getState().warpTo(mainStar.id)
+
+    expect(store.getState().discoveredPhenomena).toHaveLength(0)
+    expect(store.getState().toasts.some((toast) => toast.message.includes('최초 발견'))).toBe(false)
+  })
+
+  it('같은 이색 천체 재방문은 중복 기록하지 않는다 (멱등)', () => {
+    store.getState().warpTo(exoticStarA.id)
+    store.getState().onWarpComplete()
+    store.getState().warpTo(mainStar.id)
+    store.getState().onWarpComplete()
+    store.getState().warpTo(exoticStarA.id)
+
+    expect(
+      store.getState().discoveredPhenomena.filter((d) => d.starId === exoticStarA.id),
+    ).toHaveLength(1)
+  })
+
+  it('같은 종류의 두 번째 발견은 기록되지만 최초 발견 토스트는 한 번뿐이다', () => {
+    store.getState().warpTo(exoticStarA.id)
+    store.getState().onWarpComplete()
+    store.getState().warpTo(exoticStarB.id)
+
+    expect(store.getState().discoveredPhenomena).toHaveLength(2)
+    expect(
+      store.getState().toasts.filter((toast) => toast.message.includes('최초 발견')),
+    ).toHaveLength(1)
+  })
+
+  it('발견은 프로필에 영속된다 (Profile.discoveredPhenomena, 옵션 b)', async () => {
+    store.getState().warpTo(exoticStarA.id)
+
+    await vi.waitFor(async () => {
+      const profile = await driver.loadProfile()
+      expect(profile?.discoveredPhenomena?.map((d) => d.starId)).toContain(exoticStarA.id)
+    })
   })
 })
 

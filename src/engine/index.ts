@@ -19,7 +19,7 @@ export {
   SECTOR_SIZE,
   sectorDensity,
 } from './galaxy/density'
-export type { SpectralClass, Star } from './galaxy/sectors'
+export type { Companion, Multiplicity, SpectralClass, Star, StarKind } from './galaxy/sectors'
 export { MAX_STARS_PER_SECTOR, SOL_STAR, starsInSector } from './galaxy/sectors'
 export { originStar } from './galaxy/origin'
 export { starById, starWorldPosition } from './galaxy/position'

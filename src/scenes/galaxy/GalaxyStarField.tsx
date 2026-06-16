@@ -4,7 +4,7 @@ import { BufferGeometry, Color, Float32BufferAttribute, Vector3 } from 'three'
 
 import type { Star, StarId } from '@/engine'
 import { SECTOR_SIZE } from '@/engine'
-import { SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { fract } from '@/scenes/shared/fract'
 import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMaterial'
 import { starVariance } from '@/scenes/shared/starVariance'
@@ -53,7 +53,9 @@ function starBaseAttributes(star: Star, color: Color): StarBaseAttributes {
     SIZE_JITTER_BASE +
     SIZE_JITTER_SPAN * fract(star.localPos[0] * 0.317 + star.localPos[2] * 0.613)
 
-  const render = SPECTRAL_RENDER[star.spectral]
+  // 이색 천체는 EXOTIC_RENDER로 색/크기 차별화 (결정 10) — 1 draw call·피킹 불변.
+  const render =
+    star.kind === 'main_sequence' ? SPECTRAL_RENDER[star.spectral] : EXOTIC_RENDER[star.kind]
   color.set(render.color)
   return {
     r: color.r * brightness,

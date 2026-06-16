@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 
+import { PHENOMENA_BY_KIND } from '@/data/phenomena/phenomena'
 import type { IndividualId, PlanetId, Seed, StarId } from '@/engine'
-import { alienAt, GEN_VERSION, planetById } from '@/engine'
+import { alienAt, GEN_VERSION, planetById, starById } from '@/engine'
 import { persist } from '@/persistence/persist'
 import type {
   CollectionEntry,
   ExplorationRecord,
   HintKey,
+  PhenomenonDiscovery,
   Profile,
   StorageDriver,
   VisitRecord,
@@ -33,6 +35,8 @@ export interface CreateGameStoreOptions {
   readonly createdAt?: number
   /** 이미 표시된 힌트 목록 — 없으면 빈 배열. */
   readonly initialSeenHints?: readonly HintKey[]
+  /** 이미 발견한 이색 천체 — 없으면 빈 배열 (현상 도감 하이드레이션). */
+  readonly initialDiscoveredPhenomena?: readonly PhenomenonDiscovery[]
 }
 
 function buildSpeciesCounts(collection: readonly CollectionEntry[]): Map<string, number> {
@@ -73,6 +77,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
       currentStarId: get().currentStarId,
       createdAt,
       seenHints: [...get().seenHints],
+      discoveredPhenomena: [...get().discoveredPhenomena],
     })
 
     const reportPersistFailure = () => {
@@ -88,18 +93,19 @@ export function createGameStore(options: CreateGameStoreOptions) {
     // 첫 화면은 시작 별의 우주선 뷰 — 항성계가 은하 좌표에 통합되어 별도 'system' kind가 없다 (결정 41)
     scene: { kind: 'galaxy', view: 'ship' } satisfies SceneState,
     selectedStarId: null,
+    selectedBodyIndex: 0,
     selectedPlanetId: null,
     pendingArrival: false,
 
-    selectStar(starId) {
+    selectStar(starId, bodyIndex = 0) {
       if (get().scene.kind !== 'galaxy') return // ship·perspective 양쪽에서 별 선택 가능 (결정 41-f)
       // 새 선택은 행성 선택을 닫는다 — 콜아웃은 한 번에 하나 (결정 42-f 도킹 슬롯 전제).
       // 해제(null)는 상대 선택을 건드리지 않는다 (빈 공간 탭이 행성 패널을 닫지 않게).
       if (starId != null) {
-        set({ selectedStarId: starId, selectedPlanetId: null })
+        set({ selectedStarId: starId, selectedBodyIndex: bodyIndex, selectedPlanetId: null })
         return
       }
-      set({ selectedStarId: null })
+      set({ selectedStarId: null, selectedBodyIndex: 0 })
     },
 
     selectPlanet(planetId) {
@@ -113,23 +119,45 @@ export function createGameStore(options: CreateGameStoreOptions) {
     },
 
     warpTo(target) {
-      const { scene, currentStarId, visitedStars } = get()
+      const { scene, currentStarId, visitedStars, discoveredPhenomena, seed } = get()
       if (scene.kind !== 'galaxy') return
       if (target === currentStarId) return
 
       // 저장 커밋은 연출 전에 — 워프 연출이 중단되어도 데이터는 안전 (결정 16)
+      const visitedAt = now()
       const nextVisited = new Set(visitedStars)
       nextVisited.add(target)
+
+      // 이색 천체면 현상 도감에 발견 기록 — addVisit과 같은 persist 트랜잭션 (결정 7·8).
+      // 식별자만 저장하고 종류명·로어는 읽을 때 재생성한다 (철칙 4).
+      const targetStar = starById(seed, target)
+      const exoticKind =
+        targetStar != null && targetStar.kind !== 'main_sequence' ? targetStar.kind : null
+      const alreadyDiscovered = discoveredPhenomena.some((d) => d.starId === target)
+      const isNewDiscovery = exoticKind != null && !alreadyDiscovered
+      const isFirstOfKind = isNewDiscovery && !discoveredPhenomena.some((d) => d.kind === exoticKind)
+      const nextPhenomena = isNewDiscovery
+        ? [...discoveredPhenomena, { starId: target, kind: exoticKind, discoveredAt: visitedAt }]
+        : discoveredPhenomena
+
       set({
         scene: { kind: 'warping', from: currentStarId, to: target },
         selectedStarId: null,
         currentStarId: target,
         visitedStars: nextVisited,
+        discoveredPhenomena: nextPhenomena,
       })
 
-      // write-through: 캐시 갱신과 영속화를 같은 액션에서 (결정 20)
+      // 해당 종류 최초 발견 — 축하 토스트
+      if (isFirstOfKind && exoticKind != null) {
+        const label = PHENOMENA_BY_KIND.get(exoticKind)?.label ?? '이색 천체'
+        get().pushToast(`✨ 최초 발견 — ${label}`)
+      }
+
+      // write-through: 캐시 갱신과 영속화를 같은 액션에서 (결정 20).
+      // buildProfile()이 위 set()의 discoveredPhenomena를 포함하므로 saveProfile에 따라온다 (옵션 b).
       void persist(async () => {
-        await driver.addVisit({ starId: target, visitedAt: now() })
+        await driver.addVisit({ starId: target, visitedAt })
         await driver.saveProfile(buildProfile())
       }, reportPersistFailure)
     },
@@ -168,6 +196,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
     ),
     discoveredSpecies: buildSpeciesCounts(hydration.collection),
     collectionEntries: [...hydration.collection],
+    discoveredPhenomena: [...(options.initialDiscoveredPhenomena ?? [])],
 
     explore(planetId) {
       const state = get()

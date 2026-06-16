@@ -37,8 +37,9 @@ const SPIN_SPEED_SPAN = 0.09
 const CLOUD_SPIN_FACTOR = 1.55
 const CLOUD_LAYER_SCALE = 1.035
 
-export function orbitRadiusOf(planet: PlanetData): number {
-  return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE
+/** orbitOffset: 다중성계에서 별 군집을 벗어나도록 궤도를 바깥으로 미는 양 (기본 0). */
+export function orbitRadiusOf(planet: PlanetData, orbitOffset = 0): number {
+  return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE + orbitOffset
 }
 
 /** 궤도 시작 위상 — paletteSeed 파생 결정론 (자전 위상과도 공유). */
@@ -54,10 +55,11 @@ export function planetOrbitPosition(
   planet: PlanetData,
   elapsedSeconds: number,
   out: Vector3,
+  orbitOffset = 0,
 ): Vector3 {
   const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(planet.orbitAu, 1.5)
   const angle = orbitInitialPhase(planet) + elapsedSeconds * angularSpeed
-  const radius = orbitRadiusOf(planet)
+  const radius = orbitRadiusOf(planet, orbitOffset)
   return out.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius)
 }
 
@@ -69,6 +71,8 @@ function placeholderColor(planet: PlanetData): string {
 
 interface PlanetProps {
   readonly planet: PlanetData
+  /** 다중성계에서 별 군집을 벗어나도록 궤도를 바깥으로 미는 양 (기본 0). */
+  readonly orbitOffset?: number
 }
 
 /**
@@ -77,7 +81,7 @@ interface PlanetProps {
  * 비동기 수행되어 진입 히치가 없고, 도착 전에는 플레이스홀더 단색을 쓴다.
  * 조명은 항성 포인트라이트가 만드는 낮/밤 경계를 그대로 쓴다. 클릭하면 행성 패널이 열린다.
  */
-export function Planet({ planet }: PlanetProps) {
+export function Planet({ planet, orbitOffset = 0 }: PlanetProps) {
   const groupRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
   const cloudsRef = useRef<Mesh>(null)
@@ -112,7 +116,7 @@ export function Planet({ planet }: PlanetProps) {
     const group = groupRef.current
     if (group == null) return
     const elapsed = state.clock.elapsedTime
-    planetOrbitPosition(planet, elapsed, group.position)
+    planetOrbitPosition(planet, elapsed, group.position, orbitOffset)
 
     const spin = initialPhase + elapsed * spinSpeed * spinDirection
     if (surfaceRef.current != null) surfaceRef.current.rotation.y = spin

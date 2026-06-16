@@ -17,7 +17,15 @@ export interface QualityPreset {
    * 실측(M계열 데스크톱): 512=36ms/장, 256=9ms, 192=5ms. 해상도는 화질만 정한다.
    */
   readonly planetTextureBaseWidth: number
-  readonly postFx: boolean
+  /** 블룸 등 상시 포스트 이펙트 — high 전용(약기기 비용 보호). */
+  readonly bloom: boolean
+  /**
+   * 블랙홀 레이마칭 렌즈 스텝 수 — 모든 티어가 같은 가르강튀아 *형태*를 그리되 티어별로 낮춘다.
+   * (셰이더 루프는 최대치 고정, uSteps 유니폼으로 조기 종료.) 0이면 렌즈 비활성(페이크 폴백).
+   */
+  readonly blackHoleSteps: number
+  /** 블랙홀 렌즈 2x2 슈퍼샘플링(자글거림 제거) — 비용 4배라 high만. */
+  readonly blackHoleSupersample: boolean
 }
 
 export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
@@ -26,20 +34,28 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     maxPointSize: 12,
     planetSegments: 64,
     planetTextureBaseWidth: 512,
-    postFx: true,
+    bloom: true,
+    blackHoleSteps: 140,
+    blackHoleSupersample: true,
   },
   medium: {
     dprMax: 1.5,
     maxPointSize: 10,
     planetSegments: 32,
     planetTextureBaseWidth: 256,
-    postFx: false,
+    bloom: false,
+    blackHoleSteps: 80,
+    blackHoleSupersample: false,
   },
   low: {
     dprMax: 1,
     maxPointSize: 8,
     planetSegments: 16,
     planetTextureBaseWidth: 192,
-    postFx: false,
+    bloom: false,
+    // 48은 감김(가르강튀아 형태)이 안 나올 만큼 짧아 80으로 — 진짜 비용은 SS(off)·블룸(off)이라
+    // 스텝 차는 미미하고, 형태 보존이 우선. (high만 SS로 차별화.)
+    blackHoleSteps: 80,
+    blackHoleSupersample: false,
   },
 }

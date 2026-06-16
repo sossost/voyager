@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { starById } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { QualityAdapter } from '@/quality/QualityAdapter'
 import { SceneRouter } from '@/scenes/SceneRouter'
@@ -44,6 +45,16 @@ export function CanvasLayer() {
   const preset = QUALITY_PRESETS[qualityTier]
   const shouldPauseRendering = isDocumentHidden || isFullOverlayOpen
 
+  // 포스트 패스 마운트 — high는 블룸 때문에 상시, medium/low는 블랙홀에 있을 때만(약기기 비용 보호).
+  // 블랙홀 레이마칭 렌즈는 모든 티어가 같은 형태를 그리되 스텝/SS를 티어별로 낮춘다(presets).
+  const seed = useGameStore((state) => state.seed)
+  const currentStarId = useGameStore((state) => state.currentStarId)
+  const isAtBlackHole = useMemo(
+    () => starById(seed, currentStarId)?.kind === 'black_hole',
+    [seed, currentStarId],
+  )
+  const shouldRenderPostFx = preset.bloom || (isAtBlackHole && preset.blackHoleSteps > 0)
+
   const handleContextLost = useCallback(() => {
     setIsReconnecting(true)
     restoreTimerRef.current = setTimeout(() => {
@@ -75,7 +86,7 @@ export function CanvasLayer() {
         />
         <QualityAdapter />
         <SceneRouter />
-        {preset.postFx ? (
+        {shouldRenderPostFx ? (
           <Suspense fallback={null}>
             <PostEffects />
           </Suspense>

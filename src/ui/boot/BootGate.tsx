@@ -50,6 +50,7 @@ function startGame(
     initialQualityTier: tier,
     createdAt: profile.createdAt,
     initialSeenHints: profile.seenHints,
+    initialDiscoveredPhenomena: profile.discoveredPhenomena,
   })
 }
 
