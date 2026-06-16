@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { AdditiveBlending, type Group, type Mesh, ShaderMaterial, Vector3 } from 'three'
 
+import { QUALITY_PRESETS } from '@/quality/presets'
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
 import { AccretionDisk } from '@/scenes/system/AccretionDisk'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
@@ -59,9 +60,12 @@ export function BlackHole({ radius }: BlackHoleProps) {
   const ringGroupRef = useRef<Group>(null)
   const ringMeshRef = useRef<Mesh>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
-  // high 티어에선 측지선 레이마칭(포스트 패스)이 블랙홀 전체를 그린다 → 렌더 본체는 그리지 않는다
-  // (입력 버퍼를 깨끗한 배경으로 유지해 렌즈가 샘플). medium/low는 페이크(구·원반·EHT 링)를 그린다.
-  const renderFake = useGameStore((state) => state.qualityTier !== 'high')
+  // 레이마칭 렌즈(포스트 패스)가 블랙홀 전체를 그리는 티어에선 본체를 그리지 않는다(입력 버퍼를
+  // 깨끗한 배경으로 유지해 렌즈가 샘플). 모든 티어가 레이마칭(blackHoleSteps>0)이라 페이크는
+  // 렌즈를 끈 티어(steps=0)에서만 — 현재는 없음. 페이크 코드는 폴백/롤백용으로 보존.
+  const renderFake = useGameStore(
+    (state) => QUALITY_PRESETS[state.qualityTier].blackHoleSteps === 0,
+  )
 
   const ringMaterial = useMemo(
     () =>

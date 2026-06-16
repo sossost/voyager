@@ -222,14 +222,18 @@ export function CurrentSystem() {
       blackHoleLens.bhPos.set(worldPosition[0], worldPosition[1], worldPosition[2])
       const rs = (bodies[0]?.radius ?? STAR_VISUAL_RADIUS) * systemScaleRef.current
       blackHoleLens.rs = rs
-      blackHoleLens.diskInner = rs * 2.9 // 광자구(2.6rs) 바로 바깥부터
-      blackHoleLens.diskOuter = rs * 5.6
-      blackHoleLens.diskNormal.set(0, 1, 0) // 수평 원반(월드 고정) — 정박 시점에서 옆모습
+      // 디스크 안쪽을 그림자(BCRIT≈4.8 rs)보다 훨씬 안까지 끌어내려 검은 구에 바짝 붙인다(갭 제거).
+      // 전체 크기는 rs(kindRadiusFactor)로 조절.
+      blackHoleLens.diskInner = rs * 2.5
+      blackHoleLens.diskOuter = rs * 18.0
+      blackHoleLens.diskNormal.set(0, 1, 0)
       ndcScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
       const fov = cam instanceof PerspectiveCamera ? cam.fov : 60
       const halfHeight = dist * Math.tan((fov * Math.PI) / 360)
-      blackHoleLens.screenRadius = halfHeight > 0 ? ((rs * 12) / halfHeight) * 0.5 : 0.3
+      // 렌즈/굴절 게이팅 — 강착원반 외곽(18 rs) 정도로 컴팩트하게(≈28 rs). 렌즈 적분 도메인
+      // (셰이더 START_R/ESCAPE_R)도 같은 28 rs라 휜 배경 영역과 게이트가 일치한다. 페이드로 경계 완화.
+      blackHoleLens.screenRadius = halfHeight > 0 ? ((rs * 28) / halfHeight) * 0.5 : 0.7
       blackHoleLens.active = true
     } else {
       clearBlackHoleLens()

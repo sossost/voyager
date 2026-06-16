@@ -72,6 +72,24 @@ function renderedRadius(
   return base * kindRadiusFactor(kind)
 }
 
+/** 블랙홀 강착원반 외곽 배수 — BlackHoleRayMarchEffect/CurrentSystem의 diskOuter(rs×18)와 일치. */
+const BLACK_HOLE_DISK_FACTOR = 18
+
+/**
+ * 충돌·궤도 회피용 유효 반경. 블랙홀 주성은 *사건지평선*이 아니라 *강착원반 외곽*(rs×18)까지
+ * 비워야 한다 — 안 그러면 동반성·행성이 디스크 안에서 도는 것처럼 보인다 (사용자 피드백 2026-06-16).
+ * 시각 메시 반경(renderedRadius)과 별개의 "보이는 영향권" 개념. 렌더 전용 — GEN_VERSION 무관.
+ */
+function clearanceRadius(
+  spectral: SpectralClass,
+  isPrimary: boolean,
+  kind: StarKind = 'main_sequence',
+): number {
+  const visual = renderedRadius(spectral, isPrimary, kind)
+  if (isPrimary && kind === 'black_hole') return visual * BLACK_HOLE_DISK_FACTOR
+  return visual
+}
+
 /**
  * 쌍의 반장축(질량중심 기준 두 별 중심 거리) — 표면 간격 확보 하한 + 군집 상한 클램프.
  * periapsis = aTotal·(1−eccEff) ≥ rA + rB + 간격 이 되도록 하한을 둔다.
@@ -133,7 +151,8 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
     const companionMass = massOf(companion.spectral)
     const totalMass = primaryMass + companionMass
     const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
-    const rPrimary = renderedRadius(star.spectral, true, star.kind)
+    // 블랙홀이면 디스크 외곽까지 비우는 유효 반경(clearanceRadius)을 써 동반성이 디스크 밖에서 공전.
+    const rPrimary = clearanceRadius(star.spectral, true, star.kind)
     const rCompanion = renderedRadius(companion.spectral, false)
     const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
     const aPrimary = (aTotal * companionMass) / totalMass
@@ -161,7 +180,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
 
   // 내부 레벨 — 주성과 inner가 Bi를 공전 (먼저 풀어 inner 쌍의 외곽 반경을 구한다).
   const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
-  const rPrimary = renderedRadius(star.spectral, true, star.kind)
+  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
   const rInnerBody = renderedRadius(inner.spectral, false)
   const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
   const aPrimary = (aTotalInner * innerMass) / innerPairMass
@@ -206,7 +225,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
  */
 function stellarClearanceRadius(star: Star): number {
   const primaryMass = massOf(star.spectral)
-  const rPrimary = renderedRadius(star.spectral, true, star.kind)
+  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
 
   if (star.multiplicity === 'binary') {
     const companion = star.companions[0]

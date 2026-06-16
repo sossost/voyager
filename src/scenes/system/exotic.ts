@@ -13,8 +13,9 @@ import type { StarKind } from '@/engine'
 export function kindRadiusFactor(kind: StarKind): number {
   switch (kind) {
     case 'black_hole':
-      // 큰 사건지평선 — 작으면 high 티어 Bloom 번짐이 검은 코어를 흰색으로 메운다.
-      return 1.4
+      // 사건지평선 시각 반경 배수 — 항성보다 작다(<1). 레이마칭 렌즈가 디스크(rs×18)·렌즈(rs×28)를
+      // 그려 전체 화면 크기를 좌우하므로, 디스크 외곽이 일반 항성 코로나와 비슷해지게 0.32로 둔다.
+      return 0.32
     case 'main_sequence':
       return 1
   }

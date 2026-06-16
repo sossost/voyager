@@ -10,8 +10,8 @@ describe('kindRadiusFactor', () => {
     expect(kindRadiusFactor('main_sequence')).toBe(1)
   })
 
-  it('블랙홀은 사건지평선을 키운다 (>1) — Bloom 번짐 방지', () => {
-    expect(kindRadiusFactor('black_hole')).toBeGreaterThan(1)
+  it('블랙홀 사건지평선은 항성보다 작다 (<1) — 디스크·렌즈 레이마칭이 시각 크기를 담당', () => {
+    expect(kindRadiusFactor('black_hole')).toBeLessThan(1)
   })
 
   it('모든 kind에 유한한 양수 배수를 준다 (exhaustive)', () => {
