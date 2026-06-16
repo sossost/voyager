@@ -1,5 +1,6 @@
 import { ConsoleDeck } from '@/ui/hud/ConsoleDeck'
 import { CurrentStarArrow } from '@/ui/hud/CurrentStarArrow'
+import { GuestModeBanner } from '@/ui/hud/GuestModeBanner'
 import { HintLayer } from '@/ui/hud/HintLayer'
 import { PlanetPanel } from '@/ui/hud/PlanetPanel'
 import { ShipFrame } from '@/ui/hud/ShipFrame'
@@ -31,6 +32,7 @@ export function HudLayer() {
       <ConsoleDeck />
       <CurrentStarArrow />
       <HintLayer />
+      <GuestModeBanner />
     </div>
   )
 }

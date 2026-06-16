@@ -198,3 +198,67 @@ test('딥링크: ?seed=&star= 진입 시 해당 항성계 복원 + 주소창 동
   await expect.poll(() => new URL(page.url()).searchParams.get('star')).toBe(WARP_TARGET)
   expect(new URL(page.url()).searchParams.get('seed')).toBe('LIFE1')
 })
+
+/**
+ * 게스트 둘러보기 (백로그 L-1): 내 우주(LIFE1)를 저장한 상태에서 다른 시드의 공유 딥링크를
+ * 열면 → 충돌 프롬프트 → '둘러보기'는 저장 없는 게스트 세션, '내 우주로 돌아가기'는 복귀.
+ */
+const GUEST_SEED = (() => {
+  const s = parseSeed('VOYAGER')
+  if (s == null) throw new Error('VOYAGER 시드가 유효하지 않습니다')
+  return s
+})()
+
+/** VOYAGER에서 Sol이 아닌 실제 별 하나 — 게스트 딥링크 별 복원 검증용. */
+function findGuestStar(seed: Seed): StarId {
+  for (let dsx = -3; dsx <= 3; dsx++) {
+    for (let dsz = -3; dsz <= 3; dsz++) {
+      for (const star of starsInSector(seed, {
+        sx: SOL_SECTOR.sx + dsx,
+        sy: 0,
+        sz: SOL_SECTOR.sz + dsz,
+      })) {
+        if (star.id !== SOL_STAR_ID) return star.id
+      }
+    }
+  }
+  throw new Error('VOYAGER에서 별을 찾지 못했습니다')
+}
+const GUEST_STAR = findGuestStar(GUEST_SEED)
+
+test('게스트 둘러보기: 다른 시드 딥링크 → 충돌 프롬프트 → 저장 없이 둘러보기 → 복귀', async ({
+  page,
+}) => {
+  // 1) 내 우주(LIFE1) 생성 — 프로필 저장
+  await page.goto('/?seed=LIFE1')
+  await page.getByRole('button', { name: '이 우주로 출발' }).click()
+  await expect(page.getByRole('button', { name: '도감' })).toBeVisible()
+  await page.waitForFunction(() => window.__gameStore != null)
+
+  // 2) 다른 시드의 공유 딥링크 → 충돌 프롬프트
+  await page.goto(`/?seed=VOYAGER&star=${GUEST_STAR}`)
+  await expect(page.getByRole('button', { name: '공유 우주 둘러보기' })).toBeVisible()
+
+  // 3) 둘러보기 → 게스트 세션 (시드=VOYAGER, 딥링크 별, isGuestMode)
+  await page.getByRole('button', { name: '공유 우주 둘러보기' }).click()
+  await page.waitForFunction(() => window.__gameStore?.getState().isGuestMode === true)
+  const guest = await page.evaluate(() => {
+    const s = window.__gameStore!.getState()
+    return { seed: s.seed, currentStarId: s.currentStarId, isGuestMode: s.isGuestMode }
+  })
+  expect(guest.seed).toBe('VOYAGER')
+  expect(guest.currentStarId).toBe(GUEST_STAR)
+  expect(guest.isGuestMode).toBe(true)
+
+  // 4) '내 우주로 돌아가기' → 내 우주(LIFE1) 복귀, 게스트 해제
+  await page.getByRole('button', { name: '내 우주로 돌아가기' }).click()
+  await page.waitForFunction(() => window.__gameStore?.getState().isGuestMode === false, undefined, {
+    timeout: 10_000,
+  })
+  const own = await page.evaluate(() => {
+    const s = window.__gameStore!.getState()
+    return { seed: s.seed, isGuestMode: s.isGuestMode }
+  })
+  expect(own.seed).toBe('LIFE1')
+  expect(own.isGuestMode).toBe(false)
+})

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { App } from '@/App'
 import type { Seed, StarId } from '@/engine'
-import { GEN_VERSION, originStar } from '@/engine'
+import { GEN_VERSION, originStar, starById } from '@/engine'
 import { persist } from '@/persistence/persist'
 import { probeStorage } from '@/persistence/probeStorage'
 import { detectInitialQualityTier } from '@/quality/detectInitialTier'
@@ -16,6 +16,7 @@ import type { QualityTier } from '@/store/types'
 import { hasWebGLSupport } from '@/ui/boot/hasWebGLSupport'
 import { GenVersionNotice } from '@/ui/boot/GenVersionNotice'
 import { SeedSetup } from '@/ui/boot/SeedSetup'
+import { SharedUniversePrompt } from '@/ui/boot/SharedUniversePrompt'
 import { WebGLBlocked } from '@/ui/boot/WebGLBlocked'
 
 type BootState =
@@ -28,6 +29,17 @@ type BootState =
       readonly tier: QualityTier
       readonly profile: Profile
       readonly records: HydrationRecords
+    }
+  | {
+      readonly status: 'shared-universe'
+      readonly driver: StorageDriver
+      readonly tier: QualityTier
+      readonly profile: Profile
+      readonly records: HydrationRecords
+      /** 친구가 공유한 (내 것과 다른) 시드. */
+      readonly guestSeed: Seed
+      /** 공유 딥링크가 가리키는 별 — 없으면 시작 항성계. */
+      readonly guestStarId: StarId | null
     }
   | { readonly status: 'ready' }
 
@@ -52,6 +64,33 @@ function startGame(
     createdAt: profile.createdAt,
     initialSeenHints: profile.seenHints,
     initialDiscoveredPhenomena: profile.discoveredPhenomena,
+  })
+}
+
+/**
+ * 공유 우주 둘러보기 (백로그 L-1 게스트 모드) — 다른 시드의 우주를 저장 없이 연다.
+ * 하이드레이션은 비우고(다른 우주라 내 기록이 무의미), guestMode로 모든 저장 쓰기를 막아
+ * 방문자의 본 우주 기록을 보존한다. 온보딩 힌트는 다시 안 뜨게 내 seenHints만 넘긴다.
+ */
+function startGuestSession(
+  driver: StorageDriver,
+  tier: QualityTier,
+  guestSeed: Seed,
+  guestStarId: StarId | null,
+  seenHints: Profile['seenHints'],
+): void {
+  const startStarId = resolveDeepLinkStar(guestSeed, originStar(guestSeed), {
+    seed: guestSeed,
+    starId: guestStarId,
+  })
+  initializeGameStore({
+    seed: guestSeed,
+    startStarId,
+    driver,
+    hydration: { visits: [], explorations: [], collection: [] },
+    initialQualityTier: tier,
+    initialSeenHints: seenHints,
+    guestMode: true,
   })
 }
 
@@ -90,8 +129,25 @@ export function BootGate() {
         return
       }
 
+      const link = readSystemLink()
+
+      // 내 것과 다른 시드의 공유 딥링크 — 브라우저당 우주는 하나라 충돌한다. 무음 무시 대신
+      // 게스트 둘러보기를 제안한다 (백로그 L-1). 같은 시드(또는 시드 없음)면 평소대로 진입.
+      if (link.seed != null && link.seed !== profile.seed) {
+        setBootState({
+          status: 'shared-universe',
+          driver,
+          tier,
+          profile,
+          records,
+          guestSeed: link.seed,
+          guestStarId: link.starId,
+        })
+        return
+      }
+
       // 딥링크(?star=)가 이 시드에서 유효하면 해당 항성계로 진입, 아니면 저장된 현재 위치.
-      const startStarId = resolveDeepLinkStar(profile.seed, profile.currentStarId, readSystemLink())
+      const startStarId = resolveDeepLinkStar(profile.seed, profile.currentStarId, link)
       startGame(driver, tier, profile, records, startStarId)
       setBootState({ status: 'ready' })
     }
@@ -178,6 +234,26 @@ export function BootGate() {
           }}
         />
       )
+    case 'shared-universe': {
+      const { driver, tier, profile, records, guestSeed, guestStarId } = bootState
+      const systemName =
+        guestStarId != null ? (starById(guestSeed, guestStarId)?.name ?? null) : null
+      return (
+        <SharedUniversePrompt
+          seed={guestSeed}
+          systemName={systemName}
+          onEnterGuest={() => {
+            startGuestSession(driver, tier, guestSeed, guestStarId, profile.seenHints)
+            setBootState({ status: 'ready' })
+          }}
+          onKeepOwn={() => {
+            // 링크 무시 — 내 우주 진입. URL은 동기화 구독이 내 시드로 자가 보정한다.
+            startGame(driver, tier, profile, records, profile.currentStarId)
+            setBootState({ status: 'ready' })
+          }}
+        />
+      )
+    }
     case 'ready':
       return <App />
     default: {

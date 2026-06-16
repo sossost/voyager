@@ -37,6 +37,11 @@ export interface CreateGameStoreOptions {
   readonly initialSeenHints?: readonly HintKey[]
   /** 이미 발견한 이색 천체 — 없으면 빈 배열 (현상 도감 하이드레이션). */
   readonly initialDiscoveredPhenomena?: readonly PhenomenonDiscovery[]
+  /**
+   * 공유 우주 둘러보기 세션 (백로그 L-1 게스트 모드) — 진실이면 모든 저장 쓰기를 건너뛴다.
+   * 다른 시드의 딥링크를 연 기존 플레이어가 자기 우주 기록을 잃지 않고 둘러볼 수 있게 한다.
+   */
+  readonly guestMode?: boolean
 }
 
 function buildSpeciesCounts(collection: readonly CollectionEntry[]): Map<string, number> {
@@ -84,10 +89,17 @@ export function createGameStore(options: CreateGameStoreOptions) {
       get().pushToast('저장에 실패했어요 — 게임은 계속 진행됩니다')
     }
 
+    // 게스트(공유 우주 둘러보기) 세션은 디스크 쓰기를 통째로 건너뛴다 — operation을 호출하지
+    // 않으므로 driver 쓰기가 발생하지 않고, 방문자의 본 우주 기록이 보존된다 (백로그 L-1).
+    // 모든 변이 액션은 write-through(set() 먼저, commit() 나중)라 in-memory 세션은 그대로 동작한다.
+    const isGuestMode = options.guestMode === true
+    const commit: typeof persist = isGuestMode ? () => Promise.resolve() : persist
+
     return {
     // ── universe (부트 후 불변) ──────────────────────────────
     seed: options.seed,
     genVersion: GEN_VERSION,
+    isGuestMode,
 
     // ── sceneSlice ──────────────────────────────────────────
     // 첫 화면은 시작 별의 우주선 뷰 — 항성계가 은하 좌표에 통합되어 별도 'system' kind가 없다 (결정 41)
@@ -156,7 +168,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
       // write-through: 캐시 갱신과 영속화를 같은 액션에서 (결정 20).
       // buildProfile()이 위 set()의 discoveredPhenomena를 포함하므로 saveProfile에 따라온다 (옵션 b).
-      void persist(async () => {
+      void commit(async () => {
         await driver.addVisit({ starId: target, visitedAt })
         await driver.saveProfile(buildProfile())
       }, reportPersistFailure)
@@ -213,7 +225,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
         nextExplored.add(planetId)
         set({ exploredPlanets: nextExplored })
         get().pushToast('인류의 고향 — 외계 생명체는 발견되지 않았습니다')
-        void persist(async () => {
+        void commit(async () => {
           await driver.addExploration({ planetId, exploredAt: now() })
         }, reportPersistFailure)
         return
@@ -259,7 +271,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
       })
 
       // write-through — 연출이 끝나기 전에 커밋 (스캔 중 이탈해도 수집은 안전)
-      void persist(async () => {
+      void commit(async () => {
         await driver.addExploration({ planetId, exploredAt: discoveredAt })
         await driver.addCollectionEntry(entry)
       }, reportPersistFailure)
@@ -310,7 +322,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
       const nextSeen = new Set(seenHints)
       nextSeen.add(key)
       set({ seenHints: nextSeen })
-      void persist(async () => {
+      void commit(async () => {
         await driver.saveProfile(buildProfile())
       }, reportPersistFailure)
     },

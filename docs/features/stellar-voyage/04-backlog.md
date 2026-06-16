@@ -276,7 +276,11 @@ findability 공백이 생김 — 이 백로그가 그 대체 기능을 추적한
 
 ### ~~L-1. 항성계 공유 딥링크 (`?seed=&star=`)~~ — ✅ 완료 (2026-06-16, 결정 44)
 
-> 정박 시 `?seed=&star=` 동기화(`history.replaceState`, 워프 완료 후 갱신·Sol은 star 생략) + 부트 복원(URL seed가 로드 seed와 일치 + starById 유효 시 적용, 아니면 폴백) + `JournalOverlay` "현재 항성계 공유" 행. 신규 플레이어는 저장 프로필 Sol 유지하되 첫 화면만 딥링크 별. `store/systemUrl.ts` 신규 + 단위 18케이스 + E2E 딥링크 복원. **L-2(일지 워프)는 미착수.**
+> 정박 시 `?seed=&star=` 동기화(`history.replaceState`, 워프 완료 후 갱신·Sol은 star 생략) + 부트 복원(URL seed가 로드 seed와 일치 + starById 유효 시 적용, 아니면 폴백) + `JournalOverlay` "현재 항성계 공유" 행. 신규 플레이어는 저장 프로필 Sol 유지하되 첫 화면만 딥링크 별. `store/systemUrl.ts` 신규 + 단위 18케이스 + E2E 딥링크 복원. (PR #19 머지)
+>
+> **게스트 둘러보기 (결정 45):** 기존 플레이어가 다른 시드 딥링크를 열 때의 무음 실패 해소 — 충돌 프롬프트 + 기록 비파괴 게스트 세션(`guestMode`로 persist 차단) + 출구 배너. `SharedUniversePrompt`·`GuestModeBanner` 신규 + 단위 4케이스 + E2E 충돌→둘러보기→복귀.
+>
+> **L-2(일지 워프)는 미착수.**
 
 - **URL 동기화:** 항성계에 머무는 동안(우주선 뷰로 정박 = `currentStarId` 확정 시) 쿼리파라미터를 `?seed=<seed>&star=<starId>`로 갱신. **`history.replaceState`** 사용 (push 금지 — 워프마다 히스토리 스택 쌓이면 뒤로가기 지옥). Sol 시작 시엔 `star` 생략 또는 `SOL_STAR_ID` 명시 — 결정 필요.
 - **부트 복원:** `BootGate`/`SeedSetup`이 진입 시 `?star=`를 읽어 해당 항성계로 카메라·정박 상태 복원. `starById(seed, starId)`가 null이면(다른 시드의 별 ID) 무시하고 시드 기본 시작점으로 폴백.
