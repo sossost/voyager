@@ -416,7 +416,13 @@ class BlackHoleRayMarchImpl extends Effect {
     const time = u.get("uTime");
     if (time != null) time.value = ((time.value as number) + deltaTime) % 10000;
     // 티어별 품질 — 모든 티어가 같은 가르강튀아 형태를 그리되 스텝/SS만 낮춘다.
-    const preset = QUALITY_PRESETS[useGameStore.getState().qualityTier];
+    // 단, 자동 모드에서는 블랙홀을 항상 high로 고정한다(결정 5의 high 사치). 블랙홀은 본질적으로
+    // 무거워 자동 하향을 거의 항상 자극하는데, 그 하향이 가르강튀아 룩을 떨어뜨리면 본전을 못 찾는다.
+    // QualityAdapter가 블랙홀 근접 중 하향을 보류하므로(쌍을 이룸), 여기서 high로 고정해도 토스트
+    // 반복·전체 씬 하락이 없다. 수동 오버라이드(낮음/중간)는 사용자 의도라 그대로 존중한다.
+    const { qualityTier, qualityMode } = useGameStore.getState();
+    const preset =
+      qualityMode === "auto" ? QUALITY_PRESETS.high : QUALITY_PRESETS[qualityTier];
     set("uSteps", preset.blackHoleSteps);
     set("uSupersample", preset.blackHoleSupersample ? 1 : 0);
   }
