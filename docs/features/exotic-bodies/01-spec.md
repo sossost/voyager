@@ -5,6 +5,11 @@
 **Author:** (brainstorm session)
 **백로그 출처:** G-c-9 "이색 천체: 블랙홀·성운·펄서 등" (`04-backlog.md:141`)
 
+> ⚠️ **PR 분할 (2026-06-16):** 이 스펙은 **4종 전부**를 정의하지만 **이번 PR은 블랙홀만** 구현했다.
+> 적색거성·백색왜성·펄서(아래 Behavior 4·5의 해당 항목)는 **후속 PR로 이연**된다 — 본 내용은
+> 후속 작업의 진실의 원천이라 보존한다. `StarKind`는 현재 `main_sequence | black_hole` 2종.
+> 상세·GEN_VERSION 5 유지 근거: `02-decisions.md` 결정 16.
+
 ---
 
 ## Overview

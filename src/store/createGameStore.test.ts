@@ -27,12 +27,19 @@ function otherStarId(): StarId {
 
 const target = otherStarId()
 
-/** 은하 평면을 훑어 테스트용 별 표본을 모은다 (이색 천체 발견 테스트용). */
+// 블랙홀은 대질량 O/B의 종착이라 매우 희귀(평면 sy=0만으론 표본에 2개가 안 잡힌다).
+// 수직 두께 전체(±SAMPLE_SY_SPAN)를 훑어 동종 블랙홀 2개를 확보한다.
+const SAMPLE_XZ_SPAN = 12
+const SAMPLE_SY_SPAN = 4
+
+/** 시작 별 주변 3D 박스를 훑어 테스트용 별 표본을 모은다 (이색 천체 발견 테스트용). */
 function sampleStars(): Star[] {
   const stars: Star[] = []
-  for (let sx = -12; sx <= 12; sx++) {
-    for (let sz = -12; sz <= 12; sz++) {
-      stars.push(...starsInSector(seed, { sx, sy: 0, sz }))
+  for (let sx = -SAMPLE_XZ_SPAN; sx <= SAMPLE_XZ_SPAN; sx++) {
+    for (let sy = -SAMPLE_SY_SPAN; sy <= SAMPLE_SY_SPAN; sy++) {
+      for (let sz = -SAMPLE_XZ_SPAN; sz <= SAMPLE_XZ_SPAN; sz++) {
+        stars.push(...starsInSector(seed, { sx, sy, sz }))
+      }
     }
   }
   return stars
@@ -40,7 +47,8 @@ function sampleStars(): Star[] {
 
 const allStars = sampleStars()
 // 같은 종류가 2개 이상 있는 이색 kind를 골라 A·B 두 별을 확보 (최초/두 번째 발견 구분 테스트).
-const EXOTIC_KINDS: readonly StarKind[] = ['red_giant', 'white_dwarf', 'pulsar', 'black_hole']
+// 이번 PR=블랙홀만 (거성·왜성·펄서는 후속 PR에서 EXOTIC_KINDS에 추가).
+const EXOTIC_KINDS: readonly StarKind[] = ['black_hole']
 const pairKind = EXOTIC_KINDS.find(
   (kind) => allStars.filter((s) => s.id !== startStarId && s.kind === kind).length >= 2,
 )

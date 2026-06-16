@@ -2,6 +2,10 @@
 
 **Created:** 2026-06-15 (적대 검증 1회 반영)
 
+> ⚠️ **PR 분할 (2026-06-16, 결정 16):** 이 문서는 이색 천체 **4종 전부**를 다루지만,
+> **이번 PR은 블랙홀만** 구현·머지한다. 적색거성·백색왜성·펄서는 **후속 PR**로 분리됐다.
+> 4종 내용은 후속 작업의 진실의 원천이므로 **삭제하지 않고 보존**한다 — 상세는 **결정 16** 참조.
+
 > 프로젝트 본 결정 시트(`docs/features/stellar-voyage/02-decisions.md`)의 결정 13(GEN_VERSION·스트림 격리),
 > 16(저장 커밋은 연출 전), 19(드라이버 폴백 동등성), 22~28(비주얼 1·2차 패턴·기각 이력), 31(본체 감싸는 막 금지),
 > 38(좁은 핫코어), 40(배경=배경의 성질), 그리고 쌍성계(`docs/features/binary-stars/`, GEN_VERSION 4)와 연속선상.
@@ -245,6 +249,33 @@
 
 **Chosen:** A
 **Reason:** `CodexOverlay.tsx:128-132`의 `OverlayShell` children을 `role=tablist` + 삼항으로 감싼다(`CodexContent`=탭1 그대로, `PhenomenaTab`=탭2 신규). 탭 전환 시 언마운트로 `selectedSpeciesId` 자연 리셋. 키보드 내비(role=tab/tabpanel + 화살표) 포함. 도감/일지는 이미 별개 오버레이라(`Overlay='codex'|'journal'`) 탭은 codex 내부에만.
+
+---
+
+### 16. PR 분할 — 이번 PR=블랙홀만, 거성·왜성·펄서는 후속 (GEN_VERSION 5 유지)
+
+**Date:** 2026-06-16
+**Status:** accepted
+
+#### Context
+4종(적색거성·백색왜성·펄서·블랙홀)이 한 브랜치(`feature/exotic-bodies`)에 전부 구현된 상태에서, 사용자가 **블랙홀을 별도로 리뷰**하기 위해 이번 PR을 블랙홀만으로 축소하기로 결정. 거성·왜성·펄서 + 그들의 현상 도감은 후속 PR.
+
+#### Decision
+- `StarKind`를 `'main_sequence' | 'black_hole'` **2종으로 축소**. `KIND_WEIGHTS_BY_SPECTRAL`은 O/B만 `black_hole` 보유, A/F/G/K/M은 `main_sequence` 단일 항목.
+- 삭제: `Pulsar.tsx`, `ExoticBody.tsx`(블랙홀 단일 분기라 CurrentSystem에 `<BlackHole>` 직접 인라인), `exotic.ts`의 `surfaceModulationOf`·`SurfaceModulation`·`NEUTRAL_MODULATION`, `spectral.ts`/`phenomena.ts`의 거성·왜성·펄서 항목, 관련 테스트 단언.
+- 유지: 블랙홀 렌더 일체(측지선 레이마칭·강착원반·맵 링·렌즈 공유상태)·현상 도감(블랙홀)·블랙홀 행성 숨김.
+- 4종 구현은 **git 히스토리(c3f9dbf..7d7288a)에 보존** → 후속 PR에서 cherry-pick/참조.
+
+#### GEN_VERSION = 5 유지 (범프 안 함)
+- **근거:** 릴리즈 시퀀스 기준 main(v4) 다음 첫 머지가 곧 v5(블랙홀). 4종 v5는 **미릴리즈 중간 산물**이라 '5' 재사용이 정당. 후속 PR(거성·왜성·펄서 재도입, 분포 변경)이 v6.
+- **골든 무변화(실측):** 프로브 섹터(2,0,3)의 7개 별이 전부 F/G/M형 → `black_hole` 도달 불가, 전부 `main_sequence` 유지. 단일 항목 테이블의 weight 값은 출력 무관(`target < total` 항상). `weighted()`는 테이블 크기와 무관하게 `next()` 1회 소비 → RNG 시퀀스 바이트 동일. **스냅샷 git diff 0 확인.**
+- **분포는 변함(인지):** O/B 별의 `black_hole` 재분할 + 비O/B의 거성·왜성 롤이 `main_sequence`로 플립. 단 골든 프로브가 O/B를 안 뽑아 스냅샷엔 안 보임. 철칙 2의 트리거("스냅샷이 바뀌는 변경")는 미충족 → 범프 불필요로 판단(사용자 확정).
+- **dev 프로필 주의:** 4종-v5로 테스트한 로컬 프로필은 genVersion이 같아 자동 리셋 안 됨 → stale 펄서·거성 발견 기록이 남을 수 있음. `indexedDB.deleteDatabase('stellar-voyage')` 후 재부트로 정리.
+
+#### Consequences
+- 도감 "현상" 탭은 블랙홀 1종만 표시(완료율 1/1). `PhenomenonRarity`의 `uncommon`/`rare`는 미사용이나 후속 PR 대비 보존.
+- `createGameStore.test.ts`: 블랙홀이 최희귀(O/B 한정)라 평면 sy=0만으론 동종 2개 미확보 → 표본을 3D 박스(sy ±4)로 확장.
+- `StarSurface`의 `emissiveBoost?`/`coronaScale?`는 호출자가 사라졌으나 기본값이라 무해 → 후속 정리 후보(코어 셰이더 리스크 회피로 이번엔 유지).
 
 ---
 

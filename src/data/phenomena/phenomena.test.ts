@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { PHENOMENA_BY_KIND, PHENOMENA_CATALOG } from './phenomena'
 
 describe('PHENOMENA_CATALOG', () => {
-  it('이색 천체 4종을 모두 담고 주계열성은 제외한다', () => {
+  it('블랙홀을 담고 주계열성은 제외한다 (이번 PR=블랙홀만)', () => {
     const kinds = PHENOMENA_CATALOG.map((archetype) => archetype.kind).sort()
-    expect(kinds).toEqual(['black_hole', 'pulsar', 'red_giant', 'white_dwarf'])
+    expect(kinds).toEqual(['black_hole'])
   })
 
   it('모든 항목에 라벨·로어·희귀도가 있다', () => {

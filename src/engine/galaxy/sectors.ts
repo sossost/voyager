@@ -34,55 +34,32 @@ const MULTIPLICITY_WEIGHTS: readonly WeightedEntry<Multiplicity>[] = [
 ]
 
 /**
- * 별 종류 (결정 2) — 주계열성 + 이색 천체 4종.
- * 적색거성·백색왜성은 진화 후기 상태, 펄서·블랙홀은 대질량성의 종착.
+ * 별 종류 (결정 2) — 주계열성 + 블랙홀.
+ * 블랙홀은 대질량성(O/B)의 종착. 적색거성·백색왜성·펄서는 후속 PR로 분리(이번 PR=블랙홀만).
  */
-export type StarKind = 'main_sequence' | 'red_giant' | 'white_dwarf' | 'pulsar' | 'black_hole'
+export type StarKind = 'main_sequence' | 'black_hole'
 
 /**
  * 분광형별 kind 가중치 (결정 4) — 천문학적 사실성:
- * 블랙홀·펄서는 대질량 O/B에서만(=전체의 ~0.4%로 자연 희귀), 적색거성·백색왜성은
- * 중저질량의 흔한 진화 상태. 어디서나 주계열성이 압도적 다수(long-tail, 결정 3).
+ * 블랙홀은 대질량 O/B에서만(=전체의 ~0.4%로 자연 희귀) 출현하고, 어디서나 주계열성이
+ * 압도적 다수(long-tail, 결정 3). 비O/B는 주계열성뿐(거성·왜성은 후속 PR).
  * weighted()는 테이블과 무관하게 next() 1회만 소비하므로 append-only·결정론에 영향 없다.
+ * 단일 항목 테이블의 weight 값은 출력에 무관(target < total 항상 성립) — 항상 main_sequence.
  */
 const KIND_WEIGHTS_BY_SPECTRAL: Readonly<Record<SpectralClass, readonly WeightedEntry<StarKind>[]>> = {
   O: [
     { value: 'main_sequence', weight: 78 },
-    { value: 'red_giant', weight: 6 },
-    { value: 'pulsar', weight: 10 },
     { value: 'black_hole', weight: 6 },
   ],
   B: [
     { value: 'main_sequence', weight: 85 },
-    { value: 'red_giant', weight: 6 },
-    { value: 'pulsar', weight: 6 },
     { value: 'black_hole', weight: 3 },
   ],
-  A: [
-    { value: 'main_sequence', weight: 90 },
-    { value: 'red_giant', weight: 6 },
-    { value: 'white_dwarf', weight: 4 },
-  ],
-  F: [
-    { value: 'main_sequence', weight: 92 },
-    { value: 'red_giant', weight: 5 },
-    { value: 'white_dwarf', weight: 3 },
-  ],
-  G: [
-    { value: 'main_sequence', weight: 92 },
-    { value: 'red_giant', weight: 5 },
-    { value: 'white_dwarf', weight: 3 },
-  ],
-  K: [
-    { value: 'main_sequence', weight: 90 },
-    { value: 'red_giant', weight: 8 },
-    { value: 'white_dwarf', weight: 2 },
-  ],
-  M: [
-    { value: 'main_sequence', weight: 93 },
-    { value: 'red_giant', weight: 6 },
-    { value: 'white_dwarf', weight: 1 },
-  ],
+  A: [{ value: 'main_sequence', weight: 100 }],
+  F: [{ value: 'main_sequence', weight: 100 }],
+  G: [{ value: 'main_sequence', weight: 100 }],
+  K: [{ value: 'main_sequence', weight: 100 }],
+  M: [{ value: 'main_sequence', weight: 100 }],
 }
 
 /** 동반성 궤도 편심 상한 — 실제 쌍성의 흔한 편심대. */

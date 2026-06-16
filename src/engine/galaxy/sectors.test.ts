@@ -228,16 +228,10 @@ describe('다중성계 (binary-stars, GEN_VERSION 4)', () => {
   })
 })
 
-/** 별 종류 — 주계열성 + 이색 천체 4종. */
-const STAR_KINDS: readonly StarKind[] = [
-  'main_sequence',
-  'red_giant',
-  'white_dwarf',
-  'pulsar',
-  'black_hole',
-]
+/** 별 종류 — 주계열성 + 블랙홀 (거성·왜성·펄서는 후속 PR). */
+const STAR_KINDS: readonly StarKind[] = ['main_sequence', 'black_hole']
 
-/** 대질량 분광형 — 블랙홀·펄서의 진화 종착이 되는 별. */
+/** 대질량 분광형 — 블랙홀의 진화 종착이 되는 별. */
 const MASSIVE_CLASSES: readonly SpectralClass[] = ['O', 'B']
 
 describe('이색 천체 (exotic-bodies, GEN_VERSION 5)', () => {
@@ -263,22 +257,17 @@ describe('이색 천체 (exotic-bodies, GEN_VERSION 5)', () => {
     expect(exotic / sample.length).toBeLessThan(0.2)
   })
 
-  it('블랙홀·펄서는 대질량(O/B) 분광형에서만 출현한다', () => {
+  it('블랙홀은 대질량(O/B) 분광형에서만 출현한다', () => {
     for (const star of sample) {
-      if (star.kind === 'black_hole' || star.kind === 'pulsar') {
+      if (star.kind === 'black_hole') {
         expect(MASSIVE_CLASSES).toContain(star.spectral)
       }
     }
   })
 
-  it('블랙홀·펄서는 전체의 ~1% 미만으로 희귀하다', () => {
-    const remnants = sample.filter((s) => s.kind === 'black_hole' || s.kind === 'pulsar').length
-    expect(remnants / sample.length).toBeLessThan(0.02)
-  })
-
-  it('적색거성·백색왜성은 우주에 실제로 존재한다', () => {
-    expect(sample.some((s) => s.kind === 'red_giant')).toBe(true)
-    expect(sample.some((s) => s.kind === 'white_dwarf')).toBe(true)
+  it('블랙홀은 전체의 ~1% 미만으로 희귀하다', () => {
+    const blackHoles = sample.filter((s) => s.kind === 'black_hole').length
+    expect(blackHoles / sample.length).toBeLessThan(0.02)
   })
 
   it('같은 (seed, sector)는 kind까지 동일하다 (결정론)', () => {

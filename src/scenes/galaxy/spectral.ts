@@ -1,6 +1,6 @@
 import type { Multiplicity, SpectralClass, StarKind } from '@/engine'
 
-/** 이색 천체 종류 — 주계열성은 SPECTRAL_RENDER가 담당하므로 제외. */
+/** 이색 천체 종류 — 주계열성은 SPECTRAL_RENDER가 담당하므로 제외. 현재 블랙홀뿐. */
 type ExoticKind = Exclude<StarKind, 'main_sequence'>
 
 /**
@@ -20,21 +20,14 @@ export const SPECTRAL_RENDER: Readonly<Record<SpectralClass, { color: string; si
 
 /**
  * 이색 천체 맵 노드 색/크기 (결정 10) — SPECTRAL_RENDER 미러.
- * 적색거성=거대 주황(거인으로 읽히게 키움), 백색왜성=작고 뜨거운 청백,
- * 펄서=전기 청백, 블랙홀=거의 안 보이는 점(가산 링 빌보드가 주역 — Phase 4).
+ * 블랙홀=거의 안 보이는 점(가산 링 빌보드가 주역 — BlackHoleMapRings).
  */
 export const EXOTIC_RENDER: Readonly<Record<ExoticKind, { color: string; size: number }>> = {
-  red_giant: { color: '#ff6a3a', size: 5.4 },
-  white_dwarf: { color: '#dbe7ff', size: 1.1 },
-  pulsar: { color: '#9ad8ff', size: 2.6 },
   black_hole: { color: '#1a1420', size: 1.8 },
 }
 
 export const STAR_KIND_LABELS: Readonly<Record<StarKind, string>> = {
   main_sequence: '주계열성',
-  red_giant: '적색거성',
-  white_dwarf: '백색왜성',
-  pulsar: '펄서 · 중성자성',
   black_hole: '블랙홀',
 }
 

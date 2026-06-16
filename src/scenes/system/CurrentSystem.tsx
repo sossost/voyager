@@ -7,9 +7,9 @@ import type { StarKind } from '@/engine'
 import { planetsOf, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import { BlackHole } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
-import { ExoticBody } from '@/scenes/system/ExoticBody'
 import { kindRadiusFactor } from '@/scenes/system/exotic'
 import {
   bodyLightFactor,
@@ -253,11 +253,11 @@ export function CurrentSystem() {
                   bodyGroupRefs.current[index] = el
                 }}
               >
-                {/* 이색 천체(블랙홀·펄서·거성·왜성)는 ExoticBody로 디스패치 — 주성만 가능 (결정 7·14). */}
-                {body.kind === 'main_sequence' ? (
-                  <StarSurface radius={body.radius} color={body.color} />
+                {/* 블랙홀은 전용 컴포넌트로, 주계열성은 StarSurface로 렌더 — 주성만 가능 (결정 7·14). */}
+                {body.kind === 'black_hole' ? (
+                  <BlackHole radius={body.radius} />
                 ) : (
-                  <ExoticBody kind={body.kind} radius={body.radius} color={body.color} />
+                  <StarSurface radius={body.radius} color={body.color} />
                 )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
                     처리한다 — 모든 뷰(우주선·퍼스펙티브)에서 본체별 선택이 동작한다. */}

@@ -5,6 +5,11 @@
 **Spec:** ./01-spec.md
 **Decisions:** ./02-decisions.md
 
+> ⚠️ **PR 분할 (2026-06-16):** 4종 계획이지만 **이번 PR은 블랙홀만** 머지한다. 거성·왜성·펄서
+> 관련 단계(Phase 3의 `StarSurface` 변조·`Pulsar.tsx`, Phase 5의 거성·왜성·펄서 아키타입)는
+> **후속 PR로 이연**. `StarKind`는 현재 2종(`main_sequence | black_hole`), GEN_VERSION 5 유지
+> (골든 무변화 — Phase 1 불변식 3의 "weight 잠금"이 그대로 성립). 상세: `02-decisions.md` 결정 16.
+
 ---
 
 ## Spec Summary
