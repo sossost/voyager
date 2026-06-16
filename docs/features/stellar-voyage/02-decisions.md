@@ -760,6 +760,27 @@
 
 ---
 
+### 44. 항성계 공유 딥링크 — `?seed=&star=` URL 동기화 + 부트 복원 (백로그 L-1, 2026-06-16)
+
+**문제:** 공유는 시드(은하 전체) 단위만 됐다 (`?seed=`). "방금 본 이 항성계를 그대로 보여주고 싶다"는 욕구를 못 채웠다.
+
+**결정:** 정박한 항성계를 쿼리파라미터 `?seed=<seed>&star=<starId>`로 표현하고, 진입 시 복원한다. `starId`는 이미 결정론 식별자라 시드만 같으면 동일 항성계로 복원되므로 **새 저장 필드·GEN_VERSION 변경 없음** (렌더/상태/URL 전용).
+
+| 열린 질문 | 결정 | 근거 |
+|-----------|------|------|
+| URL 갱신 시점 | **워프 완료 후** (`scene → galaxy`) | URL은 "실제 정박한 항성계"만 가리킨다. 워프 중(`currentStarId`는 이미 목표)에는 보류 — 스토어 구독에서 `scene.kind === 'galaxy'` 가드. |
+| 복원 범위 | **항성계까지만** (`?seed=&star=`) | 뷰(ship/perspective)·선택 행성은 스코프 확대 — 기본은 항성계까지. |
+| Sol 표현 | **star 생략** | Sol은 모든 시드의 기본 시작점이라 `?seed=`만으로 복원. 기존 시드 공유와 동일 형태. |
+| 갱신 방식 | **`history.replaceState`** | push 금지 — 워프마다 히스토리 스택이 쌓이면 뒤로가기 지옥. |
+| 딥링크 star 적용 조건 | **URL seed가 로드된 seed와 일치 + starById 유효** | star ID 형식이 시드 간 공통(섹터+인덱스)이라 시드 검사 없이는 교차 오염. 어긋나면 기본 시작 별로 폴백. |
+| 신규 플레이어가 딥링크로 진입 | **저장 프로필은 Sol 시작 유지, 첫 화면만 딥링크 별** | Sol 불변(G-c-10) 보존 — 딥링크는 "공유 가능한 뷰"이지 영구 이주가 아니다. 공유받은 친구는 곧장 그 별을 본다. |
+
+**구현:** `store/systemUrl.ts`(순수 `parseSystemParams`·`buildSystemQuery`·`resolveDeepLinkStar` + window 의존 `build*ShareUrl`·`syncSystemUrl`) / `store/index.ts` 구독으로 정박 시 동기화 / `BootGate`가 `?star=`를 읽어 `startStarId` 결정(저장은 불변) / `JournalOverlay`에 "현재 항성계 공유" 행 추가(기존 시드 공유와 공통 `ShareLink`). **L-2(일지 워프)는 분리** — 백로그 L 참조.
+
+**Consequences:** 주소창이 항상 공유 가능한 상태가 된다(바 진입도 `?seed=`로 자동 보강). 검증: `systemUrl` 단위 18케이스(파싱·빌드·resolve·jsdom 동기화) + E2E 딥링크 복원·URL 동기화 단언. 한계: 자신의 우주(프로필)가 있는 플레이어가 **남의** 딥링크를 열면 기존 시드 공유와 동일하게 자기 우주가 로드되고 URL이 자가 보정된다(타인 우주 열람은 비범위 — 기존 제약과 동일).
+
+---
+
 ## Architecture
 
 ### Structure
