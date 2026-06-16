@@ -75,10 +75,13 @@ export function StarInfoPanel() {
               <dd>{STAR_KIND_LABELS[star.kind]}</dd>
             </div>
           ) : null}
-          <div className="hud-fact">
-            <dt>분광형</dt>
-            <dd>{SPECTRAL_LABELS[bodySpectral]}</dd>
-          </div>
+          {/* 분광형 — 주계열성/동반성만. 블랙홀의 spectral은 전신성 클래스라 표시하면 혼란(숨김). */}
+          {selectedCompanion != null || star.kind === 'main_sequence' ? (
+            <div className="hud-fact">
+              <dt>분광형</dt>
+              <dd>{SPECTRAL_LABELS[bodySpectral]}</dd>
+            </div>
+          ) : null}
           {roleLabel != null ? (
             <div className="hud-fact">
               <dt>역할</dt>

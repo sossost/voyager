@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { starById } from '@/engine/galaxy/position'
-import { MULTIPLICITY_LABELS, SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
+import { MULTIPLICITY_LABELS, SPECTRAL_LABELS, STAR_KIND_LABELS } from '@/scenes/galaxy/spectral'
 import { useGameStore } from '@/store'
 
 /**
@@ -52,7 +52,10 @@ export function SystemReadout() {
     <p className="system-readout" role="status">
       <span className="system-readout-name">{star.name}</span>
       <span className="system-readout-spectral">
-        {SPECTRAL_LABELS[star.spectral]}
+        {/* 블랙홀 등 이색 천체는 분광형(전신성 클래스) 대신 종류 라벨을 보여준다. */}
+        {star.kind !== 'main_sequence'
+          ? STAR_KIND_LABELS[star.kind]
+          : SPECTRAL_LABELS[star.spectral]}
         {star.multiplicity !== 'single' ? ` · ${MULTIPLICITY_LABELS[star.multiplicity]}` : ''}
       </span>
     </p>
