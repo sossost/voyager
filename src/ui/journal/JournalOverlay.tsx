@@ -3,39 +3,69 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { starById } from '@/engine'
 import type { VisitRecord } from '@/persistence/types'
 import { getStorageDriver, useGameStore } from '@/store'
+import { buildSeedShareUrl, buildSystemShareUrl } from '@/store/systemUrl'
 import { SPECTRAL_LABELS } from '@/scenes/galaxy/spectral'
 import { OverlayShell } from '@/ui/common/OverlayShell'
 
 const PAGE_SIZE = 20
 
-function SeedShare() {
-  const seed = useGameStore((state) => state.seed)
+/** 복사 가능한 공유 링크 한 줄 — 우주(시드)·현재 항성계 공용 (백로그 L-1). */
+function ShareLink({
+  label,
+  hint,
+  url,
+  successToast,
+}: {
+  readonly label: string
+  readonly hint: string
+  readonly url: string
+  readonly successToast: string
+}) {
   const pushToast = useGameStore((state) => state.pushToast)
-  // 시드 알파벳은 URL-safe지만, 안전이 우연이 아니라 명시이도록 인코딩한다
-  const shareUrl = `${window.location.origin}${window.location.pathname}?seed=${encodeURIComponent(seed)}`
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl)
-      pushToast('우주 공유 링크를 복사했어요')
+      await navigator.clipboard.writeText(url)
+      pushToast(successToast)
     } catch {
       pushToast('복사에 실패했어요 — 주소를 직접 선택해 주세요')
     }
   }
 
   return (
-    <section className="seed-share" aria-label="시드 공유">
-      <p className="seed-share-hint">
-        같은 시드는 같은 우주 — 친구가 이 링크로 접속하면 같은 좌표에서 같은 생명체를
-        발견합니다.
-      </p>
+    <section className="seed-share" aria-label={label}>
+      <p className="seed-share-hint">{hint}</p>
       <div className="seed-share-row">
-        <input className="seed-input" readOnly value={shareUrl} aria-label="공유 링크" />
+        <input className="seed-input" readOnly value={url} aria-label={`${label} 링크`} />
         <button type="button" className="hud-button" onClick={() => void handleCopy()}>
           복사
         </button>
       </div>
     </section>
+  )
+}
+
+function ShareLinks() {
+  const seed = useGameStore((state) => state.seed)
+  const currentStarId = useGameStore((state) => state.currentStarId)
+  const currentStar = starById(seed, currentStarId)
+  const systemName = currentStar?.name ?? '현재 항성계'
+
+  return (
+    <>
+      <ShareLink
+        label="우주 공유"
+        hint="같은 시드는 같은 우주 — 친구가 이 링크로 접속하면 같은 좌표에서 같은 생명체를 발견합니다."
+        url={buildSeedShareUrl(seed)}
+        successToast="우주 공유 링크를 복사했어요"
+      />
+      <ShareLink
+        label="현재 항성계 공유"
+        hint={`이 링크는 ${systemName}로 바로 안내합니다 — 친구가 지금 보고 있는 이 항성계에서 시작합니다.`}
+        url={buildSystemShareUrl(seed, currentStarId)}
+        successToast="현재 항성계 공유 링크를 복사했어요"
+      />
+    </>
   )
 }
 
@@ -109,7 +139,7 @@ export function JournalOverlay() {
 
   return (
     <OverlayShell title="탐사 일지" onClose={closeOverlay}>
-      <SeedShare />
+      <ShareLinks />
       <VisitTimeline />
     </OverlayShell>
   )

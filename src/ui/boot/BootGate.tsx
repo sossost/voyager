@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { App } from '@/App'
-import type { Seed } from '@/engine'
-import { GEN_VERSION, originStar, parseSeed } from '@/engine'
+import type { Seed, StarId } from '@/engine'
+import { GEN_VERSION, originStar } from '@/engine'
 import { persist } from '@/persistence/persist'
 import { probeStorage } from '@/persistence/probeStorage'
 import { detectInitialQualityTier } from '@/quality/detectInitialTier'
 import type { Profile, StorageDriver } from '@/persistence/types'
 import { SAVE_VERSION } from '@/persistence/types'
 import { initializeGameStore } from '@/store'
+import type { SystemLink } from '@/store/systemUrl'
+import { parseSystemParams, resolveDeepLinkStar } from '@/store/systemUrl'
 import type { HydrationRecords } from '@/store/createGameStore'
 import type { QualityTier } from '@/store/types'
 import { hasWebGLSupport } from '@/ui/boot/hasWebGLSupport'
@@ -29,11 +31,9 @@ type BootState =
     }
   | { readonly status: 'ready' }
 
-/** 읽는 시점에 검증 — 유효하지 않은 ?seed=는 프리필 자체를 하지 않는다. */
-function readSeedFromUrl(): string | null {
-  const raw = new URLSearchParams(window.location.search).get('seed')
-  if (raw == null) return null
-  return parseSeed(raw)
+/** 읽는 시점에 검증 — 유효하지 않은 ?seed=·?star=는 무시한다 (백로그 L-1). */
+function readSystemLink(): SystemLink {
+  return parseSystemParams(window.location.search)
 }
 
 function startGame(
@@ -41,10 +41,11 @@ function startGame(
   tier: QualityTier,
   profile: Profile,
   records: HydrationRecords,
+  startStarId: StarId,
 ): void {
   initializeGameStore({
     seed: profile.seed,
-    startStarId: profile.currentStarId,
+    startStarId,
     driver,
     hydration: records,
     initialQualityTier: tier,
@@ -89,7 +90,9 @@ export function BootGate() {
         return
       }
 
-      startGame(driver, tier, profile, records)
+      // 딥링크(?star=)가 이 시드에서 유효하면 해당 항성계로 진입, 아니면 저장된 현재 위치.
+      const startStarId = resolveDeepLinkStar(profile.seed, profile.currentStarId, readSystemLink())
+      startGame(driver, tier, profile, records, startStarId)
       setBootState({ status: 'ready' })
     }
 
@@ -101,13 +104,13 @@ export function BootGate() {
 
   const handleStartNewUniverse = useCallback(
     async (driver: StorageDriver, tier: QualityTier, seed: Seed) => {
-      const startStarId = originStar(seed)
+      const originStarId = originStar(seed)
       const profile: Profile = {
         id: 1,
         seed,
         saveVersion: SAVE_VERSION,
         genVersion: GEN_VERSION,
-        currentStarId: startStarId,
+        currentStarId: originStarId,
         createdAt: Date.now(),
       }
 
@@ -116,7 +119,7 @@ export function BootGate() {
       let isCommitted = false
       await persist(async () => {
         await driver.saveProfile(profile)
-        await driver.addVisit({ starId: startStarId, visitedAt: profile.createdAt })
+        await driver.addVisit({ starId: originStarId, visitedAt: profile.createdAt })
         isCommitted = true
       }, () => undefined)
 
@@ -126,7 +129,10 @@ export function BootGate() {
       }
 
       setBootError(null)
-      startGame(driver, tier, profile, { visits: [], explorations: [], collection: [] })
+      // 저장 프로필은 Sol 시작을 유지하고(인류의 고향·Sol 불변, G-c-10), 딥링크가 이 시드에서
+      // 유효하면 그 항성계를 첫 화면으로 보여준다 — 공유 링크로 도착한 친구가 바로 그 별을 본다.
+      const startStarId = resolveDeepLinkStar(seed, profile.currentStarId, readSystemLink())
+      startGame(driver, tier, profile, { visits: [], explorations: [], collection: [] }, startStarId)
       setBootState({ status: 'ready' })
     },
     [],
@@ -145,7 +151,7 @@ export function BootGate() {
     case 'seed-setup':
       return (
         <SeedSetup
-          prefillSeed={readSeedFromUrl()}
+          prefillSeed={readSystemLink().seed}
           submitError={bootError}
           onStart={(seed) => void handleStartNewUniverse(bootState.driver, bootState.tier, seed)}
         />
@@ -156,7 +162,13 @@ export function BootGate() {
           savedVersion={bootState.profile.genVersion}
           currentVersion={GEN_VERSION}
           onContinue={() => {
-            startGame(bootState.driver, bootState.tier, bootState.profile, bootState.records)
+            const { profile, records } = bootState
+            const startStarId = resolveDeepLinkStar(
+              profile.seed,
+              profile.currentStarId,
+              readSystemLink(),
+            )
+            startGame(bootState.driver, bootState.tier, profile, records, startStarId)
             setBootState({ status: 'ready' })
           }}
           onReset={() => {
