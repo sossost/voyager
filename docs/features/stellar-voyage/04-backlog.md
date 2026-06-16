@@ -54,7 +54,7 @@
 
 ### F-2. 방문/현재 위치 가시화 — ✅ 기본·토글 완료 (2026-06-11, 결정 30)
 
-- ~~**기본 ① 현재 위치 비콘**~~ — `CurrentStarBeacon`: 호박색 펄스 링 + 소나 확장 링 2개, FOV 역산 화면 고정 크기(17px) 클램프.
+- ~~**기본 ① 현재 위치 비콘**~~ — `CurrentStarBeacon`: FOV 역산 화면 고정 크기 클램프. (2026-06-16 H-7에서 워프 전용 마운트로 정리되며 호박색 펄스/소나 링 → **홀로색 중앙 갭 크로스헤어**로 재작성 — 워프 목표 조준 레티클.)
 - ~~**기본 ② 방문 별 발광 틴트**~~ — `GalaxyStarField` starColor/size 어트리뷰트 갱신(청록 60% + 밝기 1.45× + 크기 1.18×). `VisitedStarMarkers` 삭제 — 512 캡 해소.
 - ~~**토글 ③ 여정 경로선**~~ — `JourneyPath`: visitedAt 오름차순 Set 순서 폴리라인 + 정점 색 페이드, HUD 토글(기본 off).
 - ~~**후순위 ④ 오프스크린 화살표**~~ — ✅ 완료 (2026-06-12): `CurrentStarArrowProjector` + `CurrentStarArrow` — 갤럭시 뷰에서 현재 별이 화면 밖이면 가장자리에 호박색 삼각형 화살표, useFrame camera.project() 기반 (DOM HUD, React 상태 없음).
@@ -185,10 +185,7 @@
    - 줌 인·아웃 컷: 은하뷰 진입 시 카메라가 멀리서 줌인되며 홀로그램 격자가 소환되는 느낌 (R3F lerp)
    - 성능 우선이면 CSS fade + 홀로그램 테두리 글로우만으로도 충분할 수 있음
 
-7. **[UX/버그] 워프 발동 시 시점 정렬이 "툭" 끊기고 덜컹거림** (2026-06-15 피드백) — 워프 출발의 ① 목표 응시 정렬 단계가 우주선 뷰에서 *시선만* 부드럽게 도는 게 아니라, **시점이 갑자기 툭 바뀐 뒤 정렬되는** 느낌. 우주선 뷰에서 **덜컹**하는 단절감이 있다. 원인 추정: 워프 발동 시 `ShipCameraRig` → `WarpCameraRig` **리그 핸드오프에서 카메라 포즈 불연속** — WarpCameraRig가 현재 우주선 카메라의 실제 pos/rot에서 출발하지 않고 다른 기준 포즈(예: 정박 기본 포즈/별 정면)로 점프한 뒤 정렬을 시작하는 것으로 보임. ShipCameraRig는 자유 시선(yaw/pitch)+거리 줌 상태라, 발동 순간 그 상태를 이어받지 않으면 컷이 발생.
-   - **원하는 느낌(사용자)**: 단절 없이 **화면을 축소했다(줌 아웃) 다시 확대(줌 인)하는** 부드러운 흐름.
-   - **수정 방향**: WarpCameraRig가 마운트 시 *직전 ShipCameraRig의 현재 카메라 pos/quaternion을 시작값으로 캡처*해 거기서 lerp(연속성 보장). 정렬을 회전 컷이 아닌 거리(줌) 기반 이징으로 재구성하는 것도 검토. 도착측 `ShipCameraRig` `pendingArrival` 줌인과 대칭이 되도록.
-   - 관련: E-5 워프 5박자(결정 41·PR #15), `WarpCameraRig`·`ShipCameraRig`. 렌더/카메라 전용 — GEN_VERSION·저장 포맷 무관. **검증 한계**: 워프 카메라 모션은 헤드리스 throttle+스크린샷 왕복>워프라 정지컷 캡처 난망(project-status 교훈 참조).
+7. ~~**[UX/버그] 워프 발동 시 시점 정렬이 "툭" 끊기고 덜컹거림**~~ — ✅ 완료 (2026-06-16, `feature/warp-handoff-polish`). **진짜 원인**: 위치는 이미 연속(`camera.position`·`camera.quaternion` 캡처)이었고, ① 정렬이 (a) `easeOut` front-load(t=0 속도 3배)로 핸드오프에서 "툭" 튀고 (b) **회전+병진을 동시에** 해(발동 우주선 포즈 +Y+Z 63u → `shipPosition` -dollyDir 30u) 병진 시차 때문에 "목표만 고정 안 되고 주변 별이 따로 노는" 느낌이었다. **수정**(`WarpCameraRig`): 정렬을 **순수 회전**으로(위치를 발동 포즈 `anchorPosition`에 고정, 시선만 slerp — 우주선 뷰 드래그와 동일) + `easeInOut`(양끝 속도 0). dolly 축을 별→목표가 아닌 **카메라→목표 시선 축**으로 잡아 반동(역)·돌진(정)이 colinear → 목표가 정중앙 고정된 채 배경만 줌아웃→줌인. 반동 거리 절반(`DEPARTURE_PULLBACK_DISTANCE` 70→35, 끝점은 rushDistance 합산으로 불변). 함께: 워프 조준 마커를 호박색 펄스 링→**홀로색 중앙 갭 크로스헤어**(`CurrentStarBeacon` 재작성, F-2#1 갱신), `WarpReadout` 위치 상단→화면 중앙부(top 4.4rem→58%). 렌더/카메라/CSS 전용 — GEN_VERSION·저장 포맷 무관. **검증 한계**: 워프 카메라 모션은 헤드리스 정지컷 캡처 난망 — 수정은 수학적 속성(easeInOut t=0 미분=0·순수 회전=병진 0)으로 보장, 실기 체감 확인.
 
 ## I. 온보딩 및 조작성 개선 (2026-06-12 피드백)
 

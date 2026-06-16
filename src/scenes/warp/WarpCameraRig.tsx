@@ -25,34 +25,40 @@ import { useGameStore } from '@/store'
  * 타임라인은 ref 기반, store 쓰기 없음 (철칙 6).
  */
 
-/** 우주선 시점 거리 — 출발 항성에서 목표 반대편으로 이만큼 물러난 포즈. */
+/**
+ * 퍼스펙티브 뷰 컷 시 우주선 포즈 거리 — 출발 항성에서 목표 반대편으로 이만큼 물러난 곳.
+ * 우주선 뷰에서 발동하면 쓰지 않는다(발동 포즈를 그대로 고정).
+ */
 const SHIP_OFFSET_DISTANCE = 30
 /**
- * 이탈 풀백 — 정렬을 마친 뒤 목표 반대로 이만큼 물러섰다가(반동) 돌진한다.
- * 도착의 빨려드는 줌인(ShipCameraRig)과 대칭되는 출발 반동. 정렬·반동·돌진 지점이
- * 모두 dollyDirection 축에 colinear라, 회전을 먼저 끝내면 반동이 "축 방향 순수
- * 후퇴(목표가 화면 중앙 고정)"로 또렷이 읽힌다. 돌진 시작점이 곧 이 풀백 지점이라 연속적.
+ * 이탈 풀백 — 정렬을 마친 뒤 시선 축을 따라 목표 반대로 이만큼 물러섰다가(반동) 돌진한다.
+ * 도착의 빨려드는 줌인(ShipCameraRig)과 대칭되는 출발 반동. 정렬 포즈·풀백 지점·돌진이
+ * 모두 dollyDirection(카메라→목표 시선 축)에 colinear라, 반동이 "축 방향 순수 후퇴
+ * (목표가 화면 중앙 고정)"로 또렷이 읽힌다. 돌진 시작점이 곧 이 풀백 지점이라 연속적.
  */
-const DEPARTURE_PULLBACK_DISTANCE = 70
+const DEPARTURE_PULLBACK_DISTANCE = 35
 /** 목표 방향 돌진 거리 상한 (월드 단위) — 가까운 별로 워프해도 과하지 않게. */
 const MAX_DOLLY_DISTANCE = 2_200
 /** 돌진 시작점에서 목표까지 거리 대비 돌진 비율 — 목표 항성을 지나치지 않는다. */
 const DOLLY_DISTANCE_RATIO = 0.45
 /**
- * 발동 위치가 우주선 포즈에서 이보다 멀면(퍼스펙티브 줌아웃) 위치를 즉시 컷한다 —
- * 먼 거리를 짧은 홀드에 스윕하면 멀미가 난다 (결정 41-f). 가까우면 부드럽게 스윕.
+ * 발동 위치가 출발 항성에서 이보다 멀면(퍼스펙티브 줌아웃) 1인칭 포즈로 즉시 컷한다 —
+ * 워프는 항상 우주선 시점에서 경험한다 (결정 41-f). 가까우면(우주선 뷰) 발동 포즈 그대로.
  */
 const SHIP_POSE_CUT_DISTANCE = 400
 
 const UP = new Vector3(0, 1, 0)
 
 interface WarpPose {
-  /** 정렬 종료 포즈 — 출발 항성 뒤 우주선 포즈. 반동이 여기서 풀백 지점으로 물러선다. */
-  readonly shipPosition: Vector3
-  /** 반동 종료(점화) 포즈 — 우주선 포즈에서 풀백만큼 더 물러선 돌진 시작점. */
+  /**
+   * 정렬·반동 시작 포즈 — 발동 시점 카메라 위치(우주선 뷰) 또는 컷된 1인칭 포즈(퍼스펙티브).
+   * 정렬은 이 위치에 **고정**한 채 시선만 돌린다(순수 회전 — 우주선 뷰 드래그와 동일,
+   * 병진이 없어 주변 별 시차가 회전과 어긋나지 않는다). 반동이 여기서 풀백 지점으로 물러선다.
+   */
+  readonly anchorPosition: Vector3
+  /** 반동 종료(점화) 포즈 — 정렬 포즈에서 시선 축으로 풀백만큼 물러선 돌진 시작점. */
   readonly launchPosition: Vector3
-  /** 정렬 위치 보간 시작점 — 발동 위치(가까우면) 또는 우주선 포즈(멀어 컷이면). */
-  readonly aimFromPosition: Vector3
+  /** 카메라→목표 시선 축 — 정렬 후 이 축으로 반동(역)·돌진(정)한다. */
   readonly dollyDirection: Vector3
   /** 풀백 + 본 돌진을 합친 총 전진 거리 — 풀백 지점에서 목표 방향으로 이만큼 돌진. */
   readonly rushDistance: number
@@ -64,9 +70,18 @@ function clamp01(value: number): number {
   return value
 }
 
-/** easeOutCubic — 빠르게 정렬을 시작해 살며시 안착한다. */
+/** easeOutCubic — 빠르게 시작해 살며시 안착한다. 반동(wind-up)의 의도된 스냅감에 쓴다. */
 function easeOut(t: number): number {
   return 1 - Math.pow(1 - t, 3)
+}
+
+/**
+ * easeInOutCubic — 정지에서 부드럽게 가속해 정지로 감속한다 (t=0·t=1 양끝 속도 0).
+ * 정렬(①)에 쓴다: 우주선 카메라는 발동 직전 정지 상태라, 양끝 속도 0이어야
+ * 핸드오프(ShipCameraRig→WarpCameraRig)에서 "툭" 튀지 않고 충전 정지로도 매끈히 잇는다.
+ */
+function easeInOut(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 }
 
 export function WarpCameraRig() {
@@ -114,39 +129,39 @@ export function WarpCameraRig() {
     if (startRef.current == null || poseRef.current == null) {
       startRef.current = state.clock.elapsedTime
 
-      const toTarget = lookScratch.copy(targetPosition).sub(fromPosition)
-      const distanceFromStar = toTarget.length()
+      // 정렬 고정 포즈(anchor) — 우주선 뷰면 발동 포즈 그대로(순수 회전·연속성), 퍼스펙티브면
+      // 출발 항성 근처 1인칭 포즈로 컷한다(워프는 항상 1인칭, 결정 41-f). 별→목표 방향은
+      // 퍼스펙티브 컷 포즈를 잡는 데만 쓴다(우주선 뷰는 카메라 실제 위치가 anchor).
+      const starToTarget = lookScratch.copy(targetPosition).sub(fromPosition)
+      const starToTargetLength = starToTarget.length()
+      const fromStarDir =
+        starToTargetLength > 1
+          ? starToTarget.clone().divideScalar(starToTargetLength)
+          : starToTarget.clone().set(0, 0, 1)
+      const anchorPosition =
+        camera.position.distanceTo(fromPosition) > SHIP_POSE_CUT_DISTANCE
+          ? fromPosition.clone().addScaledVector(fromStarDir, -SHIP_OFFSET_DISTANCE)
+          : camera.position.clone()
+
+      // dolly 축 = anchor에서 목표를 바라보는 시선 축. 정렬이 이 축을 향하면 반동(역)·돌진(정)이
+      // 모두 colinear → 목표가 화면 중앙에 고정된 채 배경만 멀어졌다 가까워진다.
+      const toTarget = targetPosition.clone().sub(anchorPosition)
+      const toTargetLength = toTarget.length()
       const dollyDirection =
-        distanceFromStar > 1
-          ? toTarget.clone().divideScalar(distanceFromStar)
-          : toTarget.clone().set(0, 0, 1)
-      const shipPosition = fromPosition
-        .clone()
-        .addScaledVector(dollyDirection, -SHIP_OFFSET_DISTANCE)
-      // 풀백 지점 — 우주선 포즈에서 목표 반대로 더 물러선 곳(반동). 예열의 종착점이자 돌진 시작점.
-      const launchPosition = shipPosition
+        toTargetLength > 1 ? toTarget.divideScalar(toTargetLength) : fromStarDir.clone()
+      // 풀백 지점 — 정렬 포즈에서 시선 반대로 물러선 곳(반동). 예열 종착점이자 돌진 시작점.
+      const launchPosition = anchorPosition
         .clone()
         .addScaledVector(dollyDirection, -DEPARTURE_PULLBACK_DISTANCE)
 
-      // 정렬은 우주선 포즈로 좁힌다 — 발동 위치가 멀면(퍼스펙티브 줌아웃) 컷, 가까우면 스윕
-      const aimFromPosition =
-        camera.position.distanceTo(shipPosition) > SHIP_POSE_CUT_DISTANCE
-          ? shipPosition.clone()
-          : camera.position.clone()
-
-      // 정렬·반동·돌진 지점이 dollyDirection 축에 colinear라 응시 방위는 어느 지점에서나 동일
       startQuat.copy(camera.quaternion)
-      lookMatrix.lookAt(shipPosition, targetPosition, UP)
+      lookMatrix.lookAt(anchorPosition, targetPosition, UP)
       aimQuat.setFromRotationMatrix(lookMatrix)
 
-      const dollyDistance = Math.min(
-        MAX_DOLLY_DISTANCE,
-        shipPosition.distanceTo(targetPosition) * DOLLY_DISTANCE_RATIO,
-      )
+      const dollyDistance = Math.min(MAX_DOLLY_DISTANCE, toTargetLength * DOLLY_DISTANCE_RATIO)
       poseRef.current = {
-        shipPosition,
+        anchorPosition,
         launchPosition,
-        aimFromPosition,
         dollyDirection,
         // 풀백을 되감고도 본 돌진 거리를 채우도록 합산 — 끝점은 풀백 유무와 동일.
         rushDistance: DEPARTURE_PULLBACK_DISTANCE + dollyDistance,
@@ -158,9 +173,12 @@ export function WarpCameraRig() {
     const progress = Math.min(1, elapsed / (WARP_STAGE_A_MS / 1_000))
 
     if (progress < WARP_AIM_PROGRESS) {
-      // ① 정렬 단계 — 우주선 포즈로 좁히며 목표 별 방향으로 회전한다 (아직 반동 없음)
-      const aim = easeOut(clamp01(progress / WARP_AIM_PROGRESS))
-      camera.position.lerpVectors(pose.aimFromPosition, pose.shipPosition, aim)
+      // ① 정렬 단계 — 위치를 발동 포즈에 **고정**한 채 시선만 목표로 돌린다 (순수 회전).
+      // 우주선 뷰 드래그와 동일한 in-place 회전이라 주변 별 시차가 회전과 어긋나지 않는다
+      // (병진을 섞던 게 "별이 따로 논다"의 원인). easeInOut으로 양끝 속도 0 — 정지해 있던
+      // 우주선 카메라에서 매끈히 출발해(핸드오프 "툭" 제거) 충전 정지로 살며시 안착한다.
+      const aim = easeInOut(clamp01(progress / WARP_AIM_PROGRESS))
+      camera.position.copy(pose.anchorPosition)
       camera.quaternion.slerpQuaternions(startQuat, aimQuat, aim)
       return
     }
@@ -168,18 +186,18 @@ export function WarpCameraRig() {
     if (progress < WARP_CHARGE_PROGRESS) {
       // ②③ 대기·충전 단계 — 카메라는 정렬 포즈에 정지하고, 상단 게이지만 차오른다.
       // 연출(반동·돌진)은 게이지가 다 찬 뒤(WARP_CHARGE_PROGRESS)에야 시작한다.
-      camera.position.copy(pose.shipPosition)
+      camera.position.copy(pose.anchorPosition)
       camera.quaternion.copy(aimQuat)
       return
     }
 
     if (progress < WARP_IGNITION_PROGRESS) {
-      // ④ 반동 단계 — 게이지 만충 후, 정렬을 고정한 채(목표 응시) 목표 반대로 물러선다 (wind-up).
+      // ④ 반동 단계 — 게이지 만충 후, 정렬을 고정한 채(목표 응시) 시선 축으로 물러선다 (wind-up).
       // 축 방향 순수 후퇴라 목표가 중앙에 박힌 채 배경만 멀어진다.
       const recoil = easeOut(
         clamp01((progress - WARP_CHARGE_PROGRESS) / (WARP_IGNITION_PROGRESS - WARP_CHARGE_PROGRESS)),
       )
-      camera.position.lerpVectors(pose.shipPosition, pose.launchPosition, recoil)
+      camera.position.lerpVectors(pose.anchorPosition, pose.launchPosition, recoil)
       camera.quaternion.copy(aimQuat)
       return
     }

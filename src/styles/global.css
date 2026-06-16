@@ -649,7 +649,8 @@ body {
 
 .warp-readout {
   position: absolute;
-  top: 4.4rem;
+  /* 조준 레티클(화면 중앙) 바로 아래 — 게이지·문구를 함교 시야 중앙부로 내려 가독성을 높인다 */
+  top: 58%;
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
