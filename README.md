@@ -1,12 +1,37 @@
 # Voyager
 
-시드 기반으로 무한 생성되는 3D 은하를 항행하며, 절차적으로 생성된 외계생명체를
-발견·수집하는 웹 게임. **같은 시드는 언제나 같은 우주** — 좌표를 공유하면 친구도
-같은 생명체를 만납니다.
+시드 기반으로 무한 생성되는 3D 은하를 항행하는 절차적 우주 시뮬레이션.
+**같은 시드는 언제나 같은 우주** — 좌표를 공유하면 친구도 같은 항성계를 만납니다.
+
+## 미리보기
+
+> 아래 천체는 모두 **같은 우주(`VOYAGER` 시드)** 의 서로 다른 항성계입니다. 이미지를 클릭하면
+> [실제 빌드](https://voyager-ii.vercel.app/)의 그 좌표로 바로 접속해 직접 둘러볼 수 있어요 —
+> 같은 좌표는 누구에게나 같은 모습입니다.
+
+<a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=-2:-1:1:2">
+  <img src="docs/images/blackhole.jpg" alt="중력 렌즈 블랙홀 Alarax-326 — 강착원반과 포톤 링" />
+</a>
+
+<sub>🕳 <b>Alarax-326</b> · 블랙홀 — 실시간 셰이더로 그린 강착원반·포톤 링. <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=-2:-1:1:2">▶ 이 항성계 접속</a></sub>
+
+<table>
+  <tr>
+    <td width="50%"><a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=26:0:10:0"><img src="docs/images/solar-system.jpg" alt="태양계 — 궤도와 고리 행성" /></a></td>
+    <td width="50%"><a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=24:0:7:0"><img src="docs/images/binary.jpg" alt="쌍성계 Vegiusn-857" /></a></td>
+  </tr>
+  <tr>
+    <td><sub>☀ <b>태양</b> · 단일성 — G형 황색, 궤도와 고리 행성. <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=26:0:10:0">▶ 접속</a></sub></td>
+    <td><sub>◐ <b>Vegiusn-857</b> · 쌍성계 — A형 + G형 동반성, circumbinary 행성. <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=24:0:7:0">▶ 접속</a></sub></td>
+  </tr>
+</table>
+
+별 유형은 항법 중 좌표마다 결정론적으로 정해집니다 — 블랙홀 같은 이색 천체는 은하 밀집
+구역에서 드물게 나타나고, 다중성계의 행성은 별 무리 전체의 질량중심을 공전합니다(circumbinary).
 
 ## 핵심 루프
 
-은하 뷰 → 별 선택 → 워프 → 태양계 뷰 → 생명체 행성 탐사 → 조우 카드 → 도감/일지
+은하 뷰 → 별 선택 → 워프 → 태양계 뷰 → 행성 탐사 → 항행 일지
 
 ## 실행
 
