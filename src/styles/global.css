@@ -250,6 +250,46 @@ body {
   }
 }
 
+/* ── 게스트 둘러보기 배너 (백로그 L-1) — 상단 중앙, 호박색 코션 ──
+   공유 우주를 저장 없이 둘러보는 중임을 알리고 내 우주 출구를 제공. */
+
+.guest-banner {
+  position: absolute;
+  top: 0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.4rem 0.5rem 0.4rem 0.85rem;
+  background: var(--glass-surface-strong);
+  -webkit-backdrop-filter: var(--glass-blur-light);
+  backdrop-filter: var(--glass-blur-light);
+  border: 1px solid color-mix(in srgb, var(--color-warn) 45%, transparent);
+  border-left: 3px solid var(--color-warn);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  pointer-events: auto;
+}
+
+.guest-banner-label {
+  font-family: var(--font-console);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--color-warn);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 540px) {
+  .guest-banner {
+    font-size: 0.68rem;
+    gap: 0.4rem;
+  }
+}
+
 /* ── 기록 모듈 + 설정 포브 (결정 42) — 우상단 요청 시 액션 ──
    도감·일지는 한 하우징의 2키, 설정(품질)은 ⚙ 팝오버 뒤로 격납. */
 

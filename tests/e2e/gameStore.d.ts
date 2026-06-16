@@ -2,7 +2,9 @@
 interface DevGameStore {
   getState(): {
     scene: { kind: string; view?: 'ship' | 'perspective' }
+    seed: string
     currentStarId: string
+    isGuestMode: boolean
     visitedStars: ReadonlySet<string>
     collectedIndividuals: ReadonlySet<string>
     storageMode: 'persistent' | 'memory'

@@ -109,4 +109,6 @@ export interface GameStore extends SceneSlice, PlayerSlice, UiSlice, SettingsSli
   /** universe 상수 — 부트 후 불변. */
   readonly seed: Seed
   readonly genVersion: number
+  /** 공유 우주 둘러보기 세션 — 진실이면 저장 쓰기가 비활성화된다 (백로그 L-1 게스트 모드). */
+  readonly isGuestMode: boolean
 }
