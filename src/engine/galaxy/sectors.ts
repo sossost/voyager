@@ -204,10 +204,25 @@ export function starsInSector(seed: Seed, sector: SectorCoords): readonly Star[]
     // ── append (GEN_VERSION 5): 이색 천체 kind — 위 draw 값은 모두 보존된다.
     //    companions가 가변 draw를 소비해도 kind는 항상 그 뒤 마지막 draw다 (append-only).
     const kind = starRng.weighted(KIND_WEIGHTS_BY_SPECTRAL[spectral])
+    // 블랙홀은 단일성계 (GEN_VERSION 6): 동반성이 강착원반·렌즈와 겹쳐 부자연스럽고 앞 통과 시
+    // 빛이 맺히는 문제 (사용자 피드백 2026-06-16). draw는 그대로 소비(append-only·RNG 스트림 불변)하고
+    // 출력만 단일로 덮어쓴다 → 다른 별·다른 draw 무영향, 블랙홀 별의 multiplicity/companions만 바뀐다.
+    const isBlackHole = kind === 'black_hole'
+    const finalMultiplicity: Multiplicity = isBlackHole ? 'single' : multiplicity
+    const finalCompanions: readonly Companion[] = isBlackHole ? [] : companions
     // name은 별도 'name' 스트림이라 위 append와 순서 무관 (스트림 격리)
     const name = starName(rngFor(seed, 'name', id))
 
-    stars.push({ id, sector, localPos, spectral, name, multiplicity, companions, kind })
+    stars.push({
+      id,
+      sector,
+      localPos,
+      spectral,
+      name,
+      multiplicity: finalMultiplicity,
+      companions: finalCompanions,
+      kind,
+    })
   }
   return stars
 }
