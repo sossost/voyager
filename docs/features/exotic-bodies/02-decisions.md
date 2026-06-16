@@ -374,3 +374,27 @@ activeTab==='species' ? <CodexContent/> : <PhenomenaTab discovered={discoveredPh
 > **결정론 무관 보장**(위 "결정론 무관 보장" 섹션 재확인): 골든 변화는 별 직렬화에 `kind` 1키 추가뿐.
 > 모든 렌더 수학(renderedRadius 분기·도플러·회전·포톤 호·맵 색·clearance)과 저장(discoveredPhenomena)은
 > GEN_VERSION과 무관. **다음 단계: `/yc:impl`.**
+
+---
+
+## 결정 (2026-06-16 후속 세션) — 블랙홀 단일성 + 가르강튀아 비주얼
+
+### 결정 X: 블랙홀은 단일성계 (GEN_VERSION 5 → 6)
+**Status:** accepted · **사유:** 블랙홀이 이중·삼중성계 주성으로 생성되면, 동반성 궤도가 강착원반(rs×18)·
+렌즈 영역 안에서 돌아 부자연스럽고, 동반성이 블랙홀 앞을 지날 때 스크린공간 렌즈가 빛을 맺히게 함(사용자 피드백).
+**방식:** `sectors.ts`에서 `kind==='black_hole'`이면 `multiplicity='single'`·`companions=[]`로 **출력만 덮어쓴다.**
+draw(multiplicity·drawCompanions)는 그대로 소비 → RNG 스트림·다른 별·다른 draw 불변. 블랙홀 별의
+multiplicity/companions 출력만 변경. 프로브 섹터(2,0,3)는 블랙홀이 없어 골든 별 데이터는 불변이나,
+블랙홀 출력 분포가 바뀌므로 결정 13에 따라 **GEN_VERSION 6**으로 올림(골든 스냅샷의 genVersion 필드 갱신).
+**천문학적 주석:** 블랙홀 쌍성(예: 백조자리 X-1)은 실재하나, 게임 렌더 한계상 단일로 단순화.
+
+### 결정 Y: 가르강튀아 룩 — 화면공간 레이마칭 렌즈 (전부 렌더 전용, GEN_VERSION 무관)
+**Status:** accepted · **사유:** 레퍼런스 dgreenheck/webgpu-black-hole을 WebGL GLSL 포스트패스로 포팅.
+- **중력렌즈 ON**(`LENS_STRENGTH`): 광선 굴절로 디스크 뒷면이 위로 감김 + 배경 별 휘어짐(2차상 반전 — 정상).
+- **그림자**: 광자구 임계 `BCRIT`(=b_crit)로 정의 → horizon보다 큰 검은 원. 탈출 못 한 광선도 검정.
+- **디스크**: 안쪽을 그림자에 바짝(diskInner) + 외곽 직선 패스로 안 잘리게 + 황금빛(가르강튀아) 흑체 램프.
+- **배경**: 스크린공간 굴절(실제 씬 샘플) — 휜 방향만 보임, 전경(앞 항성)은 깊이 비교로 오클루전.
+- **게이팅**: `uScreenRadius`(성능 마스크)를 렌즈 소실 지점까지 + edgeFade로 경계 은폐.
+- **함교뷰**: 블랙홀계만 시선 고도 8°(거의 옆에서) — 감김이 잘 보이는 각도. 그 외 20°.
+- **충돌 회피**: 블랙홀의 유효 반경을 디스크 외곽(rs×18)으로 — 단일성계화 후엔 사실상 방어 코드.
+- WebGPU 마이그레이션 검토 → **기각**(postprocessing이 WebGLRenderer 전용, compute 불요).
