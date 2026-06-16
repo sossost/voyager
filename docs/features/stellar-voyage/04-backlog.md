@@ -15,6 +15,7 @@
 
 ## B. 출시 전 수동 체크 (자동화 불가 — 03-plan 구현 노트 참조)
 
+- [ ] **`PRE_RELEASE_AUTO_MIGRATE`(BootGate.tsx) → `false`로** — 개발 편의용 임시 플래그. true인 동안 GEN_VERSION 불일치 시 GenVersionNotice 다이얼로그를 건너뛰고 저장 버전을 덮어쓰며 그대로 진행한다(매 분포 변경마다 묻는 마찰 제거). 출시 시 false로 돌려 실사용자가 다이얼로그로 선택하게 해야 한다.
 - [ ] 실기기 모바일(iOS Safari 포함)에서 코어 루프 완주 + 터치 조작감
 - [ ] CPU 4x 스로틀에서 PerformanceMonitor 자동 하향 발동·30fps 유지 실측
 - [ ] Safari 사생활 모드 실브라우저에서 메모리 폴백 확인

@@ -43,6 +43,14 @@ type BootState =
     }
   | { readonly status: 'ready' }
 
+/**
+ * ⚠️ 정식 배포 전 임시 (출시 시 false 또는 제거) — GEN_VERSION 불일치 시 안내 다이얼로그
+ * (GenVersionNotice)를 띄우지 않고, 저장 프로필의 버전을 현재로 덮어쓴 뒤 기록을 유지한 채
+ * 그대로 진행한다. 생성 분포를 자주 바꾸는 개발 중 매번 묻는 마찰을 없앤다. 실사용자 데이터를
+ * 보호하려면 출시 시 반드시 false로 (그러면 기존처럼 다이얼로그로 선택받는다). (백로그 B)
+ */
+const PRE_RELEASE_AUTO_MIGRATE = true
+
 /** 읽는 시점에 검증 — 유효하지 않은 ?seed=·?star=는 무시한다 (백로그 L-1). */
 function readSystemLink(): SystemLink {
   return parseSystemParams(window.location.search)
@@ -125,8 +133,15 @@ export function BootGate() {
       if (isCancelled) return
 
       if (profile.genVersion !== GEN_VERSION) {
-        setBootState({ status: 'gen-mismatch', driver, tier, profile, records })
-        return
+        if (!PRE_RELEASE_AUTO_MIGRATE) {
+          setBootState({ status: 'gen-mismatch', driver, tier, profile, records })
+          return
+        }
+        // 정식 배포 전 임시 — 묻지 않고 저장 버전을 현재로 덮어쓴 뒤 공통 진입 로직으로 폴스루.
+        void persist(
+          () => driver.saveProfile({ ...profile, genVersion: GEN_VERSION }),
+          () => undefined,
+        )
       }
 
       const link = readSystemLink()
