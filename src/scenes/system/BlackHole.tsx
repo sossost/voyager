@@ -59,8 +59,9 @@ export function BlackHole({ radius }: BlackHoleProps) {
   const ringGroupRef = useRef<Group>(null)
   const ringMeshRef = useRef<Mesh>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
-  // high 티어에선 중력렌즈가 포톤 링을 만든다 → 페이크 EHT 링은 medium/low에서만 (이중 링/CD 방지).
-  const showFakeRing = useGameStore((state) => state.qualityTier !== 'high')
+  // high 티어에선 측지선 레이마칭(포스트 패스)이 블랙홀 전체를 그린다 → 렌더 본체는 그리지 않는다
+  // (입력 버퍼를 깨끗한 배경으로 유지해 렌즈가 샘플). medium/low는 페이크(구·원반·EHT 링)를 그린다.
+  const renderFake = useGameStore((state) => state.qualityTier !== 'high')
 
   const ringMaterial = useMemo(
     () =>
@@ -91,6 +92,9 @@ export function BlackHole({ radius }: BlackHoleProps) {
 
   const ringSize = radius * RING_QUAD_FACTOR
 
+  // high 티어는 레이마칭 포스트 패스가 전담 — 본체 렌더 생략.
+  if (!renderFake) return null
+
   return (
     <>
       {/* 사건지평선 — 깨끗한 불투명 검은 구. renderOrder=-1로 디스크보다 먼저 그려 far side를 가린다. */}
@@ -101,14 +105,12 @@ export function BlackHole({ radius }: BlackHoleProps) {
 
       <AccretionDisk radius={radius} />
 
-      {/* EHT 포톤 링 — medium/low 전용 (high는 중력렌즈가 대신). depthTest off로 구 위에. */}
-      {showFakeRing ? (
-        <group ref={ringGroupRef}>
-          <mesh ref={ringMeshRef} material={ringMaterial} renderOrder={1}>
-            <planeGeometry args={[ringSize, ringSize]} />
-          </mesh>
-        </group>
-      ) : null}
+      {/* EHT 포톤 링 — 사건지평선을 두르는 밝은 비대칭 고리. depthTest off로 구 위에. */}
+      <group ref={ringGroupRef}>
+        <mesh ref={ringMeshRef} material={ringMaterial} renderOrder={1}>
+          <planeGeometry args={[ringSize, ringSize]} />
+        </mesh>
+      </group>
     </>
   )
 }

@@ -212,16 +212,24 @@ export function CurrentSystem() {
       light.intensity = next
     }
 
-    // 블랙홀 중력렌즈 — 현재 별이 블랙홀이고 근접(LOD 안)일 때 화면 좌표·반경을 게시한다
-    // (high 티어 포스트 패스 BlackHoleLensing이 읽어 굴절). 그 외엔 비활성(패스스루).
+    // 블랙홀 측지선 중력렌즈 — 현재 별이 블랙홀이고 근접(LOD 안)일 때 카메라 행렬·BH/디스크
+    // 파라미터를 게시한다 (high 티어 포스트 패스 BlackHoleRayMarch가 읽어 레이마칭). 그 외 비활성.
     if (star != null && star.kind === 'black_hole' && !isWarping && dist < SYSTEM_LOD_DISTANCE) {
-      ndcScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(state.camera)
+      const cam = state.camera
+      blackHoleLens.cameraPos.copy(cam.position)
+      blackHoleLens.invViewProj.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse)
+      blackHoleLens.viewProj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)
+      blackHoleLens.bhPos.set(worldPosition[0], worldPosition[1], worldPosition[2])
+      const rs = (bodies[0]?.radius ?? STAR_VISUAL_RADIUS) * systemScaleRef.current
+      blackHoleLens.rs = rs
+      blackHoleLens.diskInner = rs * 2.9 // 광자구(2.6rs) 바로 바깥부터
+      blackHoleLens.diskOuter = rs * 5.6
+      blackHoleLens.diskNormal.set(0, 1, 0) // 수평 원반(월드 고정) — 정박 시점에서 옆모습
+      ndcScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
-      const fov = state.camera instanceof PerspectiveCamera ? state.camera.fov : 60
-      const ehWorldRadius = (bodies[0]?.radius ?? STAR_VISUAL_RADIUS) * systemScaleRef.current
+      const fov = cam instanceof PerspectiveCamera ? cam.fov : 60
       const halfHeight = dist * Math.tan((fov * Math.PI) / 360)
-      blackHoleLens.radius = halfHeight > 0 ? (ehWorldRadius / halfHeight) * 0.5 : 0
-      blackHoleLens.strength = 0.9
+      blackHoleLens.screenRadius = halfHeight > 0 ? ((rs * 12) / halfHeight) * 0.5 : 0.3
       blackHoleLens.active = true
     } else {
       clearBlackHoleLens()
