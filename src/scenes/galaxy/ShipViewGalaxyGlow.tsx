@@ -39,6 +39,13 @@ const BAND_HEIGHT_SEGMENTS = 1
 /** 뚜껑 없는 열린 실린더 — 안쪽 면(BackSide)만 쓴다. */
 const BAND_OPEN_ENDED = true
 const BAND_OPACITY = 0.4
+/**
+ * 띠 거리 페이드 — 정박·항법 근거리에선 보이고, 줌아웃(은하 조망)하면 사라진다.
+ * 항법뷰에서 축소 시 정박 별 중심의 띠가 배경에 둥 떠 부자연스러운 것을 막는다(사용자 지적).
+ * 함교는 카메라-별 거리가 항상 ≈63(SHIP_DISTANCE)이라 늘 NEAR 안 → 띠가 그대로 보인다.
+ */
+const BAND_FADE_NEAR = 280
+const BAND_FADE_FAR = 1_100
 /** 고해상 정련의 프레임당 시간 예산(ms) — 저사양에서도 PerformanceMonitor를 자극하지 않는 선. */
 const REFINE_BUDGET_MS = 2
 
@@ -216,6 +223,16 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
         disposeEvictedBandTextures()
       }
     }
+
+    // 띠 거리 페이드 — 카메라가 정박 별에서 멀어지면(항법 줌아웃) 띠를 걷어 은하 조망을
+    // 깨끗하게 둔다. 함교(≈63u)·항법 근거리에선 NEAR 안이라 그대로 보인다.
+    const bandDistance = Math.hypot(
+      state.camera.position.x - anchor[0],
+      state.camera.position.y - anchor[1],
+      state.camera.position.z - anchor[2],
+    )
+    bandMaterial.opacity =
+      BAND_OPACITY * (1 - smoothstep(BAND_FADE_NEAR, BAND_FADE_FAR, bandDistance))
 
     // 코어 빌보드 — 카메라 응시 + 각크기 클램프 + 근접 페이드 (연속 값은 ref, 철칙 6)
     const group = coreGroupRef.current
