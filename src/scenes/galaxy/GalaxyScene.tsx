@@ -96,15 +96,15 @@ export function GalaxyScene() {
         />
       ) : null}
       {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는
-          균일 별밭 + 은하 광원감(원반 밴드·코어 글로우, 백로그 G-b-6)이 하늘을 채운다 */}
+          균일 별밭. 은하 광원감(원반 밴드·코어 글로우, 백로그 G-b-6)은 모든 뷰에 마운트하되
+          밴드는 카메라-별 거리로 페이드한다 — 항법뷰 근거리에선 함교와 같은 황색 은하수 배경이
+          보이고(사용자 지적), 줌아웃해 은하를 조망하면 걷혀 부자연스럽지 않다(사용자 지적). */}
       {isPerspectiveView ? (
         <DistantGalaxies />
       ) : (
-        <>
-          <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
-          <ShipViewGalaxyGlow anchor={shipFocus} />
-        </>
+        <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
       )}
+      <ShipViewGalaxyGlow anchor={shipFocus} />
       {isPerspectiveView ? <GalaxyNebula /> : null}
       <GalaxyStarField
         stars={stars}

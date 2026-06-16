@@ -93,6 +93,9 @@ export function CurrentSystem() {
   )
   const lodScratch = useMemo(() => new Vector3(), [])
   const ndcScratch = useMemo(() => new Vector3(), [])
+  // 블랙홀이 카메라 앞에 있는지 판정용 (시선 방향·BH 방향) — 뒤편이면 렌즈 비활성.
+  const forwardScratch = useMemo(() => new Vector3(), [])
+  const toBhScratch = useMemo(() => new Vector3(), [])
   const bodyScratch = useMemo(
     () => Array.from({ length: MAX_BODIES }, () => new Vector3()),
     [],
@@ -214,8 +217,19 @@ export function CurrentSystem() {
 
     // 블랙홀 측지선 중력렌즈 — 현재 별이 블랙홀이고 근접(LOD 안)일 때 카메라 행렬·BH/디스크
     // 파라미터를 게시한다 (high 티어 포스트 패스 BlackHoleRayMarch가 읽어 레이마칭). 그 외 비활성.
-    if (star != null && star.kind === 'black_hole' && !isWarping && dist < SYSTEM_LOD_DISTANCE) {
-      const cam = state.camera
+    const cam = state.camera
+    // 블랙홀이 카메라 뒤(시선 반대편)에 있으면 렌즈를 끈다 — Vector3.project()는 w<0(뒤)에서
+    // 화면 안쪽으로 뒤집힌 팬텀 UV를 만든다. 가드 없으면 블랙홀 반대편을 봐도 그 팬텀 위치에
+    // 검은 그림자가 하나 더 떠 보인다(사용자 지적). 시선·BH 방향 내적으로 정면 여부를 판정.
+    const isBlackHoleInFront =
+      star != null &&
+      star.kind === 'black_hole' &&
+      toBhScratch
+        .set(worldPosition[0], worldPosition[1], worldPosition[2])
+        .sub(cam.position)
+        .dot(cam.getWorldDirection(forwardScratch)) > 0
+
+    if (isBlackHoleInFront && !isWarping && dist < SYSTEM_LOD_DISTANCE) {
       blackHoleLens.cameraPos.copy(cam.position)
       blackHoleLens.invViewProj.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse)
       blackHoleLens.viewProj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)
