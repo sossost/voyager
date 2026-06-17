@@ -28,5 +28,11 @@
  *   draw(multiplicity·drawCompanions)는 그대로 소비해 RNG 스트림·다른 별·다른 draw는 불변 —
  *   블랙홀 별의 multiplicity/companions 출력만 바뀐다. 프로브 섹터(2,0,3)는 블랙홀이 없어
  *   골든 스냅샷은 불변이지만, 블랙홀 출력 분포가 바뀌므로 결정 13에 따라 버전을 올린다.
+ * v7 (2026-06-17): 펄서(중성자성) — KIND_WEIGHTS_BY_SPECTRAL의 O/B에 'pulsar' kind 추가
+ *   (펄서 결정 8 — 블랙홀보다 약간 흔하게). kind draw(starRng.weighted)는 테이블과 무관하게
+ *   next() 1회만 소비하므로 append-only·RNG 스트림 불변 — O/B 별의 kind 추첨 결과 분포만 바뀐다
+ *   (블랙홀과 달리 펄서는 단일성계 보정 없음 = multiplicity/companions 보존, 펄서 결정 6).
+ *   프로브 섹터(2,0,3)는 전부 F/G/M이라 O/B kind(블랙홀·펄서) 미도달 → 골든 스냅샷은 불변이지만,
+ *   O/B kind 분포가 바뀌므로 결정 13에 따라 버전을 올린다(v6 선례 동일).
  */
-export const GEN_VERSION = 6
+export const GEN_VERSION = 7

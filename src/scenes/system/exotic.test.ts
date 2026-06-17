@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { StarKind } from '@/engine'
 import { kindRadiusFactor } from './exotic'
 
-const ALL_KINDS: readonly StarKind[] = ['main_sequence', 'black_hole']
+const ALL_KINDS: readonly StarKind[] = ['main_sequence', 'black_hole', 'pulsar']
 
 describe('kindRadiusFactor', () => {
   it('main_sequence는 배수 1 — 기존 단일 항성 렌더가 한 픽셀도 안 바뀐다 (결정 12)', () => {
@@ -12,6 +12,10 @@ describe('kindRadiusFactor', () => {
 
   it('블랙홀 사건지평선은 항성보다 작다 (<1) — 디스크·렌즈 레이마칭이 시각 크기를 담당', () => {
     expect(kindRadiusFactor('black_hole')).toBeLessThan(1)
+  })
+
+  it('펄서 본체는 항성보다 작다 (<1) — 등대 빔·제트가 시각 크기를 담당 (펄서 결정 3)', () => {
+    expect(kindRadiusFactor('pulsar')).toBeLessThan(1)
   })
 
   it('모든 kind에 유한한 양수 배수를 준다 (exhaustive)', () => {

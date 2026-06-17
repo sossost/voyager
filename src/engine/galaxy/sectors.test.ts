@@ -228,13 +228,13 @@ describe('다중성계 (binary-stars, GEN_VERSION 4)', () => {
   })
 })
 
-/** 별 종류 — 주계열성 + 블랙홀 (거성·왜성·펄서는 후속 PR). */
-const STAR_KINDS: readonly StarKind[] = ['main_sequence', 'black_hole']
+/** 별 종류 — 주계열성 + 블랙홀 + 펄서 (거성·왜성는 후속 PR). */
+const STAR_KINDS: readonly StarKind[] = ['main_sequence', 'black_hole', 'pulsar']
 
-/** 대질량 분광형 — 블랙홀의 진화 종착이 되는 별. */
+/** 대질량 분광형 — 블랙홀·펄서의 진화 종착이 되는 별. */
 const MASSIVE_CLASSES: readonly SpectralClass[] = ['O', 'B']
 
-describe('이색 천체 (exotic-bodies, GEN_VERSION 5)', () => {
+describe('이색 천체 (exotic-bodies + pulsar, GEN_VERSION 7)', () => {
   const sample = sampleStars(seedOf('STARKINDS'))
 
   it('표본이 분포 검증에 충분하다', () => {
@@ -265,9 +265,28 @@ describe('이색 천체 (exotic-bodies, GEN_VERSION 5)', () => {
     }
   })
 
+  it('펄서는 대질량(O/B) 분광형에서만 출현한다 (펄서 결정 — 중성자성=O/B 진화 종착)', () => {
+    for (const star of sample) {
+      if (star.kind === 'pulsar') {
+        expect(MASSIVE_CLASSES).toContain(star.spectral)
+      }
+    }
+  })
+
   it('블랙홀은 전체의 ~1% 미만으로 희귀하다', () => {
     const blackHoles = sample.filter((s) => s.kind === 'black_hole').length
     expect(blackHoles / sample.length).toBeLessThan(0.02)
+  })
+
+  it('펄서는 블랙홀보다 흔하다 (펄서 결정 8 — O/B weight pulsar > black_hole)', () => {
+    const pulsars = sample.filter((s) => s.kind === 'pulsar').length
+    const blackHoles = sample.filter((s) => s.kind === 'black_hole').length
+    expect(pulsars).toBeGreaterThan(blackHoles)
+  })
+
+  it('펄서도 long-tail로 희귀하다 (전체의 ~2% 미만)', () => {
+    const pulsars = sample.filter((s) => s.kind === 'pulsar').length
+    expect(pulsars / sample.length).toBeLessThan(0.02)
   })
 
   it('같은 (seed, sector)는 kind까지 동일하다 (결정론)', () => {

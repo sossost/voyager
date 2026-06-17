@@ -16,6 +16,10 @@ export function kindRadiusFactor(kind: StarKind): number {
       // 사건지평선 시각 반경 배수 — 항성보다 작다(<1). 레이마칭 렌즈가 디스크(rs×18)·렌즈(rs×28)를
       // 그려 전체 화면 크기를 좌우하므로, 디스크 외곽이 일반 항성 코로나와 비슷해지게 0.32로 둔다.
       return 0.32
+    case 'pulsar':
+      // 중성자성 본체 — 작고 조밀(<1). 히어로(등대 빔)·제트가 시각 크기를 좌우하므로 본체는
+      // 작게 두어 Bloom이 본체를 백색으로 메우지 않게 한다(블랙홀 교훈 2, 펄서 결정 3).
+      return 0.6
     case 'main_sequence':
       return 1
   }
