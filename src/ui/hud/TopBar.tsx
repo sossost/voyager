@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useGameStore } from '@/store'
 import { QualitySelect } from '@/ui/hud/QualitySelect'
+import { UniverseResetDialog } from '@/ui/hud/UniverseResetDialog'
 
 /**
  * 텔레메트리 스트립 (결정 42) — 좌상단 읽기 전용 데이터 행. pointer-events 차단으로
@@ -30,8 +31,13 @@ function TelemetryStrip() {
   )
 }
 
-/** 설정 포브 (결정 42) — 저빈도 설정(품질)을 팝오버 뒤로 격납해 위계를 낮춘다. */
-function SystemFob() {
+interface SystemFobProps {
+  readonly canResetUniverse: boolean
+  onRequestReset(): void
+}
+
+/** 설정 포브 (결정 42) — 저빈도 설정(품질·우주 초기화)을 팝오버 뒤로 격납해 위계를 낮춘다. */
+function SystemFob({ canResetUniverse, onRequestReset }: SystemFobProps) {
   const [isOpen, setIsOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -77,6 +83,19 @@ function SystemFob() {
       {isOpen ? (
         <div id="system-fob-popover" className="system-fob-popover">
           <QualitySelect />
+          {canResetUniverse ? (
+            <button
+              type="button"
+              className="hud-button hud-button-compact universe-reset-key"
+              // 모달을 팝오버 밖에서 띄우려면 먼저 팝오버를 닫아야 한다 (모달 언마운트 충돌 방지).
+              onClick={() => {
+                setIsOpen(false)
+                onRequestReset()
+              }}
+            >
+              우주 초기화
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -85,6 +104,10 @@ function SystemFob() {
 
 export function TopBar() {
   const openOverlay = useGameStore((state) => state.openOverlay)
+  // 게스트 모드에선 화면의 우주가 내 것이 아니므로 초기화를 숨긴다 — 노출 시 내 실제
+  // (화면 밖) 기록을 지우는 footgun이 된다 (백로그 L-1 게스트 모드).
+  const isGuestMode = useGameStore((state) => state.isGuestMode)
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
 
   return (
     <header className="top-bar">
@@ -106,8 +129,14 @@ export function TopBar() {
             일지
           </button>
         </div>
-        <SystemFob />
+        <SystemFob
+          canResetUniverse={isGuestMode === false}
+          onRequestReset={() => setIsResetDialogOpen(true)}
+        />
       </div>
+      {isResetDialogOpen ? (
+        <UniverseResetDialog onClose={() => setIsResetDialogOpen(false)} />
+      ) : null}
     </header>
   )
 }
