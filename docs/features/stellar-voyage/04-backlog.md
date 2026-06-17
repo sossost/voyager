@@ -116,7 +116,7 @@
 > **🔝 우선순위 격상 (2026-06-15).** 엔진 확장(쌍성계 / 이색 천체 / 사실성 v2)을 다음 작업으로. 모두 출력 분포가 바뀌므로 **`/yc:brainstorm` → GEN_VERSION 범프 + 골든 재생성**이 선행. 철칙 2·3(GEN_VERSION 규칙·draw append-only) 숙지 필수.
 > - ✅ **쌍성계 = GEN_VERSION 4** 완료 (2026-06-15) — E-5#3 참조. (`feature/binary-stars` → main 머지)
 > - 🚧 **이색 천체 = 블랙홀만 출시 (GEN_VERSION 5·6)** → `docs/features/exotic-bodies/`(01-spec·02-decisions·03-plan에는 4종 전부 설계). **⚠️ 문서 정정 (2026-06-17):** spec/decisions/plan은 4종(적색거성·백색왜성·펄서·블랙홀)을 설계했으나, PR 분할(`a1c8167` "블랙홀만 남김") 결과 **실제 main에 머지된 건 블랙홀 1종뿐**. `StarKind = 'main_sequence' | 'black_hole'`(`sectors.ts:40`), `version.ts:24` 주석도 "거성·왜성·펄서는 후속 PR" 명시. 펄서 렌더는 `1e149cf`(Phase 3)에 한 번 구현됐다가 분할 때 제거됨(= 사용자가 "퀄리티 불만"인 그 버전). **남은 3종(펄서·백색왜성·적색거성)은 미구현 = 후속 피처.**
-> - 🔝 **펄서 = 다음 작업** (2026-06-17 합의). 블랙홀급 고품질로 별도 피처 분리 → `docs/features/pulsar/`. 기존 exotic-bodies 설계 재사용하되 비주얼은 블랙홀 수준으로 재설계. `StarKind`에 `'pulsar'` append → **GEN_VERSION 7 범프 + 골든 재생성**.
+> - ✅ **펄서 = 구현 완료·미머지** (2026-06-17) → `docs/features/pulsar/`. `feature/pulsar` 4커밋(Phase 1~4). `StarKind`+='pulsar'(O/B 한정·블랙홀보다 약간 흔하게)·**GEN_VERSION 7**(골든 diff=genVersion만). 고품질 인씬 렌더(`Pulsar.tsx` — 등대 쌍극 빔+글로우 펄스+상대론적 쌍제트+초고온 본체/폴라캡, 포스트 없음). 다중성계 허용·행성 유지(블랙홀과 차별). reduced-motion 준수·광과민성 ~0.64Hz. 다중렌즈 코드리뷰 반영. 전 게이트 green(test 264·cov 97%·e2e 4/4). **다음 = 사용자 비주얼 검토 → PR → main 머지.**
 > - ⏸️ 백색왜성·적색거성 — 펄서 다음. (StarSurface 변조라 상대적으로 가벼움)
 > - ⏸️ 사실성 v2 (G-c-11) — 그다음.
 > - **GEN_VERSION 번호는 구현 시점에 배정** — 다음 범프(이색 천체) = 5 예정, 그다음 = 6. **"미리 번호 박지 말 것"** — v3가 이미 적용된 걸 모르고 "쌍성계=3"이라 적었다가 4로 정정한 전례 있음.
