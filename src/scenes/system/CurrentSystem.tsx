@@ -21,6 +21,7 @@ import {
 } from '@/scenes/system/multiplicity'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import { Pulsar } from '@/scenes/system/Pulsar'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
 import { SYSTEM_LOD_DISTANCE } from '@/scenes/system/starCrossfade'
@@ -271,9 +272,11 @@ export function CurrentSystem() {
                   bodyGroupRefs.current[index] = el
                 }}
               >
-                {/* 블랙홀은 전용 컴포넌트로, 주계열성은 StarSurface로 렌더 — 주성만 가능 (결정 7·14). */}
+                {/* 이색 천체는 전용 컴포넌트로, 주계열성은 StarSurface로 렌더 — 주성만 가능 (결정 7·14). */}
                 {body.kind === 'black_hole' ? (
                   <BlackHole radius={body.radius} />
+                ) : body.kind === 'pulsar' ? (
+                  <Pulsar radius={body.radius} color={body.color} />
                 ) : (
                   <StarSurface radius={body.radius} color={body.color} />
                 )}

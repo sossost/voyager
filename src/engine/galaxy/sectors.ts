@@ -35,24 +35,28 @@ const MULTIPLICITY_WEIGHTS: readonly WeightedEntry<Multiplicity>[] = [
 
 /**
  * 별 종류 (결정 2) — 주계열성 + 블랙홀.
- * 블랙홀은 대질량성(O/B)의 종착. 적색거성·백색왜성·펄서는 후속 PR로 분리(이번 PR=블랙홀만).
+ * 블랙홀·펄서는 대질량성(O/B)의 종착. 적색거성·백색왜성는 후속 PR로 분리.
  */
-export type StarKind = 'main_sequence' | 'black_hole'
+export type StarKind = 'main_sequence' | 'black_hole' | 'pulsar'
 
 /**
  * 분광형별 kind 가중치 (결정 4) — 천문학적 사실성:
- * 블랙홀은 대질량 O/B에서만(=전체의 ~0.4%로 자연 희귀) 출현하고, 어디서나 주계열성이
- * 압도적 다수(long-tail, 결정 3). 비O/B는 주계열성뿐(거성·왜성은 후속 PR).
+ * 블랙홀·펄서는 대질량 O/B에서만(중성자성·블랙홀은 O/B의 진화 종착) 출현하고, 어디서나
+ * 주계열성이 압도적 다수(long-tail, 결정 3). 비O/B는 주계열성뿐(거성·왜성은 후속 PR).
+ * 펄서는 블랙홀보다 약간 흔하게 둔다(pulsar weight > black_hole — 펄서 결정 8): 공들인
+ * 고품질 렌더를 더 자주 감상하되 O/B 한정이라 여전히 자연 희귀.
  * weighted()는 테이블과 무관하게 next() 1회만 소비하므로 append-only·결정론에 영향 없다.
  * 단일 항목 테이블의 weight 값은 출력에 무관(target < total 항상 성립) — 항상 main_sequence.
  */
 const KIND_WEIGHTS_BY_SPECTRAL: Readonly<Record<SpectralClass, readonly WeightedEntry<StarKind>[]>> = {
   O: [
     { value: 'main_sequence', weight: 78 },
+    { value: 'pulsar', weight: 10 },
     { value: 'black_hole', weight: 6 },
   ],
   B: [
     { value: 'main_sequence', weight: 85 },
+    { value: 'pulsar', weight: 6 },
     { value: 'black_hole', weight: 3 },
   ],
   A: [{ value: 'main_sequence', weight: 100 }],

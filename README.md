@@ -15,6 +15,12 @@
 
 <sub>🕳 <b>Alarax-326</b> · 블랙홀 — 실시간 셰이더로 그린 강착원반·포톤 링. <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=-2:-1:1:2">▶ 이 항성계 접속</a></sub>
 
+<a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=3:0:0:2">
+  <img src="docs/images/pulsar.jpg" alt="펄서 Yiler-602 — 상대론적 제트와 청색 자기권 소용돌이" />
+</a>
+
+<sub>✦ <b>Yiler-602</b> · 펄서 — 회전하는 중성자성의 상대론적 쌍제트와 청색 자기권 소용돌이(난류 셰이더). <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=3:0:0:2">▶ 이 항성계 접속</a></sub>
+
 <table>
   <tr>
     <td width="50%"><a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=26:0:10:0"><img src="docs/images/solar-system.jpg" alt="태양계 — 궤도와 고리 행성" /></a></td>
