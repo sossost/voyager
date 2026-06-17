@@ -58,6 +58,9 @@ const exoticStarA = sameKindStars[0] as Star
 const exoticStarB = sameKindStars[1] as Star
 const mainStar = allStars.find((s) => s.id !== startStarId && s.kind === 'main_sequence')
 if (mainStar == null) throw new Error('테스트용 주계열성을 찾지 못했습니다')
+// 펄서 — 블랙홀보다 흔해 표본에 반드시 있다 (펄서 발견 트리거·kind 기록 검증용).
+const pulsarStar = allStars.find((s) => s.id !== startStarId && s.kind === 'pulsar')
+if (pulsarStar == null) throw new Error('테스트용 펄서를 찾지 못했습니다')
 
 let store: GameStoreApi
 let driver: MemoryDriver
@@ -278,6 +281,14 @@ describe('현상 발견 (exotic-bodies)', () => {
 
     expect(store.getState().discoveredPhenomena).toHaveLength(0)
     expect(store.getState().toasts.some((toast) => toast.message.includes('최초 발견'))).toBe(false)
+  })
+
+  it('펄서로 워프하면 kind:pulsar 현상이 기록된다 (펄서)', () => {
+    store.getState().warpTo(pulsarStar.id)
+
+    const discoveries = store.getState().discoveredPhenomena
+    expect(discoveries).toHaveLength(1)
+    expect(discoveries[0]).toMatchObject({ starId: pulsarStar.id, kind: 'pulsar' })
   })
 
   it('같은 이색 천체 재방문은 중복 기록하지 않는다 (멱등)', () => {
