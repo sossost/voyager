@@ -32,6 +32,22 @@ export const PULSAR_JET_BASE_FACTOR = 0.32
 export const PULSAR_POLAR_CAP_FACTOR = 0.5
 /** 글로우 펄스 최저 강도 — 완전 소등하지 않는다(대비 상한, 광과민성, 결정 5). */
 export const PULSAR_PULSE_MIN = 0.22
+/** 글로우 펄스가 켜지는 빔·시선 정렬 임계 (|dot|) — 이 값↑일수록 좁고 또렷한 섬광. */
+export const PULSAR_PULSE_ALIGN_THRESHOLD = 0.55
+/** reduced-motion 시 고정 글로우 강도 — 맥동 없이 은은히 켜둔다(전정 민감성 배려). */
+export const PULSAR_PULSE_STEADY = 0.5
+
+/**
+ * 등대 글로우 펄스 강도 — 빔·시선 정렬도(|dot|, [0,1])를 [PULSE_MIN, 1] 강도로 매핑.
+ * 임계 이하는 PULSE_MIN(완전 소등 없음·대비 상한, 광과민성 결정 5), 임계~1은 smoothstep으로
+ * 부드럽게 차오른다. 순수 함수라 단위 테스트 가능(Pulsar.tsx useFrame이 호출).
+ */
+export function pulsarGlowPulse(align: number): number {
+  const span = 1 - PULSAR_PULSE_ALIGN_THRESHOLD
+  const t = Math.min(1, Math.max(0, (align - PULSAR_PULSE_ALIGN_THRESHOLD) / span))
+  const smooth = t * t * (3 - 2 * t) // smoothstep
+  return PULSAR_PULSE_MIN + (1 - PULSAR_PULSE_MIN) * smooth
+}
 
 export function kindRadiusFactor(kind: StarKind): number {
   switch (kind) {
@@ -45,5 +61,10 @@ export function kindRadiusFactor(kind: StarKind): number {
       return 0.6
     case 'main_sequence':
       return 1
+    default: {
+      // 다음 이색 천체(백색왜성·적색거성) 추가 시 컴파일 에러로 갱신을 강제한다.
+      const exhaustive: never = kind
+      throw new Error(`Unhandled StarKind: ${String(exhaustive)}`)
+    }
   }
 }

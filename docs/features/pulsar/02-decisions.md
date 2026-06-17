@@ -116,8 +116,8 @@
 | B: 펄서 전용 정적 처리 | 펄서만 회전·펄스 정지 | 작은 인프라 추가 |
 | C: 전역 인프라 신설 | 향후 모든 애니 준수 | 스코프 대폭 확장·회귀 테스트 — 펄서 PR 범위 초과 |
 
-**Chosen:** A (이번 범위 밖).
-**Reason:** 코드베이스에 reduced-motion 인프라가 전혀 없어 신설은 전역 영향을 주는 별도 작업이다. 펄서 빔은 이미 광과민성 안전 설계(부드러운 펄스·완전 소등 없음·≤3Hz)라 즉각 위험이 낮다. 향후 인프라가 생기면 펄서 애니에 적용한다(데드코드는 남기지 않음).
+**Chosen (개정 2026-06-17):** B (펄서 전용 정적 처리) — **브레인스토밍 당시 A를 택했으나 전제가 틀렸다.**
+**Reason:** 브레인스토밍에선 "코드베이스에 reduced-motion 인프라 없음"을 전제로 A(범위 밖)를 골랐으나, 코드리뷰(security-reviewer)가 **이미 `scenes/shared/useReducedMotion.ts`가 존재하고 형제 이색 천체 `AccretionDisk`가 이를 준수**함을 확인했다(`AccretionDisk.tsx:118` — reduced 시 `uTime` 정지). 펄서는 회전 스윕 + 맥동 휘도라 더 자극적이라 같은 a11y 계약을 따라야 한다. 구현: `usePrefersReducedMotion()` 구독 → reduced 시 자전 정지·`uTime=0`·글로우 펄스를 정적(`PULSAR_PULSE_STEADY`)으로 고정. 형태(빔·제트·본체)는 유지. 빔 통과 주파수는 이미 ~0.64Hz(≤3Hz)지만, 프로젝트가 reduced-motion을 **하드 계약**으로 취급하므로 준수한다.
 
 ---
 

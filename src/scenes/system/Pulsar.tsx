@@ -12,15 +12,17 @@ import {
 
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
+import { usePrefersReducedMotion } from '@/scenes/shared/useReducedMotion'
 import {
   PULSAR_BASE_TILT,
   PULSAR_BEAM_CONE_FACTOR,
   PULSAR_BEAM_LEN_FACTOR,
+  pulsarGlowPulse,
   PULSAR_JET_BASE_FACTOR,
   PULSAR_JET_LEN_FACTOR,
   PULSAR_MAGNETIC_OFFSET,
   PULSAR_POLAR_CAP_FACTOR,
-  PULSAR_PULSE_MIN,
+  PULSAR_PULSE_STEADY,
   PULSAR_SPIN_RATE,
 } from '@/scenes/system/exotic'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
@@ -42,8 +44,13 @@ import { useGameStore } from '@/store'
  */
 
 const CONE_SEGMENTS = 24
-/** 글로우 펄스가 켜지기 시작하는 빔·시선 정렬 임계 (|dot|). 이 값↑일수록 좁은 섬광. */
-const PULSE_ALIGN_THRESHOLD = 0.55
+/** 자전 각도 wrap 한계 — 장시간 누적 시 fp 정밀도/직렬화 surprise 방지. */
+const TWO_PI = Math.PI * 2
+/**
+ * uTime wrap 주기 — sin 항들이 경계에서 끊기지 않게 모든 시간 계수의 공배수로 잡는다.
+ * 빔 흐름 uTime×5.0, 제트 충격파 uTime×3.2 → 10π에서 둘 다 정수 주기(25·16회)라 연속.
+ */
+const TIME_WRAP = 10 * Math.PI
 /** 중앙 글로우 플레어 빌보드 한 변 = 본체 반경 × 이 배수. */
 const FLARE_QUAD_FACTOR = 11
 
@@ -60,10 +67,11 @@ const BEAM_VERTEX_SHADER = /* glsl */ `
 `
 
 const BEAM_FRAGMENT_SHADER = /* glsl */ `
+  #define STRIPE_WRAP 12.566   // ≈ 4π — UV 원주 한 바퀴에 줄무늬 2주기
   uniform float uPulse;
   uniform float uOpacity;
   uniform float uTime;
-  uniform float uHigh;
+  uniform float uHigh;          // 0.0=비-high, 1.0=high 티어 (float bool, 임계 0.5)
   varying float vT;
   varying vec2 vCone;
   void main() {
@@ -74,7 +82,7 @@ const BEAM_FRAGMENT_SHADER = /* glsl */ `
     float intensity = taper * root;
     // high 티어 — 빔 내부를 흐르는 에너지 줄무늬(가산 디테일)
     if (uHigh > 0.5) {
-      float flow = 0.5 + 0.5 * sin(vT * 26.0 - uTime * 5.0 + vCone.x * 12.566);
+      float flow = 0.5 + 0.5 * sin(vT * 26.0 - uTime * 5.0 + vCone.x * STRIPE_WRAP);
       intensity *= 0.72 + 0.5 * flow;
     }
     intensity *= uPulse;
@@ -86,9 +94,8 @@ const BEAM_FRAGMENT_SHADER = /* glsl */ `
 const JET_FRAGMENT_SHADER = /* glsl */ `
   uniform float uOpacity;
   uniform float uTime;
-  uniform float uHigh;
-  varying float vT;
-  varying vec2 vCone;
+  uniform float uHigh;          // 0.0=비-high, 1.0=high 티어 (float bool, 임계 0.5)
+  varying float vT;             // 공유 BEAM_VERTEX_SHADER의 vCone은 제트에선 미사용
   void main() {
     float taper = pow(clamp(1.0 - vT, 0.0, 1.0), 0.85);  // 긴 제트 — 천천히 식는다
     vec3 col = vec3(0.70, 0.95, 1.12);                   // 청록빛 백색
@@ -126,7 +133,11 @@ const FLARE_VERTEX_SHADER = /* glsl */ `
 `
 
 interface PulsarProps {
-  /** 중성자성 본체 반경 (= STAR_VISUAL_RADIUS × kindRadiusFactor('pulsar')). */
+  /**
+   * 중성자성 본체 반경 (= STAR_VISUAL_RADIUS × kindRadiusFactor('pulsar')).
+   * **불변식: radius > 0** — 빔/제트 셰이더의 `uLen = radius × FACTOR`가 분모라
+   * 0 이하면 vT가 NaN/Inf가 된다(현재 호출 경로는 항상 양수).
+   */
   readonly radius: number
   /** 본체·코로나 색 (EXOTIC_RENDER.pulsar — 전기 청백). */
   readonly color: string
@@ -148,6 +159,9 @@ export function Pulsar({ radius, color }: PulsarProps) {
   // (결정 3 open question 4). bloom=high 프리셋 프록시.
   const isHigh = useGameStore((state) => QUALITY_PRESETS[state.qualityTier].bloom)
   const highFlag = isHigh ? 1 : 0
+  // reduced-motion: 자전·글로우 펄스를 정지하고 정적 형태로 — 광과민성·전정 민감성 배려
+  // (AccretionDisk와 동일 a11y 계약). 형태(빔·제트·본체)는 그대로 둔다.
+  const reducedMotion = usePrefersReducedMotion()
 
   const beamLen = radius * PULSAR_BEAM_LEN_FACTOR
   const beamBase = radius * PULSAR_BEAM_CONE_FACTOR
@@ -181,11 +195,10 @@ export function Pulsar({ radius, color }: PulsarProps) {
   const jetMaterial = useMemo(
     () =>
       new ShaderMaterial({
-        vertexShader: BEAM_VERTEX_SHADER, // vT/vCone 동일 — 콘 길이만 다르다
+        vertexShader: BEAM_VERTEX_SHADER, // vT 동일 — 콘 길이만 다르다(제트는 uPulse 미변조)
         fragmentShader: JET_FRAGMENT_SHADER,
         uniforms: {
           uLen: { value: jetLen },
-          uPulse: { value: 1 },
           uOpacity: { value: 1 },
           uTime: { value: 0 },
           uHigh: { value: highFlag },
@@ -218,16 +231,20 @@ export function Pulsar({ radius, color }: PulsarProps) {
   useEffect(() => () => flareMaterial.dispose(), [flareMaterial])
 
   useFrame((state, delta) => {
-    const elapsed = state.clock.elapsedTime
-    // 자전 — 자기축이 어긋나 빔이 원뿔을 쓴다(등대). 순수 Y축 회전(틸트는 부모 그룹).
-    if (spinRef.current != null) spinRef.current.rotation.y += PULSAR_SPIN_RATE * delta
-    setUniform(beamMaterial, 'uTime', elapsed)
-    setUniform(jetMaterial, 'uTime', elapsed)
+    // uTime은 wrap해 장시간 세션의 fp 정밀도 저하(줄무늬 stepping)를 막는다. reduced면 정지.
+    const time = reducedMotion ? 0 : state.clock.elapsedTime % TIME_WRAP
+    // 자전 — 자기축이 어긋나 빔이 원뿔을 쓴다(등대). 순수 Y축 회전(틸트는 부모 그룹). reduced면 정지.
+    if (spinRef.current != null && !reducedMotion) {
+      spinRef.current.rotation.y = (spinRef.current.rotation.y + PULSAR_SPIN_RATE * delta) % TWO_PI
+    }
+    setUniform(beamMaterial, 'uTime', time)
+    setUniform(jetMaterial, 'uTime', time)
 
     // 등대 글로우 펄스 — 자기축 빔이 카메라를 향할 때만 중앙 플레어가 차오른다.
     // 빔 방향(자기축 그룹의 월드 Y) · 카메라 시선 정렬도 |dot|로 산출 → 쌍극이라 통과당 2회.
-    let pulse = PULSAR_PULSE_MIN
-    if (magneticRef.current != null && rootRef.current != null) {
+    // reduced면 정렬 무관하게 은은한 정적 글로우로 고정(맥동 제거).
+    let pulse = PULSAR_PULSE_STEADY
+    if (!reducedMotion && magneticRef.current != null && rootRef.current != null) {
       magneticRef.current.getWorldQuaternion(quatScratch)
       beamDirScratch.set(0, 1, 0).applyQuaternion(quatScratch).normalize()
       rootRef.current.getWorldPosition(worldScratch)
@@ -236,12 +253,7 @@ export function Pulsar({ radius, color }: PulsarProps) {
       if (len > 1e-4) {
         toCamScratch.multiplyScalar(1 / len)
         const align = Math.abs(beamDirScratch.dot(toCamScratch)) // [0,1]
-        const t = Math.min(
-          1,
-          Math.max(0, (align - PULSE_ALIGN_THRESHOLD) / (1 - PULSE_ALIGN_THRESHOLD)),
-        )
-        const smooth = t * t * (3 - 2 * t) // smoothstep — 부드러운 펄스
-        pulse = PULSAR_PULSE_MIN + (1 - PULSAR_PULSE_MIN) * smooth // 완전 소등 없음(대비 상한)
+        pulse = pulsarGlowPulse(align) // 임계 smoothstep → [PULSE_MIN,1] (완전 소등 없음)
       }
     }
     // 빔도 카메라 향할 때 살짝 더 밝게(정면 단축 보정), 제트는 일정.
