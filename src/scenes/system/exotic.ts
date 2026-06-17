@@ -10,6 +10,29 @@ import type { StarKind } from '@/engine'
  * 렌더가 한 픽셀도 안 바뀐다. multiplicity.ts의 renderedRadius(충돌·궤도)와
  * CurrentSystem(시각 메시)이 **같은 값**을 써야 별/행성 관통이 없다.
  */
+/**
+ * 펄서 형태 상수 (펄서 결정 1~5) — 시간 함수(회전·펄스)는 Pulsar.tsx의 useFrame에 산다.
+ * GEN_VERSION 무관(렌더 전용). 광과민성: 빔 통과 주파수 = (SPIN_RATE/2π)×2(쌍극) ≤ 3Hz.
+ */
+/** 자전 각속도 (rad/s) — 0.318 rev/s → 빔 통과 ~0.64Hz (≤3Hz, 결정 5). 느긋한 등대 스윕. */
+export const PULSAR_SPIN_RATE = 2.0
+/** 자기축 ↔ 자전축 어긋남 (rad, ~29°) — 회전 시 빔이 원뿔을 쓴다. */
+export const PULSAR_MAGNETIC_OFFSET = 0.5
+/** 자전축의 3/4 시점 틸트 [x,y,z] — 제트·스윕이 정면 정렬로 납작해지지 않게. */
+export const PULSAR_BASE_TILT: readonly [number, number, number] = [0.34, 0, 0.18]
+/** 등대 빔 길이 = 본체 반경 × 이 배수. */
+export const PULSAR_BEAM_LEN_FACTOR = 8
+/** 등대 빔 밑동(별 쪽) 반경 배수 — 좁은 핫코어(결정 26). */
+export const PULSAR_BEAM_CONE_FACTOR = 1.4
+/** 상대론적 제트 길이 배수 — 빔보다 길고 가늘다. */
+export const PULSAR_JET_LEN_FACTOR = 14
+/** 상대론적 제트 밑동 반경 배수 — 가늘게. */
+export const PULSAR_JET_BASE_FACTOR = 0.32
+/** 자기극 폴라캡 핫스팟 반경 배수. */
+export const PULSAR_POLAR_CAP_FACTOR = 0.5
+/** 글로우 펄스 최저 강도 — 완전 소등하지 않는다(대비 상한, 광과민성, 결정 5). */
+export const PULSAR_PULSE_MIN = 0.22
+
 export function kindRadiusFactor(kind: StarKind): number {
   switch (kind) {
     case 'black_hole':
