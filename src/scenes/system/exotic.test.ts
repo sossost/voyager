@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { StarKind } from '@/engine'
-import {
-  kindRadiusFactor,
-  pulsarGlowPulse,
-  PULSAR_PULSE_ALIGN_THRESHOLD,
-  PULSAR_PULSE_MIN,
-} from './exotic'
+import { kindRadiusFactor, pulsarPulse, PULSAR_PULSE_HZ, PULSAR_PULSE_MIN } from './exotic'
 
 const ALL_KINDS: readonly StarKind[] = ['main_sequence', 'black_hole', 'pulsar']
 
@@ -32,29 +27,24 @@ describe('kindRadiusFactor', () => {
   })
 })
 
-describe('pulsarGlowPulse (등대 글로우 펄스 강도)', () => {
-  it('정렬 임계 이하는 PULSE_MIN으로 고정 — 완전 소등 없음(광과민성, 결정 5)', () => {
-    expect(pulsarGlowPulse(0)).toBe(PULSAR_PULSE_MIN)
-    expect(pulsarGlowPulse(PULSAR_PULSE_ALIGN_THRESHOLD)).toBe(PULSAR_PULSE_MIN)
-    expect(pulsarGlowPulse(PULSAR_PULSE_ALIGN_THRESHOLD * 0.5)).toBe(PULSAR_PULSE_MIN)
-  })
-
-  it('완전 정렬(|dot|=1)에서 최대 강도 1 — 빔이 카메라 정면', () => {
-    expect(pulsarGlowPulse(1)).toBeCloseTo(1)
-  })
-
-  it('임계와 1 사이에서 단조 증가한다 (부드러운 펄스)', () => {
-    const mid = pulsarGlowPulse(0.78)
-    expect(mid).toBeGreaterThan(PULSAR_PULSE_MIN)
-    expect(mid).toBeLessThan(1)
-    expect(pulsarGlowPulse(0.9)).toBeGreaterThan(mid)
-  })
-
-  it('정렬도가 [0,1] 밖이어도 강도는 항상 [PULSE_MIN,1] (clamp 안전)', () => {
-    for (const align of [-0.5, 0, 0.3, 0.55, 0.8, 1, 1.5]) {
-      const pulse = pulsarGlowPulse(align)
-      expect(pulse).toBeGreaterThanOrEqual(PULSAR_PULSE_MIN)
-      expect(pulse).toBeLessThanOrEqual(1)
+describe('pulsarPulse (맥동 강도)', () => {
+  it('항상 [PULSE_MIN, 1] 범위 — 완전 소등 없음(대비 상한, 광과민성 결정 5)', () => {
+    for (let i = 0; i <= 40; i++) {
+      const t = i * 0.1
+      const pulse = pulsarPulse(t)
+      expect(pulse).toBeGreaterThanOrEqual(PULSAR_PULSE_MIN - 1e-9)
+      expect(pulse).toBeLessThanOrEqual(1 + 1e-9)
     }
+  })
+
+  it('한 주기(1/HZ초)에 최저(PULSE_MIN)와 최고(1)에 모두 도달한다', () => {
+    const period = 1 / PULSAR_PULSE_HZ
+    // sin 최저는 t=0.75·주기(위상 3π/2), 최고는 t=0.25·주기(위상 π/2)
+    expect(pulsarPulse(period * 0.75)).toBeCloseTo(PULSAR_PULSE_MIN)
+    expect(pulsarPulse(period * 0.25)).toBeCloseTo(1)
+  })
+
+  it('맥동 주파수가 광과민성 안전 상한(≤3Hz) 이하다 (결정 5)', () => {
+    expect(PULSAR_PULSE_HZ).toBeLessThanOrEqual(3)
   })
 })

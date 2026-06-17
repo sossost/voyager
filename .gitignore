@@ -18,3 +18,7 @@ npm-debug.log*
 # test artifacts
 playwright-report/
 test-results/
+
+# 내부 설계 문서 — 로컬 유지, 레포엔 README 스샷만 추적
+/docs/*
+!/docs/images/
