@@ -51,10 +51,49 @@ export function kindRadiusFactor(kind: StarKind): number {
       // 중성자성 본체 — 항성보다 작다(<1). 제트·자기권이 시각 크기를 좌우하므로 본체는 작게 두어
       // Bloom이 본체를 백색으로 메우지 않게 한다(블랙홀 교훈 2). 본체는 파란 발광 구체.
       return 0.7
+    case 'red_giant':
+      // 적색거성 — 항성보다 크게(>1) 부풀린다. planetClearanceOffset(단일성계 분기)이 이 반경에
+      // 맞춰 첫 행성 궤도를 바깥으로 밀어 "내행성을 삼킨" 인상을 만든다 (exotic-stars 결정 3).
+      // 첫 행성이 본체 안으로 들어가 클릭이 막히지 않도록 2.5에서 멈춘다(반경 7.5 < 첫 궤도 ≈8.6).
+      return 2.5
+    case 'white_dwarf':
+      // 백색왜성 — 항성보다 초소형(≪1). 지구 크기의 초고밀도 잔해라 작고 강렬한 청백 발광점.
+      return 0.35
     case 'main_sequence':
       return 1
     default: {
-      // 다음 이색 천체(백색왜성·적색거성) 추가 시 컴파일 에러로 갱신을 강제한다.
+      const exhaustive: never = kind
+      throw new Error(`Unhandled StarKind: ${String(exhaustive)}`)
+    }
+  }
+}
+
+/** 본체 표면 발광·코로나 변조 파라미터 (StarSurface emissiveBoost·coronaScale). */
+export interface KindSurface {
+  readonly emissiveBoost: number
+  readonly coronaScale: number
+}
+
+/**
+ * StarSurface로 렌더하는 별(주계열성·적색거성·백색왜성)의 표면 변조 (결정 4).
+ * 블랙홀·펄서는 전용 컴포넌트라 여기로 오지 않지만(CurrentSystem 분기) exhaustive로 둔다.
+ * main_sequence는 {1,1} = 기존 단일 항성 렌더 불변.
+ */
+export function kindSurface(kind: StarKind): KindSurface {
+  switch (kind) {
+    case 'main_sequence':
+      return { emissiveBoost: 1, coronaScale: 1 }
+    case 'red_giant':
+      // 부푼 저온 표면 — 발광은 낮춰(식은 적색) 코로나는 크게 퍼뜨려 거대 적색 외피를 만든다.
+      return { emissiveBoost: 0.85, coronaScale: 1.6 }
+    case 'white_dwarf':
+      // 초고온 잔해 — 작은 본체를 강한 발광으로 보상하고 코로나는 바짝 붙인다(컴팩트한 청백 점광).
+      return { emissiveBoost: 1.7, coronaScale: 0.6 }
+    case 'black_hole':
+    case 'pulsar':
+      // 전용 컴포넌트(BlackHole·Pulsar)가 렌더 — StarSurface 미경유. 안전 기본값.
+      return { emissiveBoost: 1, coronaScale: 1 }
+    default: {
       const exhaustive: never = kind
       throw new Error(`Unhandled StarKind: ${String(exhaustive)}`)
     }

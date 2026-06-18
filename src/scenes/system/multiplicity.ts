@@ -272,11 +272,13 @@ function stellarClearanceRadius(star: Star): number {
 }
 
 /**
- * 행성 궤도를 바깥으로 미는 양 — 최내곽 행성이 별 군집을 벗어나도록.
- * 단일성·여유 있는 경우 0. CurrentSystem·Planet·PlanetCalloutProjector가 공유한다.
+ * 행성 궤도를 바깥으로 미는 양 — 최내곽 행성이 별 군집(또는 부푼 본체)을 벗어나도록.
+ * CurrentSystem·Planet·PlanetCalloutProjector가 공유한다. stellarClearanceRadius가 kind 반경을
+ * 이미 반영하므로 단일성계도 그대로 흐른다: 일반 단일 항성(반경 3)·백색왜성(≈1)·펄서(≈2.1)는
+ * clearance ≤ FIRST_PLANET_REFERENCE라 0(기존 불변), **적색거성(반경 ≈7.5)만 양수 오프셋**이
+ * 나와 첫 궤도를 본체 밖으로 밀어 "내행성을 삼킨" 배치를 만든다 (exotic-stars 결정 3).
  */
 export function planetClearanceOffset(star: Star): number {
-  if (star.multiplicity === 'single') return 0
   const clearance = stellarClearanceRadius(star) + PLANET_CLEARANCE_MARGIN
   return Math.max(0, clearance - FIRST_PLANET_REFERENCE)
 }

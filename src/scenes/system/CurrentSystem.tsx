@@ -10,7 +10,7 @@ import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { BlackHole } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
-import { kindRadiusFactor } from '@/scenes/system/exotic'
+import { kindRadiusFactor, kindSurface } from '@/scenes/system/exotic'
 import {
   bodyLightFactor,
   bodyPositions,
@@ -278,7 +278,14 @@ export function CurrentSystem() {
                 ) : body.kind === 'pulsar' ? (
                   <Pulsar radius={body.radius} color={body.color} />
                 ) : (
-                  <StarSurface radius={body.radius} color={body.color} />
+                  // 주계열성·적색거성·백색왜성 — 표면 발광/코로나만 kind로 변조 (결정 4).
+                  // main_sequence는 {1,1}이라 기존 단일 항성 렌더가 한 픽셀도 안 바뀐다.
+                  <StarSurface
+                    radius={body.radius}
+                    color={body.color}
+                    emissiveBoost={kindSurface(body.kind).emissiveBoost}
+                    coronaScale={kindSurface(body.kind).coronaScale}
+                  />
                 )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
                     처리한다 — 모든 뷰(우주선·퍼스펙티브)에서 본체별 선택이 동작한다. */}

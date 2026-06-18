@@ -34,5 +34,13 @@
  *   (블랙홀과 달리 펄서는 단일성계 보정 없음 = multiplicity/companions 보존, 펄서 결정 6).
  *   프로브 섹터(2,0,3)는 전부 F/G/M이라 O/B kind(블랙홀·펄서) 미도달 → 골든 스냅샷은 불변이지만,
  *   O/B kind 분포가 바뀌므로 결정 13에 따라 버전을 올린다(v6 선례 동일).
+ * v8 (2026-06-18): 백색왜성·적색거성 — KIND_WEIGHTS_BY_SPECTRAL의 A/F/G/K에 white_dwarf·
+ *   red_giant kind 추가 (exotic-stars 결정 1·2 — 저~중질량별의 진화 산물). 펄서와 동일하게
+ *   append-only(kind draw는 weighted next() 1회만 소비 — RNG 스트림·다른 별·다른 draw 불변)이고
+ *   단일성계 보정도 없다(multiplicity/companions 보존 — 블랙홀과 차별). planetsOf·alienAt·moons도
+ *   무변경이라 행성·외계·위성 출력은 그대로다. **단, v5~v7과 달리 프로브 섹터(2,0,3)의 F/G형
+ *   별이 이제 white_dwarf·red_giant를 뽑을 수 있어 골든 스냅샷의 kind 필드가 실제로 바뀐다**
+ *   (M은 항상 main_sequence라 불변). Sol은 조기 continue로 kind draw 미실행 → main_sequence 유지.
+ *   LIFE1 생명체 행성은 alienAt 무변경이라 별 kind가 바뀌어도 보존(E2E green). 골든 재생성 필요.
  */
-export const GEN_VERSION = 7
+export const GEN_VERSION = 8
