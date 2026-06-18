@@ -228,13 +228,25 @@ describe('다중성계 (binary-stars, GEN_VERSION 4)', () => {
   })
 })
 
-/** 별 종류 — 주계열성 + 블랙홀 + 펄서 (거성·왜성는 후속 PR). */
-const STAR_KINDS: readonly StarKind[] = ['main_sequence', 'black_hole', 'pulsar']
+/** 별 종류 — 주계열성 + 블랙홀 + 펄서 + 백색왜성 + 적색거성. */
+const STAR_KINDS: readonly StarKind[] = [
+  'main_sequence',
+  'black_hole',
+  'pulsar',
+  'white_dwarf',
+  'red_giant',
+]
 
 /** 대질량 분광형 — 블랙홀·펄서의 진화 종착이 되는 별. */
 const MASSIVE_CLASSES: readonly SpectralClass[] = ['O', 'B']
 
-describe('이색 천체 (exotic-bodies + pulsar, GEN_VERSION 7)', () => {
+/** 백색왜성 진화 종착 분광형 — 저~중질량 A/F/G/K 잔해 (exotic-stars 결정 1). */
+const WHITE_DWARF_CLASSES: readonly SpectralClass[] = ['A', 'F', 'G', 'K']
+
+/** 적색거성 진화 단계 분광형 — F/G/K (exotic-stars 결정 2). M은 아직 진화 안 함. */
+const RED_GIANT_CLASSES: readonly SpectralClass[] = ['F', 'G', 'K']
+
+describe('이색 천체 (exotic-bodies + pulsar + exotic-stars, GEN_VERSION 8)', () => {
   const sample = sampleStars(seedOf('STARKINDS'))
 
   it('표본이 분포 검증에 충분하다', () => {
@@ -287,6 +299,40 @@ describe('이색 천체 (exotic-bodies + pulsar, GEN_VERSION 7)', () => {
   it('펄서도 long-tail로 희귀하다 (전체의 ~2% 미만)', () => {
     const pulsars = sample.filter((s) => s.kind === 'pulsar').length
     expect(pulsars / sample.length).toBeLessThan(0.02)
+  })
+
+  it('백색왜성은 저~중질량(A/F/G/K) 분광형에서만 출현한다 (exotic-stars 결정 1)', () => {
+    for (const star of sample) {
+      if (star.kind === 'white_dwarf') {
+        expect(WHITE_DWARF_CLASSES).toContain(star.spectral)
+      }
+    }
+  })
+
+  it('적색거성은 F/G/K 분광형에서만 출현한다 (exotic-stars 결정 2)', () => {
+    for (const star of sample) {
+      if (star.kind === 'red_giant') {
+        expect(RED_GIANT_CLASSES).toContain(star.spectral)
+      }
+    }
+  })
+
+  it('M형(적색왜성)은 항상 주계열성이다 — 수명이 우주 나이보다 길어 미진화 (불변)', () => {
+    for (const star of sample) {
+      if (star.spectral === 'M') {
+        expect(star.kind).toBe('main_sequence')
+      }
+    }
+  })
+
+  it('백색왜성·적색거성은 블랙홀·펄서보다 흔하다 (흔한 분광형에 출현)', () => {
+    const lowMassExotic = sample.filter(
+      (s) => s.kind === 'white_dwarf' || s.kind === 'red_giant',
+    ).length
+    const massiveExotic = sample.filter(
+      (s) => s.kind === 'black_hole' || s.kind === 'pulsar',
+    ).length
+    expect(lowMassExotic).toBeGreaterThan(massiveExotic)
   })
 
   it('같은 (seed, sector)는 kind까지 동일하다 (결정론)', () => {

@@ -1,5 +1,6 @@
 import type { PlanetId, Seed, StarId } from '../coords'
 import { makePlanetId, parsePlanetId } from '../coords'
+import { starById } from '../galaxy/position'
 import { planetName } from '../naming/names'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
@@ -53,6 +54,13 @@ const ORBIT_JITTER_AU = 0.4
 export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
   if (starId === SOL_STAR_ID) return SOLAR_SYSTEM_PLANETS
 
+  // 적색거성·백색왜성은 진화 말기/잔해라 생명이 깃들 수 없다 (exotic-stars 결정 8 — 고증).
+  // 적색거성은 부풀며 내행성을 굽고, 백색왜성은 형성 과정에서 행성계가 교란된다. hasLife를
+  // 끄면 외계 조우·생명 렌더·통신 파동·힌트가 단일 소스(planet.hasLife)로 전부 사라진다.
+  // 행성 자체는 유지(planetsOf 개수·궤도 불변) — 죽은 별을 도는 메마른 세계로 남는다.
+  const star = starById(seed, starId)
+  const isSterileStar = star?.kind === 'red_giant' || star?.kind === 'white_dwarf'
+
   const countRng = rngFor(seed, 'planets', starId)
   const count = 1 + countRng.int(MAX_PLANETS_PER_SYSTEM)
 
@@ -62,7 +70,10 @@ export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
     const rng = rngFor(seed, 'planet', id)
     // append-only draw 순서: kind → hasLife → radius → orbit → paletteSeed
     const kind = rng.weighted(KIND_WEIGHTS)
-    const hasLife = rng.next() < LIFE_PROBABILITY
+    // 죽은 별이어도 draw(rng.next())는 그대로 소비해 RNG 스트림·이후 속성·다른 행성을
+    // 보존하고(append-only), 출력만 false로 덮어쓴다 (블랙홀 단일성계 보정과 같은 패턴).
+    const lifeRoll = rng.next()
+    const hasLife = !isSterileStar && lifeRoll < LIFE_PROBABILITY
     const radius =
       kind === 'rocky'
         ? ROCKY_RADIUS_MIN + rng.next() * ROCKY_RADIUS_SPAN

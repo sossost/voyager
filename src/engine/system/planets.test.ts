@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { PlanetId, Seed } from '../coords'
 import { makePlanetId, makeStarId, parseSeed } from '../coords'
+import { starById } from '../galaxy/position'
 import { LIFE_PROBABILITY, planetById, planetsOf } from './planets'
 import { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './sol'
 
@@ -47,12 +48,16 @@ describe('planetsOf', () => {
     }
   })
 
-  it('몬테카를로 10k+: 생명체 행성 비율이 9~11%다', () => {
+  it('몬테카를로 10k+: 생명 가능 별의 생명체 행성 비율이 9~11%다', () => {
+    // 적색거성·백색왜성은 생명이 없으므로(exotic-stars 결정 8) raw LIFE_PROBABILITY 검증에서
+    // 제외한다 — 죽은 별을 섞으면 비율이 구조적으로 낮아져 측정 대상이 흐려진다.
     let planetCount = 0
     let lifeCount = 0
 
     for (let i = 0; i < 2_500; i++) {
       const starId = makeStarId({ sx: i % 50, sy: (i % 3) - 1, sz: Math.floor(i / 50) }, i % 7)
+      const kind = starById(seed, starId)?.kind
+      if (kind === 'red_giant' || kind === 'white_dwarf') continue
       for (const planet of planetsOf(seed, starId)) {
         planetCount += 1
         if (planet.hasLife) lifeCount += 1
@@ -63,6 +68,22 @@ describe('planetsOf', () => {
     expect(planetCount).toBeGreaterThan(10_000)
     expect(ratio).toBeGreaterThan(LIFE_PROBABILITY - 0.01)
     expect(ratio).toBeLessThan(LIFE_PROBABILITY + 0.01)
+  })
+
+  it('적색거성·백색왜성 항성계는 생명체가 전혀 없다 (exotic-stars 결정 8 — 고증)', () => {
+    let sterileStarsChecked = 0
+
+    for (let i = 0; i < 4_000 && sterileStarsChecked < 12; i++) {
+      const starId = makeStarId({ sx: i % 60, sy: (i % 5) - 2, sz: Math.floor(i / 60) }, i % 5)
+      const kind = starById(seed, starId)?.kind
+      if (kind !== 'red_giant' && kind !== 'white_dwarf') continue
+      sterileStarsChecked += 1
+      for (const planet of planetsOf(seed, starId)) {
+        expect(planet.hasLife).toBe(false)
+      }
+    }
+
+    expect(sterileStarsChecked).toBeGreaterThan(0)
   })
 
   it('planetById는 planetsOf의 해당 행성과 동일한 객체를 만든다', () => {
