@@ -69,8 +69,58 @@ function ShareLinks() {
   )
 }
 
-function VisitTimeline() {
+/** 일지 항목 한 줄 — 방문 별 정보 + (현재 위치가 아니면) 그 항성계로 워프 (백로그 L-2). */
+function VisitEntry({
+  visit,
+  isCurrent,
+  formattedTime,
+}: {
+  readonly visit: VisitRecord
+  readonly isCurrent: boolean
+  readonly formattedTime: string
+}) {
   const seed = useGameStore((state) => state.seed)
+  const warpTo = useGameStore((state) => state.warpTo)
+  const closeOverlay = useGameStore((state) => state.closeOverlay)
+  const star = starById(seed, visit.starId)
+  const starName = star?.name ?? visit.starId
+
+  // 일지를 닫고 기존 워프 파이프라인 재사용 — 새 항법 경로가 아니다 (결정 41 5박자 시퀀스 그대로).
+  const handleWarp = () => {
+    closeOverlay()
+    warpTo(visit.starId)
+  }
+
+  // 워프 버튼은 별이 결정론으로 복원되고(같은 시드) 현재 위치가 아닐 때만 — 현재 별은 배지로 대체.
+  const canWarp = star != null && !isCurrent
+
+  return (
+    <li className="visit-entry">
+      <div className="visit-entry-star">
+        <strong>{starName}</strong>
+        {star != null ? (
+          <span className="visit-entry-spectral">{SPECTRAL_LABELS[star.spectral]}</span>
+        ) : null}
+        {isCurrent ? <span className="badge badge-current">현재 위치</span> : null}
+      </div>
+      <div className="visit-entry-aside">
+        <time className="visit-entry-time">{formattedTime}</time>
+        {canWarp ? (
+          <button
+            type="button"
+            className="hud-button hud-button-primary"
+            onClick={handleWarp}
+            aria-label={`${starName}로 항행`}
+          >
+            항행
+          </button>
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
+function VisitTimeline() {
   const currentStarId = useGameStore((state) => state.currentStarId)
   const [visits, setVisits] = useState<readonly VisitRecord[]>([])
   const [isExhausted, setIsExhausted] = useState(false)
@@ -103,23 +153,14 @@ function VisitTimeline() {
     <section aria-label="방문 타임라인">
       <h3 className="journal-subtitle">방문 기록</h3>
       <ol className="visit-timeline">
-        {visits.map((visit) => {
-          const star = starById(seed, visit.starId)
-          return (
-            <li key={visit.starId} className="visit-entry">
-              <div className="visit-entry-star">
-                <strong>{star?.name ?? visit.starId}</strong>
-                {star != null ? (
-                  <span className="visit-entry-spectral">{SPECTRAL_LABELS[star.spectral]}</span>
-                ) : null}
-                {visit.starId === currentStarId ? (
-                  <span className="badge badge-current">현재 위치</span>
-                ) : null}
-              </div>
-              <time className="visit-entry-time">{dateFormat.format(visit.visitedAt)}</time>
-            </li>
-          )
-        })}
+        {visits.map((visit) => (
+          <VisitEntry
+            key={visit.starId}
+            visit={visit}
+            isCurrent={visit.starId === currentStarId}
+            formattedTime={dateFormat.format(visit.visitedAt)}
+          />
+        ))}
       </ol>
       {!isExhausted ? (
         <button type="button" className="hud-button" onClick={() => void loadMore(visits.length)}>
