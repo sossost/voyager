@@ -1809,11 +1809,24 @@ body {
   font-size: 0.8rem;
 }
 
+.visit-entry-aside {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
 .visit-entry-time {
   color: var(--color-text-dim);
   font-family: var(--font-console);
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+/* 일지 워프 버튼 (백로그 L-2) — 터치 타깃 확보 + 리스트에 묻히지 않게 컴팩트 */
+.visit-entry .hud-button {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
 }
 
 /* ── 시스템 레이어 ─────────────────────────────────── */
