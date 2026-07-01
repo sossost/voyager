@@ -215,6 +215,76 @@ describe('write-through 영속화', () => {
   })
 })
 
+describe('능동 스캔 (scanSurroundings)', () => {
+  /** 블랙홀에 정박한 항법(퍼스펙티브) 뷰 → 그 별 반경 안엔 최소 자기 자신이 있다 (자기포함). */
+  const anchorAtBlackHoleInNav = () => {
+    store.getState().warpTo(exoticStarA.id)
+    store.getState().onWarpComplete()
+    store.getState().openPerspective() // 스캔은 항법 뷰 전용
+  }
+
+  const lastToast = () => {
+    const { toasts } = store.getState()
+    return toasts[toasts.length - 1]?.message
+  }
+
+  it('항법에서 스캔하면 반경 내 블랙홀을 scannedStars에 기록하고 감지 토스트를 띄운다', () => {
+    anchorAtBlackHoleInNav()
+    store.getState().scanSurroundings()
+
+    expect(store.getState().scannedStars.has(exoticStarA.id)).toBe(true)
+    expect(lastToast()).toMatch(/특이 천체 \d+개 감지/)
+  })
+
+  it('탐사 발동마다 소나 토큰이 증가한다 (연출 트리거)', () => {
+    anchorAtBlackHoleInNav()
+    const before = store.getState().scanPulseToken
+    store.getState().scanSurroundings()
+    expect(store.getState().scanPulseToken).toBe(before + 1)
+  })
+
+  it('함교(우주선) 뷰에서는 스캔이 무시된다 — 항법 전용', () => {
+    store.getState().warpTo(exoticStarA.id)
+    store.getState().onWarpComplete() // 도착 = 우주선(함교) 뷰
+    const before = store.getState().scanPulseToken
+    store.getState().scanSurroundings()
+
+    expect(store.getState().scannedStars.size).toBe(0)
+    expect(store.getState().scanPulseToken).toBe(before) // 토큰도 안 오른다 — 발동 자체가 없음
+  })
+
+  it('새로 감지된 천체가 없으면 안내 토스트만 띄우고 기록은 그대로다 (재스캔 멱등)', () => {
+    anchorAtBlackHoleInNav()
+    store.getState().scanSurroundings()
+    const afterFirst = store.getState().scannedStars
+
+    store.getState().scanSurroundings() // 두 번째 — 같은 반경, 새 감지 없음
+    expect(store.getState().scannedStars).toBe(afterFirst) // 새 Set으로 교체 안 됨
+    expect(lastToast()).toBe('이 주변엔 특이 천체가 없습니다')
+  })
+
+  it('마커는 일시적 — 이동(워프)하면 스캔 기록이 비워진다 (맵 난잡 방지)', () => {
+    anchorAtBlackHoleInNav()
+    store.getState().scanSurroundings()
+    expect(store.getState().scannedStars.size).toBeGreaterThan(0)
+
+    store.getState().warpTo(target) // 다른 별로 이동
+    expect(store.getState().scannedStars.size).toBe(0)
+  })
+
+  it('스캔 결과는 저장되지 않는다 — 새로고침(하이드레이션)에 딸려오지 않는다', async () => {
+    anchorAtBlackHoleInNav()
+    store.getState().scanSurroundings()
+
+    // 프로필에 스캔 관련 필드가 실리지 않는다 (일시 상태라 persist 대상 아님)
+    await vi.waitFor(async () => {
+      expect(await driver.loadProfile()).not.toBeNull()
+    })
+    const profile = await driver.loadProfile()
+    expect(profile).not.toHaveProperty('scannedStars')
+  })
+})
+
 describe('selectPlanet / setQuality', () => {
   it('selectPlanet은 우주선 뷰에서만 동작하고 퍼스펙티브 전환 시 해제된다 (결정 41)', () => {
     const planetId = `${startStarId}:p0` as PlanetId

@@ -8,6 +8,7 @@ import { CurrentStarBeacon } from "@/scenes/galaxy/CurrentStarBeacon";
 import { GalaxyNebula } from "@/scenes/galaxy/GalaxyNebula";
 import { GalaxyStarField } from "@/scenes/galaxy/GalaxyStarField";
 import { JourneyPath } from "@/scenes/galaxy/JourneyPath";
+import { ScannedExoticMarkers } from "@/scenes/galaxy/ScannedExoticMarkers";
 import { ShipCameraRig } from "@/scenes/galaxy/ShipCameraRig";
 import { ShipViewGalaxyGlow } from "@/scenes/galaxy/ShipViewGalaxyGlow";
 import { SpaceshipModel } from "@/scenes/galaxy/SpaceshipModel";
@@ -112,8 +113,9 @@ export function GalaxyScene() {
         visitedStars={visitedStars}
         currentStarId={anchorStarId}
       />
-      {/* 블랙홀 맵 마커(주황 링)는 작위적이라 제거 — 함교 "탐색" 기능으로 대체 예정(04-backlog).
-          그 사이 줌아웃 맵에서 블랙홀 findability 공백 있음 (결정 10 보류). */}
+      {/* 블랙홀 findability — 함교 "탐색"으로 스캔한 블랙홀을 항법뷰에서만 홀로 마커로 표시한다
+          (exotic-scan, 제거된 주황 링 대체). 함교 1인칭엔 지도 마커를 띄우지 않는다 (결정 4). */}
+      {isPerspectiveView ? <ScannedExoticMarkers stars={stars} /> : null}
       {/* 현재 항성계 — 모든 뷰(우주선·퍼스펙티브)와 워프에서 별 구체를 은하 좌표에 직접
           렌더한다. 크로스페이드가 거리에 따라 포인트↔구체를 핸드오프하므로 퍼스펙티브에서
           줌아웃하면 자연히 점으로 돌아간다. 행성은 워프 중엔 베이크하지 않는다 (결정 41) */}

@@ -58,6 +58,7 @@ export function ConsoleDeck() {
   const isJourneyPathVisible = useGameStore((state) => state.isJourneyPathVisible)
   const toggleJourneyPath = useGameStore((state) => state.toggleJourneyPath)
   const hasJourney = useGameStore((state) => state.visitedStars.size >= MIN_STARS_FOR_JOURNEY)
+  const scanSurroundings = useGameStore((state) => state.scanSurroundings)
 
   const isWarping = scene.kind === 'warping'
   const isShipView = scene.kind === 'galaxy' && scene.view === 'ship'
@@ -103,15 +104,30 @@ export function ConsoleDeck() {
               ▦ 항법
             </button>
           </div>
-          {isPerspective && hasJourney ? (
-            <button
-              type="button"
-              className="hud-button deck-key"
-              aria-pressed={isJourneyPathVisible}
-              onClick={toggleJourneyPath}
-            >
-              여정 경로
-            </button>
+          {/* 항법 도구 — 모드 세그먼트와 구분되는 액션 묶음 (항법뷰 전용). 탐색이 주 액션이라 앞에. */}
+          {isPerspective ? (
+            <div className="deck-actions" role="group" aria-label="항법 도구">
+              {/* 능동 스캔 (exotic-scan) — 근처 블랙홀을 드러내 마커로 표시. 마커와 같은 뷰라 항법 전용. */}
+              <button
+                type="button"
+                className="hud-button deck-key deck-key-scan"
+                aria-label="주변 탐색 — 근처 특이 천체 감지"
+                title="주변 탐색 — 근처 특이 천체 감지"
+                onClick={scanSurroundings}
+              >
+                📡 탐색
+              </button>
+              {hasJourney ? (
+                <button
+                  type="button"
+                  className="hud-button deck-key"
+                  aria-pressed={isJourneyPathVisible}
+                  onClick={toggleJourneyPath}
+                >
+                  여정 경로
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
 

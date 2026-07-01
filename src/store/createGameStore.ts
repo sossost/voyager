@@ -2,7 +2,14 @@ import { create } from 'zustand'
 
 import { PHENOMENA_BY_KIND } from '@/data/phenomena/phenomena'
 import type { IndividualId, PlanetId, Seed, StarId } from '@/engine'
-import { alienAt, GEN_VERSION, planetById, starById } from '@/engine'
+import {
+  alienAt,
+  GEN_VERSION,
+  planetById,
+  rareExoticBodiesNear,
+  SCAN_RADIUS_SECTORS,
+  starById,
+} from '@/engine'
 import { persist } from '@/persistence/persist'
 import type {
   CollectionEntry,
@@ -158,6 +165,8 @@ export function createGameStore(options: CreateGameStoreOptions) {
         currentStarId: target,
         visitedStars: nextVisited,
         discoveredPhenomena: nextPhenomena,
+        // 이동하면 이전 위치의 스캔 마커를 비운다 — 마커는 현재 위치 전용 (맵 난잡 방지).
+        scannedStars: new Set<StarId>(),
       })
 
       // 해당 종류 최초 발견 — 축하 토스트
@@ -284,6 +293,9 @@ export function createGameStore(options: CreateGameStoreOptions) {
     toasts: [],
     isJourneyPathVisible: false,
     seenHints: new Set<HintKey>(options.initialSeenHints ?? []),
+    // 스캔 마커는 일시적 — 현재 위치의 탐사 결과만 보이고 이동(워프)하면 비워진다 (맵 난잡 방지).
+    scannedStars: new Set<StarId>(),
+    scanPulseToken: 0,
 
     openOverlay(overlay) {
       set({ overlay })
@@ -295,6 +307,31 @@ export function createGameStore(options: CreateGameStoreOptions) {
 
     toggleJourneyPath() {
       set({ isJourneyPathVisible: !get().isJourneyPathVisible })
+    },
+
+    scanSurroundings() {
+      const { scene, seed, currentStarId, scannedStars, scanPulseToken } = get()
+      // 항법(퍼스펙티브 뷰)에서만 발동 — 마커가 뜨는 뷰와 같다. 버튼도 항법에만 있지만 방어적 가드 (결정 4)
+      if (scene.kind !== 'galaxy' || scene.view !== 'perspective') return
+
+      // 소나 파동은 탐사 발동 즉시 재생 — 결과와 무관 (연속값 아닌 이산 이벤트 토큰, 결정 14).
+      const nextPulseToken = scanPulseToken + 1
+
+      const found = rareExoticBodiesNear(seed, currentStarId, SCAN_RADIUS_SECTORS)
+      const newlyFound = found.filter((id) => !scannedStars.has(id))
+
+      if (newlyFound.length === 0) {
+        set({ scanPulseToken: nextPulseToken })
+        get().pushToast('이 주변엔 특이 천체가 없습니다')
+        return
+      }
+
+      set({
+        scannedStars: new Set<StarId>([...scannedStars, ...newlyFound]),
+        scanPulseToken: nextPulseToken,
+      })
+      get().pushToast(`특이 천체 ${newlyFound.length}개 감지`)
+      // 저장하지 않는다 — 마커는 현재 위치 전용 일시 상태다 (이동 시 warpTo가 비운다).
     },
 
     revealEncounter() {
