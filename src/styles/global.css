@@ -1187,6 +1187,21 @@ body {
   min-height: 42px;
 }
 
+/* 항법 도구 묶음 (exotic-scan) — 모드 세그먼트와 구분되는 액션 그룹 (좌측 디바이더 + 간격) */
+.deck-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid color-mix(in srgb, var(--color-holo) 18%, transparent);
+}
+
+/* 탐색 — 항법 주 액션이라 은은한 홀로 강조 (세그먼트 활성 셀보다는 약하게) */
+.deck-key-scan {
+  border-color: color-mix(in srgb, var(--color-holo) 42%, transparent);
+  color: var(--color-holo-strong);
+}
+
 .deck-key-icon {
   min-width: 42px;
   padding: 0.3rem 0.5rem;
@@ -2063,5 +2078,55 @@ body {
   .deck-tray,
   .console-deck[data-warping] .deck-tray {
     transition: none;
+  }
+}
+
+/* ── 스캔 소나 (exotic-scan) — 항법뷰에서 탐사 발동 시 화면 중앙에서 퍼지는 청록 링 ──
+   scanPulseToken을 key로 재마운트되어 매 탐사마다 처음부터 재생된다. */
+.scan-pulse {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.scan-pulse-ring {
+  position: absolute;
+  width: 12vmin;
+  height: 12vmin;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--color-holo) 70%, transparent);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--color-holo) 40%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--color-holo) 22%, transparent);
+  opacity: 0;
+  animation: scan-sonar 1100ms ease-out forwards;
+}
+
+.scan-pulse-ring-delayed {
+  animation-delay: 240ms;
+}
+
+@keyframes scan-sonar {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.26;
+  }
+  100% {
+    transform: scale(6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 소나 확장·점멸 없이 정적 — 광과민성 안전. 링은 뜨지 않는다(토스트로 결과 전달). */
+  .scan-pulse-ring {
+    animation: none;
+    opacity: 0;
   }
 }

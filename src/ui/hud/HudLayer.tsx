@@ -3,6 +3,7 @@ import { CurrentStarArrow } from '@/ui/hud/CurrentStarArrow'
 import { GuestModeBanner } from '@/ui/hud/GuestModeBanner'
 import { HintLayer } from '@/ui/hud/HintLayer'
 import { PlanetPanel } from '@/ui/hud/PlanetPanel'
+import { ScanPulseOverlay } from '@/ui/hud/ScanPulseOverlay'
 import { ShipFrame } from '@/ui/hud/ShipFrame'
 import { StarInfoPanel } from '@/ui/hud/StarInfoPanel'
 import { SystemReadout } from '@/ui/hud/SystemReadout'
@@ -24,6 +25,7 @@ export function HudLayer() {
     <div className="layer-hud" data-layer="hud" data-view={view}>
       {/* 캐노피 프레임은 맨 아래 — 패널·버튼이 항상 그 위에 그려진다 */}
       <ShipFrame />
+      <ScanPulseOverlay />
       <TopBar />
       <SystemReadout />
       <WarpReadout />

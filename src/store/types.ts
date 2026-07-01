@@ -74,8 +74,12 @@ export interface PlayerSlice {
   readonly collectionEntries: readonly CollectionEntry[]
   /** 발견한 이색 천체 — 현상 도감 캐시 (warpTo가 도착 별이 이색이면 추가). */
   readonly discoveredPhenomena: readonly PhenomenonDiscovery[]
+  /** 스캔으로 드러낸 특이 천체 starId — 항법뷰 마커 소스. 현재 위치 전용 일시 상태(이동 시 비워짐, exotic-scan). */
+  readonly scannedStars: ReadonlySet<StarId>
   /** 생명체 행성 탐사 — 조우 판정·캐시 갱신·영속화를 한 곳에서 처리한다. */
   explore(planetId: PlanetId): void
+  /** 항법(퍼스펙티브 뷰) 능동 스캔 — 반경 내 블랙홀을 scannedStars에 기록·영속화하고 결과를 토스트한다. */
+  scanSurroundings(): void
 }
 
 export interface UiSlice {
@@ -87,6 +91,8 @@ export interface UiSlice {
   readonly isJourneyPathVisible: boolean
   /** 이미 표시된 온보딩 힌트 — 한 번 기록되면 재표시 없음 (백로그 I-1). */
   readonly seenHints: ReadonlySet<import('@/persistence/types').HintKey>
+  /** 스캔 소나 연출 트리거 — 탐사 발동마다 증가하는 이산 이벤트 id (연속값 아님, exotic-scan). */
+  readonly scanPulseToken: number
   openOverlay(overlay: Exclude<Overlay, null>): void
   closeOverlay(): void
   toggleJourneyPath(): void

@@ -7,10 +7,12 @@ interface DevGameStore {
     isGuestMode: boolean
     visitedStars: ReadonlySet<string>
     collectedIndividuals: ReadonlySet<string>
+    scannedStars: ReadonlySet<string>
     storageMode: 'persistent' | 'memory'
     selectPlanet(planetId: string | null): void
     selectStar(starId: string | null): void
     warpTo(target: string): void
+    scanSurroundings(): void
   }
 }
 

@@ -23,6 +23,7 @@ export type { Companion, Multiplicity, SpectralClass, Star, StarKind } from './g
 export { MAX_STARS_PER_SECTOR, SOL_STAR, starsInSector } from './galaxy/sectors'
 export { originStar } from './galaxy/origin'
 export { starById, starWorldPosition } from './galaxy/position'
+export { rareExoticBodiesNear, RARE_EXOTIC_KINDS, SCAN_RADIUS_SECTORS } from './galaxy/scan'
 
 export type { Planet, PlanetKind } from './system/planets'
 export { LIFE_PROBABILITY, planetById, planetsOf } from './system/planets'

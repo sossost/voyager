@@ -20,8 +20,8 @@ export const SPECTRAL_RENDER: Readonly<Record<SpectralClass, { color: string; si
 
 /**
  * 이색 천체 맵 노드 색/크기 (결정 10) — SPECTRAL_RENDER 미러.
- * 블랙홀=거의 안 보이는 점(가산 링 빌보드가 주역 — BlackHoleMapRings).
- * 펄서=전기 청백의 밝은 점(펄서 결정 8) — 일반 별과 구분되는 차가운 발광, 링 빌보드 불필요.
+ * 블랙홀=거의 안 보이는 점 — 함교 스캔으로 드러낸 것만 항법뷰 홀로 마커로 표시된다
+ * (exotic-scan, ScannedExoticMarkers). 펄서=전기 청백의 밝은 점(펄서 결정 8).
  */
 export const EXOTIC_RENDER: Readonly<Record<ExoticKind, { color: string; size: number }>> = {
   black_hole: { color: '#1a1420', size: 1.8 },
