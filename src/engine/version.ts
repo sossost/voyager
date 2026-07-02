@@ -53,5 +53,16 @@
  *   바뀐다(append-only, 펄서·백색왜성과 동일 패턴). hasLife(kind 무관)·orbitAu·paletteSeed
  *   보존. 프로브 섹터(2,0,3) 행성 kind/radius가 바뀌어 골든 재생성 필요. hasLife는 kind와
  *   독립이라 LIFE1 생명 행성 보존(E2E green). Sol은 상수 분기라 무영향.
+ * v10 (2026-07-03): 거주가능구역(HZ) 기반 생명 분포 — 균일 10%를 폐기하고 hasLife를
+ *   getLifeProbability(star, index)로 산출 (백로그 M-2·M-3 — 고증). ①O/B 스펙트럼(대질량
+ *   단명성 + 그 잔해 펄서·블랙홀)은 생명 확률 0(M-3), ②그 외 A/F/G/K/M 주계열은 스펙트럼별
+ *   HZ 중심(√L 사전계산 상수표) 대비 명목 궤도의 거주성 곡선(평지+smootherstep 감쇠)×평지
+ *   최대확률(0.45). 기존 red_giant·white_dwarf 억제(v8)는 유지. 생명 draw(rng.next())는
+ *   위치·소비 그대로 두고 결과 확률만 새 규칙으로 정한다 — **planet 스트림 draw 순서·개수
+ *   불변이라 PRNG 스트림 골든은 불변이고(append-only 회귀 검증), hasLife 값 분포만 바뀐다**.
+ *   명목 궤도((index+1)·0.6, jitter 제외)를 쓰는 건 생명 draw(#2)가 궤도 draw(#4)보다 앞서
+ *   실제 orbitAu가 없기 때문. 결과: 생명은 F/G/K 태양형 HZ 궤도에 집중, M형(40%)·O/B는 무생명,
+ *   전체 평균 ~5.7%로 희귀화. 프로브 섹터(2,0,3)의 F/G형 행성 hasLife가 바뀌어 우주 골든
+ *   재생성 필요. Sol은 상수 분기(지구 생명 유지), LIFE1 인근 생명 행성 다수 보존(E2E green).
  */
-export const GEN_VERSION = 9
+export const GEN_VERSION = 10
