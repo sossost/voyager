@@ -32,10 +32,30 @@ const INT32_MAX = 2_147_483_647
 /** 행성당 생명체 확률 (01-spec.md 핵심 수치). */
 export const LIFE_PROBABILITY = 0.1
 
-const KIND_WEIGHTS: readonly WeightedEntry<PlanetKind>[] = [
-  { value: 'rocky', weight: 60 },
-  { value: 'gas', weight: 40 },
-]
+/**
+ * 동결선(frost line) 기반 행성 종류 가중치 (GEN_VERSION 9, 백로그 M-1 — 고증).
+ * 실제 원시행성계 원반은 눈선(~2.7AU) 안쪽에서 휘발성 물질이 증발해 암석 핵만,
+ * 바깥쪽에서 얼음이 응결해 가스 거인이 자란다. 궤도 인덱스에 따라 가스 확률을
+ * 선형으로 램프한다 — 최내행성은 암석 지배(가스 8%), 최외행성은 가스 지배(86%),
+ * 교차점(가스 50%)은 index≈3.8 = orbitAu≈2.8AU로 실제 눈선에 근접.
+ * 핫주피터가 드물게 존재하므로 내행성 가스 확률을 0으로 두지 않는다.
+ */
+const GAS_WEIGHT_INNER = 8
+const GAS_WEIGHT_OUTER = 86
+const GAS_WEIGHT_SPAN = GAS_WEIGHT_OUTER - GAS_WEIGHT_INNER
+
+/**
+ * 궤도 인덱스별 rocky/gas 가중치. weighted()는 테이블과 무관하게 next() 1회만
+ * 소비하므로 index로 테이블을 바꿔도 draw 순서·개수는 불변 (append-only 유지).
+ */
+function kindWeightsAtIndex(index: number): readonly WeightedEntry<PlanetKind>[] {
+  const t = index / (MAX_PLANETS_PER_SYSTEM - 1)
+  const gasWeight = GAS_WEIGHT_INNER + GAS_WEIGHT_SPAN * t
+  return [
+    { value: 'rocky', weight: 100 - gasWeight },
+    { value: 'gas', weight: gasWeight },
+  ]
+}
 
 const ROCKY_RADIUS_MIN = 0.4
 const ROCKY_RADIUS_SPAN = 1.2
@@ -69,7 +89,8 @@ export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
     const id = makePlanetId(starId, index)
     const rng = rngFor(seed, 'planet', id)
     // append-only draw 순서: kind → hasLife → radius → orbit → paletteSeed
-    const kind = rng.weighted(KIND_WEIGHTS)
+    // kind 가중치는 궤도 인덱스 종속(동결선, M-1)이나 draw는 여전히 weighted() 1회.
+    const kind = rng.weighted(kindWeightsAtIndex(index))
     // 죽은 별이어도 draw(rng.next())는 그대로 소비해 RNG 스트림·이후 속성·다른 행성을
     // 보존하고(append-only), 출력만 false로 덮어쓴다 (블랙홀 단일성계 보정과 같은 패턴).
     const lifeRoll = rng.next()

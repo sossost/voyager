@@ -46,5 +46,12 @@
  *   스냅샷의 별 kind + 그 별 행성들의 hasLife 필드가 실제로 바뀐다**(M은 항상 main_sequence라
  *   불변). Sol은 조기 continue로 kind draw 미실행 → main_sequence·지구 생명 유지. LIFE1 인근
  *   생명체 별은 전부 main_sequence라 보존(E2E green). 골든 재생성 필요.
+ * v9 (2026-07-01): 동결선(frost line) — 행성 종류(rocky/gas) 가중치를 궤도 인덱스 종속으로
+ *   교체 (백로그 M-1 — 고증). 기존 고정 rocky60/gas40 → 내행성 암석 지배·외행성 가스 지배
+ *   램프(kindWeightsAtIndex). index는 kind draw 이전 확정 루프 변수라 draw 순서·개수 불변,
+ *   weighted()·radius 분기 모두 next() 고정 소비 → RNG 스트림 불변, kind·radius 출력 값만
+ *   바뀐다(append-only, 펄서·백색왜성과 동일 패턴). hasLife(kind 무관)·orbitAu·paletteSeed
+ *   보존. 프로브 섹터(2,0,3) 행성 kind/radius가 바뀌어 골든 재생성 필요. hasLife는 kind와
+ *   독립이라 LIFE1 생명 행성 보존(E2E green). Sol은 상수 분기라 무영향.
  */
-export const GEN_VERSION = 8
+export const GEN_VERSION = 9
