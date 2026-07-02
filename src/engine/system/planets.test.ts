@@ -48,6 +48,31 @@ describe('planetsOf', () => {
     }
   })
 
+  it('동결선: 내행성(index 0)은 암석, 외행성(index 7)은 가스가 지배적이다 (M-1 — 고증)', () => {
+    // 궤도 인덱스별 kind 분포를 몬테카를로로 집계 — index가 커질수록 gas 비율이 단조 증가해야
+    // 한다(눈선 안쪽 암석·바깥쪽 가스). 8행성 이상 나오는 별만 세면 index별 표본이 고르다.
+    const gasCountByIndex = new Array<number>(8).fill(0)
+    const totalByIndex = new Array<number>(8).fill(0)
+
+    for (let i = 0; i < 6_000; i++) {
+      const starId = makeStarId({ sx: i % 60, sy: (i % 3) - 1, sz: Math.floor(i / 60) }, i % 7)
+      const kind = starById(seed, starId)?.kind
+      if (kind === 'red_giant' || kind === 'white_dwarf') continue
+      for (const planet of planetsOf(seed, starId)) {
+        totalByIndex[planet.index] = (totalByIndex[planet.index] ?? 0) + 1
+        if (planet.kind === 'gas') gasCountByIndex[planet.index] = (gasCountByIndex[planet.index] ?? 0) + 1
+      }
+    }
+
+    const gasRatio = (index: number) => (gasCountByIndex[index] ?? 0) / (totalByIndex[index] ?? 1)
+    // 최내행성은 암석 지배(가스 <25%), 최외행성은 가스 지배(가스 >70%).
+    expect(gasRatio(0)).toBeLessThan(0.25)
+    expect(gasRatio(7)).toBeGreaterThan(0.7)
+    // 램프는 단조 증가 — 안쪽에서 바깥쪽으로 가스 비율이 꾸준히 오른다.
+    expect(gasRatio(0)).toBeLessThan(gasRatio(3))
+    expect(gasRatio(3)).toBeLessThan(gasRatio(7))
+  })
+
   it('몬테카를로 10k+: 생명 가능 별의 생명체 행성 비율이 9~11%다', () => {
     // 적색거성·백색왜성은 생명이 없으므로(exotic-stars 결정 8) raw LIFE_PROBABILITY 검증에서
     // 제외한다 — 죽은 별을 섞으면 비율이 구조적으로 낮아져 측정 대상이 흐려진다.
@@ -119,7 +144,9 @@ describe('planetsOf', () => {
     expect(planetById(seed, earth.id)).toEqual(earth)
   })
 
-  it('몬테카를로: 암석형/가스형 비율이 60/40에 수렴한다', () => {
+  it('몬테카를로: 전체 암석 비율이 암석 편중이다 (동결선 + 내행성 다수, M-1)', () => {
+    // 동결선(M-1) 도입 후 전체 rocky/gas는 더 이상 고정 60/40이 아니다. 행성 수는 1~8 균등이라
+    // 내행성 인덱스(암석 지배)가 외행성보다 훨씬 자주 등장 → 집계는 암석 쪽으로 쏠린다(~65%).
     let rockyCount = 0
     let total = 0
     for (let i = 0; i < 2_000; i++) {
@@ -128,6 +155,8 @@ describe('planetsOf', () => {
         if (planet.kind === 'rocky') rockyCount += 1
       }
     }
-    expect(rockyCount / total).toBeCloseTo(0.6, 1)
+    const rockyRatio = rockyCount / total
+    expect(rockyRatio).toBeGreaterThan(0.55)
+    expect(rockyRatio).toBeLessThan(0.75)
   })
 })
