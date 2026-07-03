@@ -2,8 +2,9 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Group, Mesh, Vector3 } from 'three'
 
-import type { Planet as PlanetData } from '@/engine'
+import type { Planet as PlanetData, SpectralClass } from '@/engine'
 import { moonsOf } from '@/engine'
+import { normalizedOrbit } from '@/scenes/system/habitableZone'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
@@ -37,9 +38,14 @@ const SPIN_SPEED_SPAN = 0.09
 const CLOUD_SPIN_FACTOR = 1.55
 const CLOUD_LAYER_SCALE = 1.035
 
+/** AU → 궤도 렌더 반경 (affine 매핑). 행성·궤도링·HZ 밴드가 같은 식을 공유 (단일 소스). */
+export function auToOrbitRadius(orbitAu: number, orbitOffset = 0): number {
+  return ORBIT_BASE_RADIUS + orbitAu * ORBIT_SCALE + orbitOffset
+}
+
 /** orbitOffset: 다중성계에서 별 군집을 벗어나도록 궤도를 바깥으로 미는 양 (기본 0). */
 export function orbitRadiusOf(planet: PlanetData, orbitOffset = 0): number {
-  return ORBIT_BASE_RADIUS + planet.orbitAu * ORBIT_SCALE + orbitOffset
+  return auToOrbitRadius(planet.orbitAu, orbitOffset)
 }
 
 /** 궤도 시작 위상 — paletteSeed 파생 결정론 (자전 위상과도 공유). */
@@ -73,6 +79,11 @@ interface PlanetProps {
   readonly planet: PlanetData
   /** 다중성계에서 별 군집을 벗어나도록 궤도를 바깥으로 미는 양 (기본 0). */
   readonly orbitOffset?: number
+  /**
+   * 온도 표면 산출용 별 분광형 — HZ가 있는 별(hasHabitableZone)에만 전달한다.
+   * null이면 온도를 표면에 반영하지 않는다 (O/B·거성·왜성 등 광도 모델 무의미, hz-visualization).
+   */
+  readonly hzSpectral?: SpectralClass | null
 }
 
 /**
@@ -81,7 +92,7 @@ interface PlanetProps {
  * 비동기 수행되어 진입 히치가 없고, 도착 전에는 플레이스홀더 단색을 쓴다.
  * 조명은 항성 포인트라이트가 만드는 낮/밤 경계를 그대로 쓴다. 클릭하면 행성 패널이 열린다.
  */
-export function Planet({ planet, orbitOffset = 0 }: PlanetProps) {
+export function Planet({ planet, orbitOffset = 0, hzSpectral = null }: PlanetProps) {
   const groupRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
   const cloudsRef = useRef<Mesh>(null)
@@ -92,12 +103,16 @@ export function Planet({ planet, orbitOffset = 0 }: PlanetProps) {
   const moons = useMemo(() => moonsOf(seed, planet), [seed, planet])
   const { planetSegments: segments, planetTextureBaseWidth } = QUALITY_PRESETS[qualityTier]
 
+  // 정규화 궤도 x(= orbitAu / HZ중심) — 표면 재질(암석 온도대·가스 Sudarsky 클래스)을 물리적으로
+  // 정한다 (오라가 아니라 재질 자체). 무HZ 별이면 null이라 온도 무반영 (hz-visualization).
+  const hzOrbit = hzSpectral == null ? null : normalizedOrbit(planet.orbitAu, hzSpectral)
+
   const [textures, setTextures] = useState<PlanetTextureSet | null>(null)
 
   useEffect(() => {
     let bakedSet: PlanetTextureSet | null = null
     const cancelBake = enqueueBake(() => {
-      bakedSet = bakePlanetTextures(planet, planetTextureBaseWidth)
+      bakedSet = bakePlanetTextures(planet, planetTextureBaseWidth, hzOrbit)
       setTextures(bakedSet)
     })
     return () => {
@@ -105,7 +120,7 @@ export function Planet({ planet, orbitOffset = 0 }: PlanetProps) {
       if (bakedSet != null) disposePlanetTextures(bakedSet)
       setTextures(null)
     }
-  }, [planet, planetTextureBaseWidth])
+  }, [planet, planetTextureBaseWidth, hzOrbit])
 
   const initialPhase = orbitInitialPhase(planet)
   const visualRadius = PLANET_VISUAL_BASE + planet.radius * PLANET_VISUAL_SCALE

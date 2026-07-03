@@ -44,8 +44,11 @@ const ORBIT_JITTER_AU = 0.4
  * 균일 10%를 폐기하고, 별 광도로 정한 HZ 중심에 대한 궤도 위치의 연속 함수로 대체한다.
  * 광도 L은 스펙트럼당 상수라 HZ 중심(≈√L AU)도 상수 — 런타임 sqrt/초월함수 없이 사전계산
  * 상수표로 둔다. O/B는 getLifeProbability에서 short-circuit되어 표의 O/B 값은 미사용(참고용).
+ *
+ * 공개 barrel에 노출한다 — 렌더 계층(HZ 시각화)이 물리와 동일한 상수로 밴드/온도색을
+ * 산출해 시각-물리 일치를 단일 소스로 보장한다 (hz-visualization). 순수 상수라 엔진 순수성 무관.
  */
-const HZ_CENTER_AU: Record<SpectralClass, number> = {
+export const HZ_CENTER_AU: Record<SpectralClass, number> = {
   O: 15,
   B: 7,
   A: 4.5,
@@ -60,9 +63,11 @@ export const HZ_PEAK_PROBABILITY = 0.45
 
 // 정규화 궤도(= 궤도/HZ중심) 기준 거주성 곡선의 네 경계 — 안쪽 0 → 평지 1 → 바깥쪽 0.
 // 보수적/낙관적 HZ 경계가 불분명한 실제 물리를 평지+가장자리 감쇠로 근사한다.
+// 평지 경계(PLATEAU)는 공개 barrel에 노출 — 렌더가 행성 표면 온도대(작열/거주가능/동결)를
+// 이 값으로 가른다 (hz-visualization). ZERO 경계는 생명 확률 감쇠 전용이라 모듈 내부에 둔다.
 const HZ_X_ZERO_INNER = 0.5
-const HZ_X_PLATEAU_INNER = 0.85
-const HZ_X_PLATEAU_OUTER = 1.3
+export const HZ_X_PLATEAU_INNER = 0.85
+export const HZ_X_PLATEAU_OUTER = 1.3
 const HZ_X_ZERO_OUTER = 2.0
 
 function clamp01(value: number): number {
@@ -111,6 +116,19 @@ export function getLifeProbability(star: Star | null, index: number): number {
   if (star.kind === 'red_giant' || star.kind === 'white_dwarf') return 0
   const normalizedOrbit = ((index + 1) * ORBIT_BASE_AU) / HZ_CENTER_AU[star.spectral]
   return HZ_PEAK_PROBABILITY * habitability(normalizedOrbit)
+}
+
+/**
+ * 이 별이 의미 있는 거주가능구역을 갖는가 — getLifeProbability가 확률 0으로 short-circuit하는
+ * 조건(O/B 대질량성·적색거성·백색왜성, 그리고 O/B 전용 생성인 펄서·블랙홀)의 여집합.
+ * 렌더가 HZ 밴드·행성 온도 글로우를 게이팅하는 데 쓴다 (hz-visualization) — 시각과 생성이
+ * 같은 근거를 공유해 "생명 불가인 별엔 거주가능구역도 안 그린다"를 단일 술어로 보장한다.
+ */
+export function hasHabitableZone(star: Star | null): boolean {
+  if (star == null) return false
+  if (star.spectral === 'O' || star.spectral === 'B') return false
+  if (star.kind === 'red_giant' || star.kind === 'white_dwarf') return false
+  return true
 }
 
 /**

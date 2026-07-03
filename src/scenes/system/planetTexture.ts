@@ -2,6 +2,8 @@ import { CanvasTexture } from 'three'
 
 import type { Planet } from '@/engine'
 import { valueNoise3 } from '@/engine/noise/valueNoise'
+import type { GasClass, TemperatureZone } from '@/scenes/system/habitableZone'
+import { gasClassOf, temperatureZoneAt } from '@/scenes/system/habitableZone'
 
 /**
  * 행성 표면 CanvasTexture 베이크 — paletteSeed 결정론 (백로그 F-1, 결정 29).
@@ -107,8 +109,79 @@ function fbm3(x: number, y: number, z: number, salt: number, octaves: number): n
   return sum / total
 }
 
-/** 암석형 — 노이즈 대륙(생명체는 바다·대륙) + 지형 색 밴드 + 극관. */
-function rockyPainter(planet: Planet): SurfacePainter {
+/**
+ * 암석형 표면 모드 — 온도대가 실제 재질을 정한다 (오라가 아닌 물리적 표면, hz-visualization).
+ * 생명 행성은 온도대와 무관하게 항상 온대 바다/대륙: 생명의 존재 자체가 액체물 = 온대의 증거다.
+ */
+type RockyMode = 'ocean' | 'barren' | 'molten' | 'ice'
+
+function rockyModeOf(planet: Planet, zone: TemperatureZone | null): RockyMode {
+  if (planet.hasLife) return 'ocean'
+  if (zone === 'scorching') return 'molten'
+  if (zone === 'frozen') return 'ice'
+  return 'barren'
+}
+
+/** 온도대별 암석 표면 페인터 선택 — 거주대 무생명·무HZ 별은 기존 온대 지형(terrain)을 그대로 쓴다. */
+function rockyPainter(planet: Planet, zone: TemperatureZone | null): SurfacePainter {
+  const mode = rockyModeOf(planet, zone)
+  if (mode === 'molten') return moltenPainter(planet)
+  if (mode === 'ice') return icePainter(planet)
+  return terrainPainter(planet)
+}
+
+/** 공유 고도 샘플 — 네 모드가 같은 fbm 지형장을 쓴다 (paletteSeed 결정론). */
+function sampleHeight(planet: Planet, px: number, py: number, pz: number): number {
+  const base = fbm3(px * 2.3, py * 2.3, pz * 2.3, planet.paletteSeed ^ HEIGHT_SALT, 4)
+  const detail = valueNoise3(px * 7.1, py * 7.1, pz * 7.1, planet.paletteSeed ^ DETAIL_SALT)
+  return base * 0.82 + detail * 0.18
+}
+
+/**
+ * 작열대 무생명 암석 — 탄 현무암 암반 + 저지대 갈라진 틈의 용암 발광 (수성·용암 세계).
+ * 극관 없음. 낮은 고도일수록 뜨거운 용암색으로 타오른다.
+ */
+function moltenPainter(planet: Planet): SurfacePainter {
+  const seed = planet.paletteSeed
+  const lavaLevel = 0.42 + 0.08 * seedVariant(seed, 0)
+  const lava = hslToRgb(20 + 12 * seedVariant(seed, 1), 92, 56)
+  const ember = hslToRgb(16, 62, 30)
+  const rockLow = hslToRgb(14, 30, 18)
+  const rockHigh = hslToRgb(10, 18, 12)
+
+  return (px, py, pz) => {
+    const height = sampleHeight(planet, px, py, pz)
+    if (height < lavaLevel) {
+      const heat = 1 - smoothstep(lavaLevel - 0.22, lavaLevel, height)
+      return [...mixRgb(ember, lava, heat), OPAQUE]
+    }
+    return [...mixRgb(rockLow, rockHigh, smoothstep(lavaLevel, lavaLevel + 0.3, height)), OPAQUE]
+  }
+}
+
+/**
+ * 동결대 무생명 암석 — 고알베도 얼음 세계 (유로파·명왕성). 밝은 설원 + 그늘진 균열,
+ * 극지는 더 희다. 온대·용암과 달리 전면이 반사율 높은 얼음이라 우주 배경에서 밝게 빛난다.
+ */
+function icePainter(planet: Planet): SurfacePainter {
+  const seed = planet.paletteSeed
+  const hue = 205 + 10 * seedVariant(seed, 0)
+  const iceLow = hslToRgb(hue, 20, 72)
+  const iceHigh = hslToRgb(hue - 8, 10, 92)
+  const crevasse = hslToRgb(hue, 32, 56)
+
+  return (px, py, pz, lat) => {
+    const height = sampleHeight(planet, px, py, pz)
+    let rgb = mixRgb(iceLow, iceHigh, smoothstep(0.35, 0.7, height))
+    const crack = smoothstep(0.46, 0.5, height) * (1 - smoothstep(0.5, 0.54, height))
+    rgb = mixRgb(rgb, crevasse, crack * 0.5)
+    const polar = smoothstep(0.5, 0.85, Math.abs(Math.sin(lat)))
+    return [...mixRgb(rgb, iceHigh, polar * 0.4), OPAQUE]
+  }
+}
+
+/** 온대 암석형 — 노이즈 대륙(생명체는 바다·대륙) + 지형 색 밴드 + 극관. */
+function terrainPainter(planet: Planet): SurfacePainter {
   const seed = planet.paletteSeed
   const hue = seed % 360
   const heightSalt = seed ^ HEIGHT_SALT
@@ -156,38 +229,125 @@ function rockyPainter(planet: Planet): SurfacePainter {
   }
 }
 
-/** 가스형 — 노이즈로 뒤틀린 위도 밴드 + 저주파 폭풍 반점. */
-function gasPainter(planet: Planet): SurfacePainter {
-  const seed = planet.paletteSeed
-  const hueA = seed % 360
-  const hueB = (hueA + 22 + 36 * seedVariant(seed, 0)) % 360
-  const swirlSalt = seed ^ SWIRL_SALT
-  const stormSalt = seed ^ STORM_SALT
+interface GasStyle {
+  readonly bandDark: readonly [number, number, number]
+  readonly bandLight: readonly [number, number, number]
+  readonly zoneTint: readonly [number, number, number]
+  readonly storm: readonly [number, number, number]
+  /** 밴드 명암 대비 (0=평탄, 1=강한 줄무늬). */
+  readonly contrast: number
+  /** 도메인 워프 난류 강도 — 띠 가장자리 소용돌이. */
+  readonly turbulence: number
+  /** 기본 밴드 주파수 배율. */
+  readonly bandFreqScale: number
+  /** 극지 후드 어두워짐 (0~1). */
+  readonly poleDarken: number
+  /** 대적점형 거대 스톰 여부. */
+  readonly hasStorm: boolean
+  /** Class V 열점 발광색 — 없으면 null. */
+  readonly glow: readonly [number, number, number] | null
+}
 
-  const swirlAmplitude = 0.16 + 0.38 * seedVariant(seed, 1)
-  const bandFrequency = 3.2 + 3.4 * seedVariant(seed, 2)
+/**
+ * Sudarsky 온도 클래스별 가스행성 외형 — 평형온도(∝ x^−1/2)가 구름 조성을 정한다 (고증).
+ * 명도는 플레이스홀더 단색(L 62%)과 균형. null(무HZ 별)은 광도 모델이 무의미하므로
+ * seed 색상 기반 목성형으로 다양성을 유지한다. hue는 seed로 살짝 흔들어 개체차를 준다.
+ */
+function gasStyleOf(planet: Planet, gasClass: GasClass | null): GasStyle {
+  const seed = planet.paletteSeed
+  const j = (seedVariant(seed, 0) - 0.5) * 16
+  const hasStorm = seedVariant(seed, 5) > 0.35
+  switch (gasClass) {
+    case 'silicate': // V 최고온 — 규산/철 구름, 거의 검은 본체 + 용암빛 열점
+      return { bandDark: hslToRgb(8 + j, 30, 10), bandLight: hslToRgb(14 + j, 28, 18),
+        zoneTint: hslToRgb(6 + j, 30, 8), storm: hslToRgb(12, 40, 16),
+        contrast: 0.5, turbulence: 0.85, bandFreqScale: 1.15, poleDarken: 0.42,
+        hasStorm: false, glow: hslToRgb(22, 95, 55) }
+    case 'alkali': // IV 고온 — 알칼리 금속, 짙은 적갈
+      return { bandDark: hslToRgb(15 + j, 52, 24), bandLight: hslToRgb(24 + j, 46, 42),
+        zoneTint: hslToRgb(10 + j, 46, 20), storm: hslToRgb(9, 58, 28),
+        contrast: 0.62, turbulence: 0.62, bandFreqScale: 0.95, poleDarken: 0.36,
+        hasStorm, glow: null }
+    case 'cloudless': // III 중고온 — 구름 없는 레일리 산란, 감청
+      return { bandDark: hslToRgb(214 + j, 56, 36), bandLight: hslToRgb(206 + j, 60, 58),
+        zoneTint: hslToRgb(218 + j, 50, 46), storm: hslToRgb(210, 58, 28),
+        contrast: 0.34, turbulence: 0.3, bandFreqScale: 0.7, poleDarken: 0.32,
+        hasStorm: false, glow: null }
+    case 'water': // II 온대 — 수운, 밝은 백색 고알베도
+      return { bandDark: hslToRgb(208 + j, 12, 72), bandLight: hslToRgb(200 + j, 8, 92),
+        zoneTint: hslToRgb(205 + j, 10, 82), storm: hslToRgb(210, 16, 64),
+        contrast: 0.4, turbulence: 0.4, bandFreqScale: 0.85, poleDarken: 0.22,
+        hasStorm, glow: null }
+    case 'ammonia': // I 저온 — 암모니아 구름, 목성형 황갈 띠 + 대적점
+      return { bandDark: hslToRgb(32 + j, 55, 42), bandLight: hslToRgb(42 + j, 60, 68),
+        zoneTint: hslToRgb(24 + j, 50, 52), storm: hslToRgb(14, 62, 40),
+        contrast: 0.9, turbulence: 0.55, bandFreqScale: 1.0, poleDarken: 0.26,
+        hasStorm: true, glow: null }
+    default: { // 무HZ — seed 색상 목성형 (현행 다양성 유지)
+      const hueA = seed % 360
+      const hueB = (hueA + 22 + 36 * seedVariant(seed, 0)) % 360
+      return { bandDark: hslToRgb(hueA, 54, 50), bandLight: hslToRgb(hueA, 60, 68),
+        zoneTint: hslToRgb(hueB, 50, 58), storm: hslToRgb(hueB, 58, 38),
+        contrast: 0.75, turbulence: 0.5, bandFreqScale: 1.0, poleDarken: 0.24,
+        hasStorm, glow: null }
+    }
+  }
+}
+
+function scaleRgb(
+  rgb: readonly [number, number, number],
+  k: number,
+): readonly [number, number, number] {
+  return [rgb[0] * k, rgb[1] * k, rgb[2] * k]
+}
+
+const SPOT_HALF_LON = 0.5
+const SPOT_HALF_LAT = 0.22
+
+/** 대적점형 거대 스톰 마스크 [0,1] — seed 파생 위치에 경도로 길쭉한 타원 소용돌이. */
+function greatSpotMask(px: number, pz: number, lat: number, seed: number): number {
+  const spotLat = (seedVariant(seed, 6) - 0.5) * 1.2
+  const spotLon = seedVariant(seed, 7) * FULL_TURN
+  const dlon = Math.atan2(Math.sin(Math.atan2(pz, px) - spotLon), Math.cos(Math.atan2(pz, px) - spotLon))
+  const a = dlon / SPOT_HALF_LON
+  const b = (lat - spotLat) / SPOT_HALF_LAT
+  return 1 - smoothstep(0.6, 1.0, Math.sqrt(a * a + b * b))
+}
+
+/**
+ * 가스형 — Sudarsky 클래스별 조성색 + 2-스케일 도메인 워프 난류 띠 + 대적점형 스톰 +
+ * 극 후드 + (Class V) 열점 발광. 온도(정규화 궤도)로 외형이 갈린다.
+ */
+function gasPainter(planet: Planet, gasClass: GasClass | null): SurfacePainter {
+  const seed = planet.paletteSeed
+  const swirlSalt = seed ^ SWIRL_SALT
+  const detailSalt = seed ^ DETAIL_SALT
+  const glowSalt = seed ^ STORM_SALT
+  const style = gasStyleOf(planet, gasClass)
+  const bandFrequency = (3.2 + 3.4 * seedVariant(seed, 2)) * style.bandFreqScale
   const bandPhase = seedVariant(seed, 3) * FULL_TURN
 
-  // 명도는 플레이스홀더 단색(L 62%)과 평균이 비슷하게 (암석형과 같은 이유)
-  const bandDark = hslToRgb(hueA, 54, 50)
-  const bandLight = hslToRgb(hueA, 60, 68)
-  const zoneTint = hslToRgb(hueB, 50, 58)
-  const stormShade = hslToRgb(hueB, 58, 38)
-
   return (px, py, pz, lat) => {
-    // 위도를 노이즈로 뒤틀어 소용돌이치는 줄무늬를 만든다
-    const swirl = (fbm3(px * 1.7, py * 1.7, pz * 1.7, swirlSalt, 3) - 0.5) * swirlAmplitude
-    const warpedLatitude = Math.sin(lat) + swirl
+    // 2-스케일 도메인 워프 — 큰 소용돌이 + 미세 난류로 띠 가장자리를 흐트러뜨린다
+    const warp = (fbm3(px * 1.7, py * 1.7, pz * 1.7, swirlSalt, 4) - 0.5) * style.turbulence
+    const warpFine = (fbm3(px * 4.3 + 11, py * 4.3, pz * 4.3, detailSalt, 3) - 0.5) * style.turbulence * 0.35
+    const wlat = Math.sin(lat) + warp + warpFine
 
-    const band = 0.5 + 0.5 * Math.sin(warpedLatitude * Math.PI * bandFrequency + bandPhase)
-    const zone = 0.5 + 0.5 * Math.sin(warpedLatitude * Math.PI * bandFrequency * 0.5 + bandPhase * 1.7)
+    const band = 0.5 + 0.5 * Math.sin(wlat * Math.PI * bandFrequency + bandPhase)
+    const zoneBand = 0.5 + 0.5 * Math.sin(wlat * Math.PI * bandFrequency * 0.5 + bandPhase * 1.7)
+    const bandMix = 0.5 + (band - 0.5) * style.contrast
+    let rgb = mixRgb(mixRgb(style.bandDark, style.bandLight, bandMix), style.zoneTint, zoneBand * 0.4)
 
-    let rgb = mixRgb(mixRgb(bandDark, bandLight, band), zoneTint, zone * 0.45)
+    if (style.hasStorm) {
+      rgb = mixRgb(rgb, style.storm, greatSpotMask(px, pz, lat, seed) * 0.8)
+    }
+    if (style.glow != null) {
+      const hot = smoothstep(0.68, 0.9, fbm3(px * 1.4 + 5.7, py * 1.4, pz * 1.4, glowSalt, 3))
+      rgb = mixRgb(rgb, style.glow, hot * 0.55)
+    }
 
-    // 대형 폭풍 반점 — 저주파 노이즈의 꼬리만 살린다
-    const storm = smoothstep(0.74, 0.88, fbm3(px * 1.2 + 5.7, py * 1.2, pz * 1.2, stormSalt, 2))
-    rgb = mixRgb(rgb, stormShade, storm * 0.6)
-    return [...rgb, OPAQUE]
+    const pole = smoothstep(0.55, 1.0, Math.abs(Math.sin(lat)))
+    return [...scaleRgb(rgb, 1 - style.poleDarken * pole), OPAQUE]
   }
 }
 
@@ -253,10 +413,22 @@ function bakeEquirect(
   return texture
 }
 
-/** @param baseWidth 등장방형 베이스 가로 텍셀 수 (세로는 절반) — 품질 티어 프리셋 값. */
-export function bakePlanetTextures(planet: Planet, baseWidth: number): PlanetTextureSet {
+/**
+ * @param baseWidth 등장방형 베이스 가로 텍셀 수 (세로는 절반) — 품질 티어 프리셋 값.
+ * @param hzOrbit 정규화 궤도 x(= 실제 궤도 / HZ 중심) — 표면 재질을 정한다. 암석은 온도대
+ *   (용암/온대/얼음), 가스는 Sudarsky 클래스(조성색). null이면 온도 무반영 (무HZ 별,
+ *   hz-visualization). 렌더 전용이라 draw 미소비 → GEN_VERSION·저장 무관.
+ */
+export function bakePlanetTextures(
+  planet: Planet,
+  baseWidth: number,
+  hzOrbit: number | null = null,
+): PlanetTextureSet {
   const baseHeight = baseWidth / 2
-  const painter = planet.kind === 'rocky' ? rockyPainter(planet) : gasPainter(planet)
+  const zone: TemperatureZone | null = hzOrbit == null ? null : temperatureZoneAt(hzOrbit)
+  const gasClass: GasClass | null = hzOrbit == null ? null : gasClassOf(hzOrbit)
+  const painter =
+    planet.kind === 'rocky' ? rockyPainter(planet, zone) : gasPainter(planet, gasClass)
   const surface = bakeEquirect(
     baseWidth,
     baseHeight,
