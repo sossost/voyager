@@ -62,7 +62,7 @@ const VENUSIAN_ATMOSPHERE: AtmosphereProfile = {
   kind: 'venusian',
   baseColor: [0.95, 0.9, 0.68],
   warmColor: [1.0, 0.76, 0.42],
-  shellScale: 1.05,
+  shellScale: 1.035,
   intensity: 1.3,
   rimPower: 2.6,
   warmAmount: 0.4,
@@ -96,7 +96,8 @@ function hslToRgb01(hue: number, saturation: number, lightness: number): readonl
  * null(무HZ 별)은 온도 미상이라 seed 색상 목성형 헤이즈로 다양성을 유지한다.
  */
 function gasAtmosphere(planet: Planet, gasClass: GasClass | null): AtmosphereProfile {
-  const base = { kind: 'gas' as const, shellScale: 1.06, intensity: 1.0, rimPower: 3.0 }
+  // 셸은 표면에 밀착(≈암석 수준). 크게 띄우면 대기가 떨어져 뜬 '층'으로 보인다(사용자 지적).
+  const base = { kind: 'gas' as const, shellScale: 1.028, intensity: 1.0, rimPower: 3.0 }
   switch (gasClass) {
     case 'silicate': // V 최고온 — 규산/철, 용암빛 적색 헤이즈
       return { ...base, baseColor: [1.0, 0.42, 0.2], warmColor: [1.0, 0.34, 0.14], warmAmount: 0.35 }

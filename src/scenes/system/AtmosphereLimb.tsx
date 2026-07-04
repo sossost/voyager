@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { AdditiveBlending, BackSide, type Mesh, ShaderMaterial, Vector3 } from 'three'
+import { AdditiveBlending, FrontSide, type Mesh, ShaderMaterial, Vector3 } from 'three'
 
 import type { AtmosphereProfile } from '@/scenes/system/atmosphere'
 import { currentBodies } from '@/scenes/system/currentBodies'
@@ -90,7 +90,7 @@ function createLimbMaterial(profile: AtmosphereProfile): LimbMaterial {
     transparent: true,
     depthWrite: false,
     blending: AdditiveBlending,
-    side: BackSide,
+    side: FrontSide,
   })
   return { material, planetCenter, starDir }
 }
