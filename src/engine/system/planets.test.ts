@@ -7,6 +7,7 @@ import type { SpectralClass, Star, StarKind } from '../galaxy/sectors'
 import {
   getLifeProbability,
   habitability,
+  hasHabitableZone,
   HZ_PEAK_PROBABILITY,
   planetById,
   planetsOf,
@@ -302,6 +303,45 @@ describe('habitability (거주성 곡선 — 순수)', () => {
       expect(current).toBeGreaterThanOrEqual(0)
       expect(current).toBeLessThanOrEqual(1)
       previous = current
+    }
+  })
+})
+
+describe('hasHabitableZone (HZ 시각화 게이팅 술어 — 순수)', () => {
+  it('A/F/G/K/M 주계열성은 거주가능구역을 가진다', () => {
+    for (const spectral of ['A', 'F', 'G', 'K', 'M'] as const) {
+      expect(hasHabitableZone(fakeStar(spectral))).toBe(true)
+    }
+  })
+
+  it('O/B 대질량성(펄서·블랙홀 포함)은 거주가능구역이 없다', () => {
+    expect(hasHabitableZone(fakeStar('O'))).toBe(false)
+    expect(hasHabitableZone(fakeStar('B'))).toBe(false)
+    expect(hasHabitableZone(fakeStar('O', 'pulsar'))).toBe(false)
+    expect(hasHabitableZone(fakeStar('O', 'black_hole'))).toBe(false)
+  })
+
+  it('적색거성·백색왜성은 거주가능구역이 없다', () => {
+    expect(hasHabitableZone(fakeStar('G', 'red_giant'))).toBe(false)
+    expect(hasHabitableZone(fakeStar('G', 'white_dwarf'))).toBe(false)
+  })
+
+  it('null 별은 거주가능구역이 없다 (방어)', () => {
+    expect(hasHabitableZone(null)).toBe(false)
+  })
+
+  it('게이팅은 생명 확률 0과 일치한다 — HZ 없으면 모든 궤도에서 확률 0', () => {
+    const noHzStars = [
+      fakeStar('O'),
+      fakeStar('B'),
+      fakeStar('G', 'red_giant'),
+      fakeStar('G', 'white_dwarf'),
+    ]
+    for (const star of noHzStars) {
+      expect(hasHabitableZone(star)).toBe(false)
+      for (let index = 0; index < 8; index++) {
+        expect(getLifeProbability(star, index)).toBe(0)
+      }
     }
   })
 })

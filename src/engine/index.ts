@@ -26,7 +26,15 @@ export { starById, starWorldPosition } from './galaxy/position'
 export { rareExoticBodiesNear, RARE_EXOTIC_KINDS, SCAN_RADIUS_SECTORS } from './galaxy/scan'
 
 export type { Planet, PlanetKind } from './system/planets'
-export { HZ_PEAK_PROBABILITY, planetById, planetsOf } from './system/planets'
+export {
+  hasHabitableZone,
+  HZ_CENTER_AU,
+  HZ_PEAK_PROBABILITY,
+  HZ_X_PLATEAU_INNER,
+  HZ_X_PLATEAU_OUTER,
+  planetById,
+  planetsOf,
+} from './system/planets'
 export type { Moon } from './system/moons'
 export { moonsOf } from './system/moons'
 export { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './system/sol'
