@@ -26,26 +26,15 @@ const HABITABLE_X = normalizedOrbit(1.0, 'G') // x=1.0 (가스: cloudless III)
 const FROZEN_X = normalizedOrbit(2.0, 'G') // x=2.0 > 1.3
 const AMMONIA_X = normalizedOrbit(3.5, 'G') // x=3.5 > 2.5 (가스: ammonia I)
 
-describe('deriveAtmosphere — 가스행성', () => {
-  it('가스행성은 온도 클래스와 무관하게 항상 헤이즈 대기를 가진다', () => {
-    const gas = makePlanet({ kind: 'gas' })
-    expect(deriveAtmosphere(gas, HABITABLE_X).kind).toBe('gas')
-    expect(deriveAtmosphere(gas, SCORCHING_X).kind).toBe('gas')
-    expect(deriveAtmosphere(gas, FROZEN_X).kind).toBe('gas')
-  })
-
-  it('무HZ 별(hzOrbit=null) 가스행성도 seed 색상 헤이즈를 가진다', () => {
+describe('deriveAtmosphere — 가스행성 (림 없음)', () => {
+  // 가스행성은 고체 표면이 없어 띠무늬 구름 데크 자체가 대기다.
+  // 그 위에 산란 층을 얹으면 '대기 위의 대기'라 고증에 어긋나므로 림을 그리지 않는다.
+  it('가스행성은 온도 클래스·HZ 유무와 무관하게 대기 림이 없다', () => {
     const gas = makePlanet({ kind: 'gas', paletteSeed: 123 })
-    const profile = deriveAtmosphere(gas, null)
-    expect(profile.kind).toBe('gas')
-    expect(profile.intensity).toBeGreaterThan(0)
-  })
-
-  it('Sudarsky 클래스마다 대기색이 다르다 (감청 vs 황갈)', () => {
-    const gas = makePlanet({ kind: 'gas' })
-    const cloudless = deriveAtmosphere(gas, HABITABLE_X) // III 감청
-    const ammonia = deriveAtmosphere(gas, AMMONIA_X) // I 황갈
-    expect(cloudless.baseColor).not.toEqual(ammonia.baseColor)
+    expect(deriveAtmosphere(gas, SCORCHING_X).kind).toBe('none')
+    expect(deriveAtmosphere(gas, HABITABLE_X).kind).toBe('none')
+    expect(deriveAtmosphere(gas, AMMONIA_X).kind).toBe('none')
+    expect(deriveAtmosphere(gas, null).kind).toBe('none')
   })
 })
 
