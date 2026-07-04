@@ -273,10 +273,10 @@ function gasStyleOf(planet: Planet, gasClass: GasClass | null): GasStyle {
         zoneTint: hslToRgb(218 + j, 50, 46), storm: hslToRgb(210, 58, 28),
         contrast: 0.34, turbulence: 0.3, bandFreqScale: 0.7, poleDarken: 0.32,
         hasStorm: false, glow: null }
-    case 'water': // II 온대 — 수운, 밝은 백색 고알베도
-      return { bandDark: hslToRgb(208 + j, 12, 72), bandLight: hslToRgb(200 + j, 8, 92),
-        zoneTint: hslToRgb(205 + j, 10, 82), storm: hslToRgb(210, 16, 64),
-        contrast: 0.4, turbulence: 0.4, bandFreqScale: 0.85, poleDarken: 0.22,
+    case 'water': // II 온대 — 수운, 밝은 백색 고알베도 (칙칙한 회색 방지로 명도↑·채도↓·극후드↓)
+      return { bandDark: hslToRgb(208 + j, 8, 89), bandLight: hslToRgb(202 + j, 4, 99),
+        zoneTint: hslToRgb(205 + j, 6, 94), storm: hslToRgb(210, 12, 82),
+        contrast: 0.3, turbulence: 0.4, bandFreqScale: 0.85, poleDarken: 0.12,
         hasStorm, glow: null }
     case 'ammonia': // I 저온 — 암모니아 구름, 목성형 황갈 띠 + 대적점
       return { bandDark: hslToRgb(32 + j, 55, 42), bandLight: hslToRgb(42 + j, 60, 68),
