@@ -7,6 +7,8 @@ import { moonsOf } from '@/engine'
 import { normalizedOrbit } from '@/scenes/system/habitableZone'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
+import { AtmosphereLimb } from '@/scenes/system/AtmosphereLimb'
+import { deriveAtmosphere } from '@/scenes/system/atmosphere'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
 import { Moon } from '@/scenes/system/Moon'
@@ -107,6 +109,10 @@ export function Planet({ planet, orbitOffset = 0, hzSpectral = null }: PlanetPro
   // 정한다 (오라가 아니라 재질 자체). 무HZ 별이면 null이라 온도 무반영 (hz-visualization).
   const hzOrbit = hzSpectral == null ? null : normalizedOrbit(planet.orbitAu, hzSpectral)
 
+  // 대기 산란 림 — 온도 표면재질과 같은 렌더 파생(기존 데이터 순수 함수, GEN_VERSION 무관).
+  // 표면 텍스처와 독립이라 베이크를 기다리지 않고 즉시 렌더한다.
+  const atmosphere = useMemo(() => deriveAtmosphere(planet, hzOrbit), [planet, hzOrbit])
+
   const [textures, setTextures] = useState<PlanetTextureSet | null>(null)
 
   useEffect(() => {
@@ -179,6 +185,10 @@ export function Planet({ planet, orbitOffset = 0, hzSpectral = null }: PlanetPro
             metalness={0}
           />
         </mesh>
+      ) : null}
+
+      {atmosphere.kind !== 'none' ? (
+        <AtmosphereLimb radius={visualRadius} profile={atmosphere} />
       ) : null}
 
       {isSelected ? (
