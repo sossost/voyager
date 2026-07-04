@@ -45,6 +45,8 @@ const GALAXY_MAX_ZOOM_OUT = 6_000;
  * 장식이 항상 배경으로 읽히고, 정박 오프셋(≤4,800)을 더해도 far(30,000) 안이다.
  */
 const SHIP_SKY_RADIUS = 12_000;
+/** 함교 뷰 기본 시선 고도(도) — 항성계 궤도면을 내려다보는 각도. 블랙홀계만 낮게(옆에서) 본다. */
+const SHIP_SYSTEM_ELEVATION_DEG = 28;
 
 export function GalaxyScene() {
   const seed = useGameStore((state) => state.seed);
@@ -93,7 +95,7 @@ export function GalaxyScene() {
       {isShipView ? (
         <ShipCameraRig
           anchor={shipFocus}
-          elevationDeg={currentIsBlackHole ? 3 : 20}
+          elevationDeg={currentIsBlackHole ? 3 : SHIP_SYSTEM_ELEVATION_DEG}
         />
       ) : null}
       {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는

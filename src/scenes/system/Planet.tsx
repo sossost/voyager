@@ -11,7 +11,7 @@ import { AtmosphereLimb } from '@/scenes/system/AtmosphereLimb'
 import { deriveAtmosphere } from '@/scenes/system/atmosphere'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
-import { Moon } from '@/scenes/system/Moon'
+import { Moon, moonSpanScaleFor } from '@/scenes/system/Moon'
 import { PlanetRings } from '@/scenes/system/PlanetRings'
 import {
   bakePlanetTextures,
@@ -21,7 +21,12 @@ import {
 import { useGameStore } from '@/store'
 
 export const ORBIT_BASE_RADIUS = 5
-export const ORBIT_SCALE = 6
+/**
+ * AU→렌더 반경 스케일. 궤도 간격을 넓혀 행성 위성계(행성 시각반경에 비례)가 이웃 궤도를
+ * 침범하지 않을 공간을 확보한다 — 특히 목성·토성처럼 큰 가스 거성이 인접할 때. 값을 키우면
+ * 항성계 전체가 커지므로 함교 정박 거리(ShipCameraRig SHIP_DISTANCE)도 함께 맞춘다. 렌더 전용.
+ */
+export const ORBIT_SCALE = 8
 /**
  * 행성 시각 반경 = BASE + 엔진 radius × SCALE (압축 매핑).
  * 궤도 간격(최소 ~2유닛) 대비 행성 지름이 넘치지 않도록 축소.
@@ -86,6 +91,11 @@ interface PlanetProps {
    * null이면 온도를 표면에 반영하지 않는다 (O/B·거성·왜성 등 광도 모델 무의미, hz-visualization).
    */
   readonly hzSpectral?: SpectralClass | null
+  /**
+   * 위성 최외곽 궤도 상한 (행성 중심 기준 반경) — 이웃 행성 궤도 침범 방지용. null이면 무제한.
+   * CurrentSystem이 인접 궤도 간격으로 산출한다.
+   */
+  readonly moonOrbitLimit?: number | null
 }
 
 /**
@@ -94,7 +104,12 @@ interface PlanetProps {
  * 비동기 수행되어 진입 히치가 없고, 도착 전에는 플레이스홀더 단색을 쓴다.
  * 조명은 항성 포인트라이트가 만드는 낮/밤 경계를 그대로 쓴다. 클릭하면 행성 패널이 열린다.
  */
-export function Planet({ planet, orbitOffset = 0, hzSpectral = null }: PlanetProps) {
+export function Planet({
+  planet,
+  orbitOffset = 0,
+  hzSpectral = null,
+  moonOrbitLimit = null,
+}: PlanetProps) {
   const groupRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
   const cloudsRef = useRef<Mesh>(null)
@@ -130,6 +145,13 @@ export function Planet({ planet, orbitOffset = 0, hzSpectral = null }: PlanetPro
 
   const initialPhase = orbitInitialPhase(planet)
   const visualRadius = PLANET_VISUAL_BASE + planet.radius * PLANET_VISUAL_SCALE
+
+  // 위성 외곽 스프레드 압축 계수 — 최외곽 위성이 이웃 궤도 상한을 넘으면 SPAN만 줄인다
+  // (MIN은 유지해 고리·본체 클리어 보존). 상한이 없거나 여유가 있으면 1(원본).
+  const moonSpanScale = useMemo(() => {
+    const maxOrbitFactor = moons.reduce((max, moon) => Math.max(max, moon.orbitFactor), 0)
+    return moonSpanScaleFor(visualRadius, maxOrbitFactor, moonOrbitLimit)
+  }, [moons, visualRadius, moonOrbitLimit])
   const spinSpeed = SPIN_BASE_SPEED + SPIN_SPEED_SPAN * fract(planet.paletteSeed * 0.0173)
   const spinDirection = planet.paletteSeed % 2 === 0 ? 1 : -1
 
@@ -203,7 +225,12 @@ export function Planet({ planet, orbitOffset = 0, hzSpectral = null }: PlanetPro
       {planet.hasLife ? <LifeSignalWaves planetRadius={visualRadius} /> : null}
 
       {moons.map((moon) => (
-        <Moon key={moon.index} moon={moon} planetVisualRadius={visualRadius} />
+        <Moon
+          key={moon.index}
+          moon={moon}
+          planetVisualRadius={visualRadius}
+          orbitSpanScale={moonSpanScale}
+        />
       ))}
     </group>
   )

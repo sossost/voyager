@@ -19,12 +19,13 @@ import { useGameStore } from "@/store";
  */
 
 /**
- * 우주선 정박 거리 ≈63유닛 — 항성계 전체(Neptune ≤29유닛)가 시야에 들어오는 거리.
+ * 우주선 정박 거리 ≈82유닛 — 항성계 전체(Neptune ≈53유닛, ORBIT_SCALE 8)가 시야에 들어오는
+ * 거리. 궤도 스케일 확대(가스 거성 위성계 침범 방지)에 맞춰 Neptune/거리 비를 보존한다.
  * 시선 고도(elevationDeg)에 따라 Y/Z 오프셋을 분해한다(거리 고정, 각도만 변경).
  */
-const SHIP_DISTANCE = 63.25;
-/** 기본 시선 고도(도) — 별을 살짝 내려다본다. 블랙홀계는 더 낮게(옆에서) 본다. */
-const DEFAULT_ELEVATION_DEG = 20;
+const SHIP_DISTANCE = 82;
+/** 기본 시선 고도(도) — 별을 내려다본다(항성계 궤도면이 더 펼쳐 보이게). 블랙홀계는 더 낮게(옆에서) 본다. */
+const DEFAULT_ELEVATION_DEG = 28;
 
 /** 드래그 감도 (rad/px) — 화면 가로 한 번 드래그 ≈ 반 바퀴. */
 const LOOK_SENSITIVITY = 0.0042;
