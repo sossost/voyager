@@ -4,7 +4,7 @@ import type { Group, PointLight } from 'three'
 import { PerspectiveCamera, Vector3 } from 'three'
 
 import type { StarKind } from '@/engine'
-import { hasHabitableZone, planetsOf, starById } from '@/engine'
+import { hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { BlackHole } from '@/scenes/system/BlackHole'
@@ -56,6 +56,13 @@ const AMBIENT_INTENSITY = 0.9
  */
 const PERSPECTIVE_SYSTEM_SCALE = 0.125
 const SHIP_SYSTEM_SCALE = 1.0
+
+/**
+ * 위성 궤도 상한 = 인접 행성까지 궤도 간격 × 이 비율. 인접한 두 행성이 각자 이 비율만큼
+ * 서로를 향해 뻗으므로, 두 위성계가 겹치지 않으려면 (비율×2 < 1) → 0.5 미만이어야 한다.
+ * 0.45로 두어 두 계 사이에 여유를 남긴다 (0.45+0.45=0.9 < 1).
+ */
+const MOON_NEIGHBOR_SAFE_FRACTION = 0.45
 
 /** 다중성계 최대 별 수 (주성 + 동반성 2) — ref·스크래치 슬롯 사전 할당. */
 const MAX_BODIES = 3
@@ -120,9 +127,30 @@ export function CurrentSystem() {
   useEffect(() => clearBlackHoleLens, [])
   // 별 군집을 벗어나도록 행성 궤도를 바깥으로 미는 양 (별/행성 관통 방지).
   const orbitOffset = useMemo(() => (star == null ? 0 : planetClearanceOffset(star)), [star])
-  // HZ 시각화 — 거주가능구역이 있는 별에만 온도 밴드·행성 글로우를 그린다. 무HZ 별(O/B·거성·
-  // 왜성·펄서)이면 null이라 밴드·글로우 둘 다 생략 (hasHabitableZone 단일 게이팅, hz-visualization).
-  const hzSpectral = star != null && hasHabitableZone(star) ? star.spectral : null
+  // 행성별 위성 궤도 상한 — 가장 가까운 이웃 행성까지 궤도 간격의 안전 비율. 위성이 이웃
+  // 궤도를 침범하지 않게 Planet이 이 값으로 외곽 스프레드를 압축한다 (렌더 전용).
+  const moonOrbitLimits = useMemo(() => {
+    const radii = planets.map((planet) => orbitRadiusOf(planet, orbitOffset))
+    return radii.map((radius, index) => {
+      let nearestGap = Infinity
+      radii.forEach((otherRadius, other) => {
+        if (other === index) return
+        nearestGap = Math.min(nearestGap, Math.abs(radius - otherRadius))
+      })
+      return Number.isFinite(nearestGap) ? nearestGap * MOON_NEIGHBOR_SAFE_FRACTION : null
+    })
+  }, [planets, orbitOffset])
+  // 온도 기반 표면 재질에 쓸 분광형 — 무HZ 별(O/B·거성·왜성·펄서)이면 null이라 온도 재질을
+  // 생략한다 (hasHabitableZone 단일 게이팅, hz-visualization).
+  //
+  // 태양계는 예외 — 8행성 색이 sol.ts paletteSeed로 authored된 유일한 계다. 절차적 온도 재질이
+  // 손으로 지정한 실제 색(화성 적·천왕성 청록·해왕성 파랑)을 덮으면 안 되므로 온도 경로를 우회한다
+  // (null → hzOrbit=null → paletteSeed 색 그대로). 온도 임계는 실제 AU 기준인데 태양계 궤도는 게임
+  // 스케일로 압축돼(sol.ts) 스케일이 어긋나고, Sudarsky 5클래스엔 얼음 거성 클래스가 없어 온도 모델로는
+  // 천왕성·해왕성의 청록/파랑 재현 자체가 불가능하다. 렌더 전용 — GEN_VERSION 무관.
+  const isSolarSystem = starId === SOL_STAR_ID
+  const hzSpectral =
+    star != null && !isSolarSystem && hasHabitableZone(star) ? star.spectral : null
 
   // 별 N개의 시각 속성 — 주성 반경은 단일성과 동일(STAR_VISUAL_RADIUS)하게 유지해
   // 기존 단일 항성 렌더가 한 픽셀도 바뀌지 않게 한다. 동반성만 질량비로 스케일.
@@ -306,10 +334,15 @@ export function CurrentSystem() {
 
         {showPlanets ? (
           <group ref={planetCenterRef}>
-            {planets.map((planet) => (
+            {planets.map((planet, index) => (
               <group key={planet.id}>
                 <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
-                <Planet planet={planet} orbitOffset={orbitOffset} hzSpectral={hzSpectral} />
+                <Planet
+                  planet={planet}
+                  orbitOffset={orbitOffset}
+                  hzSpectral={hzSpectral}
+                  moonOrbitLimit={moonOrbitLimits[index]}
+                />
               </group>
             ))}
           </group>
