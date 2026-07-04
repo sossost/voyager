@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from 'react'
 import type { Vector3 } from 'three'
 
-import { planetById, starById } from '@/engine'
+import { planetById, planetsOf, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { CalloutProjector } from '@/scenes/shared/CalloutProjector'
+import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
 import { planetClearanceOffset } from '@/scenes/system/multiplicity'
 import { planetOrbitPosition } from '@/scenes/system/Planet'
 import { useGameStore } from '@/store'
@@ -41,16 +42,33 @@ export function PlanetCalloutProjector() {
     return star == null ? 0 : planetClearanceOffset(star)
   }, [seed, currentStarId])
 
+  // 다중성계 중력 모드면 CurrentSystem이 게시한 적분 위치를 읽어야 콜아웃이 정확히 따라간다
+  // (상태화된 적분은 closed-form 재계산 불가). 선택 행성의 궤도 인덱스를 미리 찾아둔다 (없으면 null).
+  const gravityOrbitIndex = useMemo<number | null>(() => {
+    if (selectedPlanetId == null) return null
+    const index = planetsOf(seed, currentStarId).findIndex((p) => p.id === selectedPlanetId)
+    return index >= 0 ? index : null
+  }, [seed, currentStarId, selectedPlanetId])
+
   const computeWorldPosition = useCallback(
     (out: Vector3, elapsedSeconds: number) => {
       if (planet == null) return false
-      planetOrbitPosition(planet, elapsedSeconds, out, orbitOffset)
+      const useGravity =
+        currentPlanetOrbits.active &&
+        currentPlanetOrbits.starId === currentStarId &&
+        gravityOrbitIndex != null &&
+        gravityOrbitIndex < currentPlanetOrbits.count
+      if (useGravity) {
+        out.copy(currentPlanetOrbits.localPositions[gravityOrbitIndex] as Vector3)
+      } else {
+        planetOrbitPosition(planet, elapsedSeconds, out, orbitOffset)
+      }
       out.x += starOffset[0]
       out.y += starOffset[1]
       out.z += starOffset[2]
       return true
     },
-    [planet, starOffset, orbitOffset],
+    [planet, starOffset, orbitOffset, gravityOrbitIndex, currentStarId],
   )
 
   return (

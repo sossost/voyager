@@ -11,6 +11,7 @@ import { AtmosphereLimb } from '@/scenes/system/AtmosphereLimb'
 import { deriveAtmosphere } from '@/scenes/system/atmosphere'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
+import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
 import { Moon, moonSpanScaleFor } from '@/scenes/system/Moon'
 import { PlanetRings } from '@/scenes/system/PlanetRings'
 import {
@@ -56,7 +57,7 @@ export function orbitRadiusOf(planet: PlanetData, orbitOffset = 0): number {
 }
 
 /** 궤도 시작 위상 — paletteSeed 파생 결정론 (자전 위상과도 공유). */
-function orbitInitialPhase(planet: PlanetData): number {
+export function orbitInitialPhase(planet: PlanetData): number {
   return ((planet.paletteSeed % 360) / 360) * FULL_TURN
 }
 
@@ -96,6 +97,12 @@ interface PlanetProps {
    * CurrentSystem이 인접 궤도 간격으로 산출한다.
    */
   readonly moonOrbitLimit?: number | null
+  /**
+   * 다중성계 중력 모드에서 이 행성의 궤도 인덱스 — CurrentSystem이 게시한 적분 위치
+   * (currentPlanetOrbits.localPositions[index])를 읽는다. null이면 단일성계라 closed-form
+   * planetOrbitPosition 자가구동 (multi-star-gravity N-1).
+   */
+  readonly gravityOrbitIndex?: number | null
 }
 
 /**
@@ -109,6 +116,7 @@ export function Planet({
   orbitOffset = 0,
   hzSpectral = null,
   moonOrbitLimit = null,
+  gravityOrbitIndex = null,
 }: PlanetProps) {
   const groupRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
@@ -159,7 +167,17 @@ export function Planet({
     const group = groupRef.current
     if (group == null) return
     const elapsed = state.clock.elapsedTime
-    planetOrbitPosition(planet, elapsed, group.position, orbitOffset)
+    // 다중성계 중력 모드: CurrentSystem이 적분해 게시한 위치를 읽는다. 미준비(첫 프레임)거나
+    // 단일성계면 closed-form으로 폴백 — 시드가 궤도 위이므로 전환 seam이 없다.
+    const useGravity =
+      gravityOrbitIndex != null &&
+      currentPlanetOrbits.active &&
+      gravityOrbitIndex < currentPlanetOrbits.count
+    if (useGravity) {
+      group.position.copy(currentPlanetOrbits.localPositions[gravityOrbitIndex] as Vector3)
+    } else {
+      planetOrbitPosition(planet, elapsed, group.position, orbitOffset)
+    }
 
     const spin = initialPhase + elapsed * spinSpeed * spinDirection
     if (surfaceRef.current != null) surfaceRef.current.rotation.y = spin
