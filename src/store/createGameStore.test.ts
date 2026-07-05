@@ -306,6 +306,22 @@ describe('selectPlanet / setQuality', () => {
   })
 })
 
+describe('시뮬레이션 배속 (setTimeScale)', () => {
+  it('기본 배속은 1이다', () => {
+    expect(store.getState().timeScale).toBe(1)
+  })
+
+  it('setTimeScale은 배속을 바꾼다', () => {
+    store.getState().setTimeScale(16)
+    expect(store.getState().timeScale).toBe(16)
+  })
+
+  it('0(일시정지)을 설정할 수 있다', () => {
+    store.getState().setTimeScale(0)
+    expect(store.getState().timeScale).toBe(0)
+  })
+})
+
 describe('영속화 실패 처리', () => {
   it('재시도 소진 후 토스트로 알리고 게임은 계속된다', async () => {
     vi.useFakeTimers()

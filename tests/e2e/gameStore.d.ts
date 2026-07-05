@@ -9,10 +9,12 @@ interface DevGameStore {
     collectedIndividuals: ReadonlySet<string>
     scannedStars: ReadonlySet<string>
     storageMode: 'persistent' | 'memory'
+    timeScale: 0 | 1 | 2 | 4 | 8 | 16
     selectPlanet(planetId: string | null): void
     selectStar(starId: string | null): void
     warpTo(target: string): void
     scanSurroundings(): void
+    setTimeScale(scale: 0 | 1 | 2 | 4 | 8 | 16): void
   }
 }
 

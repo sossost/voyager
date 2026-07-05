@@ -367,9 +367,14 @@ export function createGameStore(options: CreateGameStoreOptions) {
     // ── settingsSlice ───────────────────────────────────────
     qualityTier: options.initialQualityTier ?? ('high' satisfies QualityTier),
     qualityMode: 'auto' satisfies QualityMode,
+    timeScale: 1,
 
     setQuality(tier, mode) {
       set({ qualityTier: tier, qualityMode: mode })
+    },
+
+    setTimeScale(scale) {
+      set({ timeScale: scale })
     },
     }
   })

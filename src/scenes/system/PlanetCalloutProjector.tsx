@@ -7,6 +7,7 @@ import { CalloutProjector } from '@/scenes/shared/CalloutProjector'
 import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
 import { planetClearanceOffset } from '@/scenes/system/multiplicity'
 import { planetOrbitPosition } from '@/scenes/system/Planet'
+import { simClock } from '@/scenes/system/simClock'
 import { useGameStore } from '@/store'
 
 /**
@@ -51,7 +52,7 @@ export function PlanetCalloutProjector() {
   }, [seed, currentStarId, selectedPlanetId])
 
   const computeWorldPosition = useCallback(
-    (out: Vector3, elapsedSeconds: number) => {
+    (out: Vector3) => {
       if (planet == null) return false
       const useGravity =
         currentPlanetOrbits.active &&
@@ -61,7 +62,8 @@ export function PlanetCalloutProjector() {
       if (useGravity) {
         out.copy(currentPlanetOrbits.localPositions[gravityOrbitIndex] as Vector3)
       } else {
-        planetOrbitPosition(planet, elapsedSeconds, out, orbitOffset)
+        // 렌더(Planet)와 같은 배속 시계로 궤도 위치를 재계산해야 콜아웃이 행성에서 안 떨어진다.
+        planetOrbitPosition(planet, simClock.now, out, orbitOffset)
       }
       out.x += starOffset[0]
       out.y += starOffset[1]

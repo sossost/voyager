@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useGameStore } from '@/store'
 import { QualitySelect } from '@/ui/hud/QualitySelect'
+import { SpeedSelect } from '@/ui/hud/SpeedSelect'
 import { UniverseResetDialog } from '@/ui/hud/UniverseResetDialog'
 
 /**
@@ -82,6 +83,7 @@ function SystemFob({ canResetUniverse, onRequestReset }: SystemFobProps) {
       </button>
       {isOpen ? (
         <div id="system-fob-popover" className="system-fob-popover">
+          <SpeedSelect />
           <QualitySelect />
           {canResetUniverse ? (
             <button

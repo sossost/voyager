@@ -36,6 +36,12 @@ export type StorageMode = 'persistent' | 'memory'
 export type QualityTier = 'high' | 'medium' | 'low'
 export type QualityMode = 'auto' | 'manual'
 
+/**
+ * 시뮬레이션 배속 — 궤도 운동의 시간 배율 (simulation-speed). 0=일시정지(궤도 정지, 카메라는 계속).
+ * 표면 셰이더·마커 펄스 같은 앰비언트 애니메이션은 배속과 무관하게 실시간을 유지한다.
+ */
+export type TimeScale = 0 | 1 | 2 | 4 | 8 | 16
+
 export interface SceneSlice {
   readonly scene: SceneState
   readonly selectedStarId: StarId | null
@@ -108,7 +114,10 @@ export interface UiSlice {
 export interface SettingsSlice {
   readonly qualityTier: QualityTier
   readonly qualityMode: QualityMode
+  /** 궤도 운동 배속 (simulation-speed) — 렌더 파생 표시 상태이므로 영속화하지 않는다. */
+  readonly timeScale: TimeScale
   setQuality(tier: QualityTier, mode: QualityMode): void
+  setTimeScale(scale: TimeScale): void
 }
 
 export interface GameStore extends SceneSlice, PlayerSlice, UiSlice, SettingsSlice {
