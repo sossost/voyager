@@ -25,7 +25,7 @@ import { systemFadeOpacity } from '@/scenes/system/starCrossfade'
  * 시각 연출 전용이라 초월함수·three 사용 가능 (OrbitRing과 동일 규율). GEN_VERSION 무관.
  */
 
-const TRAIL_BASE_OPACITY = 0.75
+const TRAIL_BASE_OPACITY = 0.45
 /** head(최신)=밝음 → tail(과거)=배경색으로 페이드 (혜성 꼬리). */
 const HEAD_COLOR = new Color('#8899d0')
 const TAIL_COLOR = new Color('#0a0b12')

@@ -19,9 +19,10 @@ export const MAX_PLANETS = 8
 export const TRAIL_POINTS = 256
 /**
  * 트레일이 덮는 공전 바퀴 수 — 점 간격을 각 행성의 공전주기에 비례시켜, 궤도가 클수록(느릴수록)
- * 트레일이 시간상 자동으로 길어진다. 1바퀴면 세차로 head가 tail에 못 미쳐 로제트 드리프트가 보인다.
+ * 트레일이 시간상 자동으로 길어진다. 궤도가 안 닫혀(움직이는 별 = 세차) 1바퀴면 자기 자신과 겹쳐
+ * 난잡하므로, 1바퀴보다 짧은 부분 호(혜성 꼬리)로 둬 겹침 없이 깔끔하게 만든다.
  */
-export const TRAIL_ORBITS = 1
+export const TRAIL_ORBITS = 0.6
 /** 프레임 delta 상한(초) — 탭 복귀 등 큰 시간 점프를 흡수해 적분·트레일이 얼거나 폭주하지 않게. */
 export const MAX_FRAME_DT = 0.1
 
