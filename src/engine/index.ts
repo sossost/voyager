@@ -37,6 +37,8 @@ export {
 } from './system/planets'
 export type { Moon } from './system/moons'
 export { moonsOf } from './system/moons'
+export type { Belt, BeltKind } from './system/belts'
+export { beltsOf } from './system/belts'
 export { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './system/sol'
 
 export type { Rarity } from './alien/rarity'

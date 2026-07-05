@@ -4,8 +4,9 @@ import type { Group, PointLight } from 'three'
 import { PerspectiveCamera, Vector3 } from 'three'
 
 import type { Star, StarKind } from '@/engine'
-import { hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
+import { beltsOf, hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
+import { AsteroidBelt } from '@/scenes/system/AsteroidBelt'
 import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { BlackHole } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
@@ -166,6 +167,8 @@ export function CurrentSystem() {
 
   const star = useMemo(() => starById(seed, starId), [seed, starId])
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
+  // 소행성대 — 궤도 갭(암석대)·최외곽 행성 바깥(카이퍼대). 행성과 같은 중심(궤도 그룹) 기준.
+  const belts = useMemo(() => beltsOf(seed, starId), [seed, starId])
   // 블랙홀은 행성을 숨긴다 — 강착원반이 내행성 궤도와 겹치고 천문학적으로도 이례적이다
   // (펄서·왜성·거성은 행성 유지). planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
   const showPlanets = scene.kind === 'galaxy' && star?.kind !== 'black_hole'
@@ -510,6 +513,9 @@ export function CurrentSystem() {
 
         {showPlanets ? (
           <group ref={planetCenterRef}>
+            {belts.map((belt) => (
+              <AsteroidBelt key={belt.index} belt={belt} orbitOffset={orbitOffset} />
+            ))}
             {planets.map((planet, index) => (
               <group key={planet.id}>
                 {/* 다중성계는 실제 적분 궤적 트레일, 단일성계는 정확한 케플러 원(OrbitRing). */}

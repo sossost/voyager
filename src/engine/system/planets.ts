@@ -26,6 +26,12 @@ export interface Planet {
   readonly isHomeWorld?: boolean
   /** 행성 적도 고리 — Sol 토성 전용 시각 효과. */
   readonly hasRings?: boolean
+  /**
+   * 실제 천문 궤도 반경 (AU) — 표시 전용. Sol은 궤도를 게임 스케일(0.4~6.0)로 압축하므로
+   * (sol.ts), UI엔 이 실제값을 보여준다. 절차 생성 행성은 orbitAu 자체가 실제 AU 근사라
+   * undefined(= orbitAu로 표시). 생성·저장·렌더 배치에는 관여하지 않는다.
+   */
+  readonly realAu?: number
 }
 
 const MAX_PLANETS_PER_SYSTEM = 8

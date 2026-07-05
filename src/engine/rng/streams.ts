@@ -16,7 +16,15 @@ export interface Rng {
   weighted<T>(entries: readonly WeightedEntry<T>[]): T
 }
 
-export type RngNamespace = 'sector' | 'star' | 'planets' | 'planet' | 'alien' | 'name' | 'moon'
+export type RngNamespace =
+  | 'sector'
+  | 'star'
+  | 'planets'
+  | 'planet'
+  | 'alien'
+  | 'name'
+  | 'moon'
+  | 'belt'
 
 /** 키 조각 경계 충돌("a"+"bc" ≡ "ab"+"c") 방지용 구분자. */
 const KEY_SEPARATOR = '\u001f'

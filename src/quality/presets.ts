@@ -26,6 +26,11 @@ export interface QualityPreset {
   readonly blackHoleSteps: number
   /** 블랙홀 렌즈 2x2 슈퍼샘플링(자글거림 제거) — 비용 4배라 high만. */
   readonly blackHoleSupersample: boolean
+  /**
+   * 소행성대 최대 인스턴스 수 (가장 조밀한 벨트 기준). InstancedMesh 단일 드로우콜이라
+   * 정점 수만 티어로 통제한다 — 카이퍼대는 이 값의 일부만 쓴다(고증상 성김). 렌더 전용.
+   */
+  readonly asteroidBeltCount: number
 }
 
 export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
@@ -37,6 +42,7 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     bloom: true,
     blackHoleSteps: 140,
     blackHoleSupersample: true,
+    asteroidBeltCount: 1100,
   },
   medium: {
     dprMax: 1.5,
@@ -46,6 +52,7 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     bloom: false,
     blackHoleSteps: 80,
     blackHoleSupersample: false,
+    asteroidBeltCount: 650,
   },
   low: {
     dprMax: 1,
@@ -57,5 +64,6 @@ export const QUALITY_PRESETS: Readonly<Record<QualityTier, QualityPreset>> = {
     // 스텝 차는 미미하고, 형태 보존이 우선. (high만 SS로 차별화.)
     blackHoleSteps: 80,
     blackHoleSupersample: false,
+    asteroidBeltCount: 300,
   },
 }
