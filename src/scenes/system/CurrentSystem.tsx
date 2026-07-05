@@ -3,24 +3,45 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { Group, PointLight } from 'three'
 import { PerspectiveCamera, Vector3 } from 'three'
 
-import type { StarKind } from '@/engine'
+import type { Star, StarKind } from '@/engine'
 import { hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { BlackHole } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
+import {
+  clearCurrentPlanetOrbits,
+  currentPlanetOrbits,
+  MAX_FRAME_DT,
+  MAX_PLANETS,
+  TRAIL_ORBITS,
+  TRAIL_POINTS,
+} from '@/scenes/system/currentPlanetOrbits'
 import { kindRadiusFactor, kindSurface } from '@/scenes/system/exotic'
 import {
   bodyLightFactor,
   bodyPositions,
   bodyVisualRadius,
   isCircumbinary,
+  massOf,
   planetClearanceOffset,
   STAR_VISUAL_RADIUS,
+  stellarClearanceRadius,
 } from '@/scenes/system/multiplicity'
+import {
+  type Attractor,
+  createOrbitState,
+  G_RENDER,
+  MAX_SUBSTEPS_PER_FRAME,
+  type PlanetOrbitState,
+  seedCircularOrbit,
+  SIM_DT,
+  stepOrbit,
+} from '@/scenes/system/orbitIntegrator'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
-import { orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import { OrbitTrail } from '@/scenes/system/OrbitTrail'
+import { auToOrbitRadius, orbitInitialPhase, orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { Pulsar } from '@/scenes/system/Pulsar'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
@@ -66,6 +87,23 @@ const MOON_NEIGHBOR_SAFE_FRACTION = 0.45
 
 /** 다중성계 최대 별 수 (주성 + 동반성 2) — ref·스크래치 슬롯 사전 할당. */
 const MAX_BODIES = 3
+/**
+ * 다중성계 중력 모드에서 최내곽 행성이 성단 반경의 이 배수 밖을 돌게 한다 — circumbinary
+ * P-type 안정 궤도(Holman-Wiegert 근사). 이 아래는 이심률 펌핑 지대라 궤도가 다이브·별 관통한다.
+ */
+const SAFE_ORBIT_FACTOR = 2
+/** 하드 플로어 = 성단 반경 + 별 반경 + 이 여유 — 병리적 섭동에도 관통 막는 안전망 마진. */
+const PLANET_FLOOR_MARGIN = 2
+
+/**
+ * 트레일 점 간격(초) — 원궤도 주기 T=2π√(R³/gm)의 TRAIL_ORBITS바퀴를 TRAIL_POINTS점에 분배한다.
+ * 궤도가 클수록 주기가 길어 간격이 커지므로 트레일이 시간상 자동으로 길어진다(궤도 크기 비례).
+ */
+function orbitTrailSampleDt(radius: number, gm: number): number {
+  if (radius <= 0 || gm <= 0) return SIM_DT * 4
+  const period = (2 * Math.PI * Math.pow(radius, 1.5)) / Math.sqrt(gm)
+  return (TRAIL_ORBITS * period) / TRAIL_POINTS
+}
 
 interface BodyVisual {
   readonly key: string
@@ -108,7 +146,23 @@ export function CurrentSystem() {
     () => Array.from({ length: MAX_BODIES }, () => new Vector3()),
     [],
   )
+  // 적분 substep 전용 별 위치 버퍼 — 렌더 프레임 버퍼(bodyScratch)와 분리해, 적분 루프가
+  // substep 시각(simTime)의 별 위치로 덮어써도 렌더/게시 좌표가 오염되지 않게 한다.
+  const simBodyScratch = useMemo(
+    () => Array.from({ length: MAX_BODIES }, () => new Vector3()),
+    [],
+  )
   const systemScaleRef = useRef(SHIP_SYSTEM_SCALE)
+  // 다중성계 행성 중력 적분 상태 — 슬롯 사전 할당(useFrame 무할당). simTime은 로컬 적분 시계,
+  // seededStar는 재시드 트리거(별 변경·재진입 시 초기조건 리셋).
+  const planetStatesRef = useRef(Array.from({ length: MAX_PLANETS }, createOrbitState))
+  const simTimeRef = useRef(0)
+  const seededStarRef = useRef<string | null>(null)
+  // 로컬 적분 시계 — clamp된 프레임 delta로만 전진. state.clock.elapsedTime은 탭 복귀 시 점프/리셋돼
+  // 캐치업이 얼 수 있어(움직임 멈춤), 단조 증가하는 자체 시계로 별 위치·행성 적분을 함께 구동한다.
+  const simClockRef = useRef(0)
+  // 트레일 역적분 프리롤 전용 임시 상태 (라이브 상태를 건드리지 않고 과거 경로만 계산).
+  const trailScratchRef = useRef(createOrbitState())
 
   const star = useMemo(() => starById(seed, starId), [seed, starId])
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
@@ -123,10 +177,43 @@ export function CurrentSystem() {
 
   // 별 본체가 안 보이는 동안(언마운트·워프) 레지스트리를 비운다 — stale 좌표 방지.
   useEffect(() => clearCurrentBodies, [])
+  // 언마운트 시 행성 중력 게시본 비활성 — 소비자가 stale 적분 좌표를 읽지 않게.
+  useEffect(() => clearCurrentPlanetOrbits, [])
   // 언마운트 시 중력렌즈 비활성 (stale 활성 방지).
   useEffect(() => clearBlackHoleLens, [])
-  // 별 군집을 벗어나도록 행성 궤도를 바깥으로 미는 양 (별/행성 관통 방지).
-  const orbitOffset = useMemo(() => (star == null ? 0 : planetClearanceOffset(star)), [star])
+  // 다중성계 중력 모드 — 별이 2개 이상일 때만 행성을 실제 중력으로 적분한다(단일성은 케플러 유지,
+  // multi-star-gravity N-1). 블랙홀계는 showPlanets가 false라 자동 제외.
+  const isGravityMode = star != null && showPlanets && star.multiplicity !== 'single'
+  // 행성 궤도를 별 군집 밖으로 미는 양 (별/행성 관통 방지). 단일성계는 planetClearanceOffset 그대로.
+  // 중력 모드는 최내곽 행성을 성단 반경의 SAFE_ORBIT_FACTOR배 밖으로 추가로 민다 — 이심률 펌핑·
+  // 별 관통을 막는 P-type 안정 궤도. 행성 간 간격은 균일 오프셋이라 보존된다.
+  const orbitOffset = useMemo(() => {
+    if (star == null) return 0
+    const base = planetClearanceOffset(star)
+    if (!isGravityMode || planets.length === 0) return base
+    const innermostAu = planets.reduce((min, planet) => Math.min(min, planet.orbitAu), Infinity)
+    const requiredInner = SAFE_ORBIT_FACTOR * stellarClearanceRadius(star)
+    const currentInner = auToOrbitRadius(innermostAu, base)
+    return base + Math.max(0, requiredInner - currentInner)
+  }, [star, isGravityMode, planets])
+  // 중력원(별) — position은 simBodyScratch 슬롯을 가리키는 *라이브 별칭*이다. 적분 루프가 매
+  // substep bodyPositions로 simBodyScratch를 갱신하면 attractor 위치가 자동으로 따라온다
+  // (좌표를 복사해 캐시하면 안 됨 — 이 별칭 계약이 fps 독립 적분의 핵심).
+  const gravityAttractors = useMemo<readonly Attractor[]>(() => {
+    if (star == null) return []
+    const masses = [massOf(star.spectral), ...star.companions.map((c) => massOf(c.spectral))]
+    return masses.map((mass, index) => ({ position: simBodyScratch[index] as Vector3, mass }))
+  }, [star, simBodyScratch])
+  // gm = G_RENDER × 총 항성 질량 — 원궤도 시드 속도 √(gm/R) 산출용.
+  const totalGm = useMemo(
+    () => G_RENDER * gravityAttractors.reduce((sum, attractor) => sum + attractor.mass, 0),
+    [gravityAttractors],
+  )
+  // 행성별 트레일 점 간격(초) — 프리롤·OrbitTrail 공용. 궤도 반경(=주기)에 비례해 길이 스케일.
+  const trailSampleDts = useMemo(
+    () => planets.map((planet) => orbitTrailSampleDt(orbitRadiusOf(planet, orbitOffset), totalGm)),
+    [planets, orbitOffset, totalGm],
+  )
   // 행성별 위성 궤도 상한 — 가장 가까운 이웃 행성까지 궤도 간격의 안전 비율. 위성이 이웃
   // 궤도를 침범하지 않게 Planet이 이 값으로 외곽 스프레드를 압축한다 (렌더 전용).
   const moonOrbitLimits = useMemo(() => {
@@ -192,9 +279,43 @@ export function CurrentSystem() {
     return [primary, ...companions]
   }, [star])
 
+  // 트레일 프리롤 — 시드 상태에서 -SIM_DT로 역적분해 과거 경로를 currentPlanetOrbits.trails[slot]에
+  // 채운다. head(index0)=시드 위치, 이후 슬롯일수록 과거. attractor는 각 과거 시각의 별 위치를
+  // simBodyScratch에 샘플한다(라이브 적분과 동일 시계). 라이브 상태는 건드리지 않는다(temp 사용).
+  const fillBackwardTrail = (
+    slot: number,
+    seedState: PlanetOrbitState,
+    temp: PlanetOrbitState,
+    star: Star,
+    entryTime: number,
+    sampleDt: number,
+  ): void => {
+    temp.pos.copy(seedState.pos)
+    temp.vel.copy(seedState.vel)
+    temp.home = seedState.home
+    temp.floor = seedState.floor
+    const trail = currentPlanetOrbits.trails[slot] as Float32Array
+    trail[0] = temp.pos.x
+    trail[1] = temp.pos.y
+    trail[2] = temp.pos.z
+    // 점당 1 coarse 스텝(dt=sampleDt)으로 역적분 — 심플렉틱이라 이 해상도에서도 궤도가 안정적이고,
+    // 진입 스텝 수가 궤도 주기와 무관하게 TRAIL_POINTS로 고정돼 히치가 없다. 라이브 간격과 동일.
+    const dt = sampleDt > 0 ? sampleDt : SIM_DT * 4
+    for (let i = 1; i < TRAIL_POINTS; i++) {
+      bodyPositions(star, entryTime - i * dt, simBodyScratch)
+      stepOrbit(temp, gravityAttractors, -dt)
+      trail[i * 3] = temp.pos.x
+      trail[i * 3 + 1] = temp.pos.y
+      trail[i * 3 + 2] = temp.pos.z
+    }
+  }
+
   useFrame((state, delta) => {
     const group = systemGroupRef.current
     if (group == null) return
+
+    // 로컬 적분 시계 — clamp된 delta로만 전진(탭 복귀 점프/리셋 흡수). 별 위치·행성 적분을 함께 구동.
+    const simNow = (simClockRef.current += Math.min(delta, MAX_FRAME_DT))
 
     // LOD — 임계 거리 초과 시 그룹 전체 비가시화 (백로그 H-3).
     const dist = state.camera.position.distanceTo(
@@ -211,7 +332,7 @@ export function CurrentSystem() {
     // 별 위치 — 질량중심 공전 (원점 = inner barycenter). 단일성은 주성이 원점 고정.
     if (star != null && !isWarping) {
       const scale = systemScaleRef.current
-      const bodyCount = bodyPositions(star, state.clock.elapsedTime, bodyScratch)
+      const bodyCount = bodyPositions(star, simNow, bodyScratch)
       for (let i = 0; i < bodyCount; i++) {
         const local = bodyScratch[i] as Vector3
         bodyGroupRefs.current[i]?.position.copy(local)
@@ -233,6 +354,61 @@ export function CurrentSystem() {
       }
     } else if (isWarping) {
       clearCurrentBodies()
+    }
+
+    // 다중성계 행성 중력 적분 — 움직이는 별들의 실제 중력을 고정 타임스텝으로 적분해 게시한다
+    // (multi-star-gravity N-1). 단일성계는 진입하지 않아 기존 케플러 경로가 픽셀 불변.
+    if (isGravityMode && star != null && !isWarping) {
+      const states = planetStatesRef.current
+      const planetCount = Math.min(planets.length, MAX_PLANETS)
+      // 진입·별 변경 시 재시드 — 각 행성을 궤도 반경 위 원궤도 초기조건으로.
+      if (seededStarRef.current !== starId) {
+        const trailScratch = trailScratchRef.current
+        // 하드 플로어 — 성단 밖. 시드 반경이 이미 이보다 크지만, 병리적 섭동 시 관통 전에 클램프.
+        const orbitFloor = stellarClearanceRadius(star) + STAR_VISUAL_RADIUS + PLANET_FLOOR_MARGIN
+        for (let i = 0; i < planetCount; i++) {
+          const planet = planets[i]
+          if (planet == null) continue
+          const seedState = states[i] as PlanetOrbitState
+          seedCircularOrbit(
+            seedState,
+            orbitRadiusOf(planet, orbitOffset),
+            orbitInitialPhase(planet),
+            totalGm,
+            orbitFloor,
+          )
+          // 트레일 프리롤 — 시드 상태에서 시간을 거꾸로(-SIM_DT) 적분해 '과거 경로'를 채운다.
+          // velocity-Verlet은 시간 가역이라 실제 지나왔을 궤적이 나온다(빈 트레일 시작 방지).
+          fillBackwardTrail(i, seedState, trailScratch, star, simNow, trailSampleDts[i] ?? SIM_DT * 4)
+        }
+        currentPlanetOrbits.trailGeneration++
+        simTimeRef.current = simNow
+        seededStarRef.current = starId
+      }
+      // 고정 타임스텝 캐치업 — 총 스텝 수 = (simNow − 시드시각)/SIM_DT라 프레임레이트와 무관하다.
+      // attractor는 각 substep 시각의 별 위치를 simBodyScratch(렌더 버퍼와 분리)에 샘플한다.
+      let steps = 0
+      while (simTimeRef.current < simNow && steps < MAX_SUBSTEPS_PER_FRAME) {
+        bodyPositions(star, simTimeRef.current, simBodyScratch)
+        for (let i = 0; i < planetCount; i++) {
+          stepOrbit(states[i] as PlanetOrbitState, gravityAttractors, SIM_DT)
+        }
+        simTimeRef.current += SIM_DT
+        steps++
+      }
+      // 장시간 히치는 스냅 — death spiral 방지(1프레임 desync 허용, 앰비언트라 무감지).
+      if (simTimeRef.current < simNow - SIM_DT) simTimeRef.current = simNow
+      // 게시 — Planet 렌더·PlanetCalloutProjector가 읽는 단일 소스(로컬=질량중심 상대).
+      currentPlanetOrbits.starId = starId
+      currentPlanetOrbits.active = true
+      currentPlanetOrbits.count = planetCount
+      for (let i = 0; i < planetCount; i++) {
+        ;(currentPlanetOrbits.localPositions[i] as Vector3).copy((states[i] as PlanetOrbitState).pos)
+      }
+    } else {
+      clearCurrentPlanetOrbits()
+      seededStarRef.current = null
+      simTimeRef.current = 0
     }
 
     // 광원: 별마다 강도 보간 — 퍼스펙티브 스케일 보정 × 질량 광도 계수.
@@ -336,12 +512,18 @@ export function CurrentSystem() {
           <group ref={planetCenterRef}>
             {planets.map((planet, index) => (
               <group key={planet.id}>
-                <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
+                {/* 다중성계는 실제 적분 궤적 트레일, 단일성계는 정확한 케플러 원(OrbitRing). */}
+                {isGravityMode ? (
+                  <OrbitTrail orbitIndex={index} sampleDt={trailSampleDts[index] ?? 0} />
+                ) : (
+                  <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
+                )}
                 <Planet
                   planet={planet}
                   orbitOffset={orbitOffset}
                   hzSpectral={hzSpectral}
                   moonOrbitLimit={moonOrbitLimits[index]}
+                  gravityOrbitIndex={isGravityMode ? index : null}
                 />
               </group>
             ))}
@@ -349,6 +531,9 @@ export function CurrentSystem() {
         ) : null}
       </group>
 
+      {/* Planet 렌더·콜아웃 모두 CurrentSystem의 자식이라 currentPlanetOrbits를 동일하게 읽는다.
+          발행(CurrentSystem useFrame)과 소비 사이 최대 1프레임 지연이 있으나 둘이 같은 값을 읽어
+          상호 동기가 유지되고, circumbinary 대반경 저속 궤도라 절대 지연도 무감지다. */}
       {showPlanets ? <PlanetCalloutProjector /> : null}
     </>
   )
