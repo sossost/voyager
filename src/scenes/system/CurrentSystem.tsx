@@ -36,6 +36,7 @@ import {
   stepOrbit,
 } from '@/scenes/system/orbitIntegrator'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
+import { OrbitTrail } from '@/scenes/system/OrbitTrail'
 import { orbitInitialPhase, orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { Pulsar } from '@/scenes/system/Pulsar'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
@@ -428,7 +429,12 @@ export function CurrentSystem() {
           <group ref={planetCenterRef}>
             {planets.map((planet, index) => (
               <group key={planet.id}>
-                <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
+                {/* 다중성계는 실제 적분 궤적 트레일, 단일성계는 정확한 케플러 원(OrbitRing). */}
+                {isGravityMode ? (
+                  <OrbitTrail orbitIndex={index} />
+                ) : (
+                  <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
+                )}
                 <Planet
                   planet={planet}
                   orbitOffset={orbitOffset}
