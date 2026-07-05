@@ -8,6 +8,11 @@ const PLANET_KIND_LABELS = {
   gas: '가스형',
 } as const
 
+/** 궤도 거리 표기 — 먼 외행성은 소수 1자리, 내행성은 2자리로 실제값 정밀도를 살린다. */
+function formatAu(au: number): string {
+  return au >= 10 ? au.toFixed(1) : au.toFixed(2)
+}
+
 export function PlanetPanel() {
   const seed = useGameStore((state) => state.seed)
   // 행성은 우주선 뷰에서만 보인다 — 항성계가 우주선 뷰에 통합됨 (결정 41)
@@ -54,7 +59,9 @@ export function PlanetPanel() {
           </div>
           <div className="hud-fact">
             <dt>궤도</dt>
-            <dd>{planet.orbitAu.toFixed(1)} AU</dd>
+            {/* Sol은 궤도가 게임 스케일로 압축돼 있어 실제 천문값(realAu)을 보여준다.
+                절차 생성 행성은 orbitAu가 곧 실제 AU 근사라 그대로 표시. */}
+            <dd>{formatAu(planet.realAu ?? planet.orbitAu)} AU</dd>
           </div>
           <div className="hud-fact">
             <dt>생명체 신호</dt>

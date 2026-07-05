@@ -1,5 +1,6 @@
 import { makeStarId, makePlanetId } from '../coords'
 import type { PlanetId, StarId } from '../coords'
+import type { Belt } from './belts'
 import type { Moon } from './moons'
 import type { Planet } from './planets'
 
@@ -20,6 +21,9 @@ export const SOL_LOCAL_POS = [50, 0, 50] as const
  * 외행성이 멀리 흩어지는 패턴이 드러나도록. 가스행성 반경도 실제 비(목>토≫천≈해)를
  * 반영해 목성을 최대(5.0)로 둔다. append-only 규칙 적용: 새 필드는 항상 마지막에 추가.
  *
+ * realAu는 실제 천문 궤도 반경 — 렌더 배치는 압축 orbitAu를 쓰되 UI엔 이 실제값을 보여준다
+ * (PlanetPanel). 절차 생성 행성은 orbitAu가 곧 실제값이라 이 필드가 없다.
+ *
  * paletteSeed 선택 기준: seed % 360 = 목표 색조(hue).
  *   수성(25: 회갈색), 금성(42: 황토색), 지구(100: 녹지), 화성(12: 붉은빛),
  *   목성(28: 주황갈색), 토성(48: 황금색), 천왕성(195: 청록), 해왕성(220: 짙은 파랑).
@@ -35,6 +39,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     hasLife: false,
     name: '수성',
     paletteSeed: 6145,   // hue 25 — 회갈색 암석 지형
+    realAu: 0.39,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 1),
@@ -46,6 +51,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     hasLife: false,
     name: '금성',
     paletteSeed: 8322,   // hue 42 — 황토·주황 (두꺼운 대기)
+    realAu: 0.72,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 2),
@@ -58,6 +64,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     isHomeWorld: true,
     name: '지구',
     paletteSeed: 11260,  // hue 100 — 녹지(대륙) + 고정 파란 바다
+    realAu: 1.0,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 3),
@@ -69,6 +76,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     hasLife: false,
     name: '화성',
     paletteSeed: 16932,  // hue 12 — 붉은빛 암석
+    realAu: 1.52,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 4),
@@ -80,6 +88,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     hasLife: false,
     name: '목성',
     paletteSeed: 19108,  // hue 28 — 갈색·주황 줄무늬
+    realAu: 5.2,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 5),
@@ -92,6 +101,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     name: '토성',
     paletteSeed: 22008,  // hue 48 — 황금·크림 줄무늬
     hasRings: true,
+    realAu: 9.58,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 6),
@@ -103,6 +113,7 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     hasLife: false,
     name: '천왕성',
     paletteSeed: 26475,  // hue 195 — 청록 얼음 행성
+    realAu: 19.22,
   },
   {
     id: makePlanetId(SOL_STAR_ID, 7),
@@ -114,8 +125,34 @@ export const SOLAR_SYSTEM_PLANETS: readonly Planet[] = [
     hasLife: false,
     name: '해왕성',
     paletteSeed: 32260,  // hue 220 — 짙은 파랑
+    realAu: 30.05,
   },
 ] satisfies readonly Planet[]
+
+/**
+ * 태양계 소행성대 — RNG 미사용 상수. beltsOf의 Sol 분기에서 반환된다.
+ * 궤도는 행성과 동일한 게임 스케일(sol.ts) 기준: 화성(1.5)–목성(2.5) 사이 메인벨트,
+ * 해왕성(6.0) 바깥 카이퍼대. densitySeed는 렌더 산란용 고정값(게임플레이 무관).
+ */
+export const SOLAR_SYSTEM_BELTS: readonly Belt[] = [
+  {
+    starId: SOL_STAR_ID,
+    index: 0,
+    kind: 'rocky',
+    // 화성(1.5)–목성(2.5) 사이에 여백을 두고 좁게 — 압축 스케일이라 폭을 넓히면 목성에 붙는다.
+    innerAu: 1.85,
+    outerAu: 2.15,
+    densitySeed: 90125,
+  },
+  {
+    starId: SOL_STAR_ID,
+    index: 1,
+    kind: 'kuiper',
+    innerAu: 6.6,
+    outerAu: 8.0,
+    densitySeed: 30047,
+  },
+] satisfies readonly Belt[]
 
 /**
  * 태양계 주요 위성 — RNG 미사용 상수. moonsOf의 Sol 분기에서 반환된다.
