@@ -11,7 +11,7 @@ import {
 
 import {
   currentPlanetOrbits,
-  RECORD_STRIDE,
+  MAX_FRAME_DT,
   TRAIL_POINTS,
 } from '@/scenes/system/currentPlanetOrbits'
 import { systemFadeOpacity } from '@/scenes/system/starCrossfade'
@@ -32,11 +32,13 @@ const TAIL_COLOR = new Color('#0a0b12')
 
 interface OrbitTrailProps {
   readonly orbitIndex: number
+  /** 트레일 점 간격(초) — 궤도 주기 비례. 이 시간마다 새 점을 커밋해 궤도 크기에 맞춰 길이 스케일. */
+  readonly sampleDt: number
 }
 
-export function OrbitTrail({ orbitIndex }: OrbitTrailProps) {
+export function OrbitTrail({ orbitIndex, sampleDt }: OrbitTrailProps) {
   const scratchWorld = useMemo(() => new Vector3(), [])
-  const progress = useRef({ count: 0, sinceCommit: 0, generation: -1 })
+  const progress = useRef({ count: 0, sinceSample: 0, generation: -1 })
 
   // THREE.Line 직접 구성 — 위치 버퍼(빈 값) + 색 그라디언트(index별 고정). 점이 index를 따라
   // 뒤로 밀리며 어두워진다(혜성 꼬리). vertexColors + 거리 페이드 opacity.
@@ -68,12 +70,12 @@ export function OrbitTrail({ orbitIndex }: OrbitTrailProps) {
   // 행성(궤도 인덱스) 변경 시 궤적 리셋 — 계 간 streak 방지.
   useEffect(() => {
     progress.current.count = 0
-    progress.current.sinceCommit = 0
+    progress.current.sinceSample = 0
     progress.current.generation = -1
     line.geometry.setDrawRange(0, 0)
   }, [orbitIndex, line])
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const isValid = currentPlanetOrbits.active && orbitIndex < currentPlanetOrbits.count
     if (isValid) {
       const position = currentPlanetOrbits.localPositions[orbitIndex] as Vector3
@@ -86,13 +88,15 @@ export function OrbitTrail({ orbitIndex }: OrbitTrailProps) {
         state0.generation = currentPlanetOrbits.trailGeneration
         array.set(currentPlanetOrbits.trails[orbitIndex] as Float32Array)
         state0.count = TRAIL_POINTS
-        state0.sinceCommit = 0
+        state0.sinceSample = 0
         line.geometry.setDrawRange(0, TRAIL_POINTS)
       }
 
-      state0.sinceCommit++
-      if (state0.sinceCommit >= RECORD_STRIDE) {
-        state0.sinceCommit = 0
+      // 새 점은 sim-시간 기준으로 커밋 — clamp된 delta라 탭 복귀에도 폭주·정지하지 않는다.
+      // 간격 sampleDt가 궤도 주기 비례라 트레일 길이가 궤도 크기에 맞춰 스케일된다.
+      state0.sinceSample += Math.min(delta, MAX_FRAME_DT)
+      if (sampleDt > 0 && state0.sinceSample >= sampleDt) {
+        state0.sinceSample -= sampleDt
         // 기존 점들을 한 슬롯 뒤로 시프트(copyWithin은 겹침 안전) → index0에 새 head 자리 확보.
         const shiftPoints = Math.min(state0.count, TRAIL_POINTS - 1)
         array.copyWithin(3, 0, shiftPoints * 3)

@@ -13,8 +13,9 @@ import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies
 import {
   clearCurrentPlanetOrbits,
   currentPlanetOrbits,
+  MAX_FRAME_DT,
   MAX_PLANETS,
-  RECORD_STRIDE,
+  TRAIL_ORBITS,
   TRAIL_POINTS,
 } from '@/scenes/system/currentPlanetOrbits'
 import { kindRadiusFactor, kindSurface } from '@/scenes/system/exotic'
@@ -94,6 +95,16 @@ const SAFE_ORBIT_FACTOR = 2
 /** 하드 플로어 = 성단 반경 + 별 반경 + 이 여유 — 병리적 섭동에도 관통 막는 안전망 마진. */
 const PLANET_FLOOR_MARGIN = 2
 
+/**
+ * 트레일 점 간격(초) — 원궤도 주기 T=2π√(R³/gm)의 TRAIL_ORBITS바퀴를 TRAIL_POINTS점에 분배한다.
+ * 궤도가 클수록 주기가 길어 간격이 커지므로 트레일이 시간상 자동으로 길어진다(궤도 크기 비례).
+ */
+function orbitTrailSampleDt(radius: number, gm: number): number {
+  if (radius <= 0 || gm <= 0) return SIM_DT * 4
+  const period = (2 * Math.PI * Math.pow(radius, 1.5)) / Math.sqrt(gm)
+  return (TRAIL_ORBITS * period) / TRAIL_POINTS
+}
+
 interface BodyVisual {
   readonly key: string
   readonly color: string
@@ -147,6 +158,9 @@ export function CurrentSystem() {
   const planetStatesRef = useRef(Array.from({ length: MAX_PLANETS }, createOrbitState))
   const simTimeRef = useRef(0)
   const seededStarRef = useRef<string | null>(null)
+  // 로컬 적분 시계 — clamp된 프레임 delta로만 전진. state.clock.elapsedTime은 탭 복귀 시 점프/리셋돼
+  // 캐치업이 얼 수 있어(움직임 멈춤), 단조 증가하는 자체 시계로 별 위치·행성 적분을 함께 구동한다.
+  const simClockRef = useRef(0)
   // 트레일 역적분 프리롤 전용 임시 상태 (라이브 상태를 건드리지 않고 과거 경로만 계산).
   const trailScratchRef = useRef(createOrbitState())
 
@@ -194,6 +208,11 @@ export function CurrentSystem() {
   const totalGm = useMemo(
     () => G_RENDER * gravityAttractors.reduce((sum, attractor) => sum + attractor.mass, 0),
     [gravityAttractors],
+  )
+  // 행성별 트레일 점 간격(초) — 프리롤·OrbitTrail 공용. 궤도 반경(=주기)에 비례해 길이 스케일.
+  const trailSampleDts = useMemo(
+    () => planets.map((planet) => orbitTrailSampleDt(orbitRadiusOf(planet, orbitOffset), totalGm)),
+    [planets, orbitOffset, totalGm],
   )
   // 행성별 위성 궤도 상한 — 가장 가까운 이웃 행성까지 궤도 간격의 안전 비율. 위성이 이웃
   // 궤도를 침범하지 않게 Planet이 이 값으로 외곽 스프레드를 압축한다 (렌더 전용).
@@ -268,7 +287,8 @@ export function CurrentSystem() {
     seedState: PlanetOrbitState,
     temp: PlanetOrbitState,
     star: Star,
-    entryElapsed: number,
+    entryTime: number,
+    sampleDt: number,
   ): void => {
     temp.pos.copy(seedState.pos)
     temp.vel.copy(seedState.vel)
@@ -278,25 +298,24 @@ export function CurrentSystem() {
     trail[0] = temp.pos.x
     trail[1] = temp.pos.y
     trail[2] = temp.pos.z
-    let recordIndex = 1
-    let sinceRecord = 0
-    for (let k = 1; recordIndex < TRAIL_POINTS; k++) {
-      bodyPositions(star, entryElapsed - k * SIM_DT, simBodyScratch)
-      stepOrbit(temp, gravityAttractors, -SIM_DT)
-      sinceRecord++
-      if (sinceRecord >= RECORD_STRIDE) {
-        sinceRecord = 0
-        trail[recordIndex * 3] = temp.pos.x
-        trail[recordIndex * 3 + 1] = temp.pos.y
-        trail[recordIndex * 3 + 2] = temp.pos.z
-        recordIndex++
-      }
+    // 점당 1 coarse 스텝(dt=sampleDt)으로 역적분 — 심플렉틱이라 이 해상도에서도 궤도가 안정적이고,
+    // 진입 스텝 수가 궤도 주기와 무관하게 TRAIL_POINTS로 고정돼 히치가 없다. 라이브 간격과 동일.
+    const dt = sampleDt > 0 ? sampleDt : SIM_DT * 4
+    for (let i = 1; i < TRAIL_POINTS; i++) {
+      bodyPositions(star, entryTime - i * dt, simBodyScratch)
+      stepOrbit(temp, gravityAttractors, -dt)
+      trail[i * 3] = temp.pos.x
+      trail[i * 3 + 1] = temp.pos.y
+      trail[i * 3 + 2] = temp.pos.z
     }
   }
 
   useFrame((state, delta) => {
     const group = systemGroupRef.current
     if (group == null) return
+
+    // 로컬 적분 시계 — clamp된 delta로만 전진(탭 복귀 점프/리셋 흡수). 별 위치·행성 적분을 함께 구동.
+    const simNow = (simClockRef.current += Math.min(delta, MAX_FRAME_DT))
 
     // LOD — 임계 거리 초과 시 그룹 전체 비가시화 (백로그 H-3).
     const dist = state.camera.position.distanceTo(
@@ -313,7 +332,7 @@ export function CurrentSystem() {
     // 별 위치 — 질량중심 공전 (원점 = inner barycenter). 단일성은 주성이 원점 고정.
     if (star != null && !isWarping) {
       const scale = systemScaleRef.current
-      const bodyCount = bodyPositions(star, state.clock.elapsedTime, bodyScratch)
+      const bodyCount = bodyPositions(star, simNow, bodyScratch)
       for (let i = 0; i < bodyCount; i++) {
         const local = bodyScratch[i] as Vector3
         bodyGroupRefs.current[i]?.position.copy(local)
@@ -340,7 +359,6 @@ export function CurrentSystem() {
     // 다중성계 행성 중력 적분 — 움직이는 별들의 실제 중력을 고정 타임스텝으로 적분해 게시한다
     // (multi-star-gravity N-1). 단일성계는 진입하지 않아 기존 케플러 경로가 픽셀 불변.
     if (isGravityMode && star != null && !isWarping) {
-      const elapsed = state.clock.elapsedTime
       const states = planetStatesRef.current
       const planetCount = Math.min(planets.length, MAX_PLANETS)
       // 진입·별 변경 시 재시드 — 각 행성을 궤도 반경 위 원궤도 초기조건으로.
@@ -361,16 +379,16 @@ export function CurrentSystem() {
           )
           // 트레일 프리롤 — 시드 상태에서 시간을 거꾸로(-SIM_DT) 적분해 '과거 경로'를 채운다.
           // velocity-Verlet은 시간 가역이라 실제 지나왔을 궤적이 나온다(빈 트레일 시작 방지).
-          fillBackwardTrail(i, seedState, trailScratch, star, elapsed)
+          fillBackwardTrail(i, seedState, trailScratch, star, simNow, trailSampleDts[i] ?? SIM_DT * 4)
         }
         currentPlanetOrbits.trailGeneration++
-        simTimeRef.current = elapsed
+        simTimeRef.current = simNow
         seededStarRef.current = starId
       }
-      // 고정 타임스텝 캐치업 — 총 스텝 수 = (elapsed − 시드시각)/SIM_DT라 프레임레이트와 무관하다.
+      // 고정 타임스텝 캐치업 — 총 스텝 수 = (simNow − 시드시각)/SIM_DT라 프레임레이트와 무관하다.
       // attractor는 각 substep 시각의 별 위치를 simBodyScratch(렌더 버퍼와 분리)에 샘플한다.
       let steps = 0
-      while (simTimeRef.current < elapsed && steps < MAX_SUBSTEPS_PER_FRAME) {
+      while (simTimeRef.current < simNow && steps < MAX_SUBSTEPS_PER_FRAME) {
         bodyPositions(star, simTimeRef.current, simBodyScratch)
         for (let i = 0; i < planetCount; i++) {
           stepOrbit(states[i] as PlanetOrbitState, gravityAttractors, SIM_DT)
@@ -379,7 +397,7 @@ export function CurrentSystem() {
         steps++
       }
       // 장시간 히치는 스냅 — death spiral 방지(1프레임 desync 허용, 앰비언트라 무감지).
-      if (simTimeRef.current < elapsed - SIM_DT) simTimeRef.current = elapsed
+      if (simTimeRef.current < simNow - SIM_DT) simTimeRef.current = simNow
       // 게시 — Planet 렌더·PlanetCalloutProjector가 읽는 단일 소스(로컬=질량중심 상대).
       currentPlanetOrbits.starId = starId
       currentPlanetOrbits.active = true
@@ -496,7 +514,7 @@ export function CurrentSystem() {
               <group key={planet.id}>
                 {/* 다중성계는 실제 적분 궤적 트레일, 단일성계는 정확한 케플러 원(OrbitRing). */}
                 {isGravityMode ? (
-                  <OrbitTrail orbitIndex={index} />
+                  <OrbitTrail orbitIndex={index} sampleDt={trailSampleDts[index] ?? 0} />
                 ) : (
                   <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
                 )}
