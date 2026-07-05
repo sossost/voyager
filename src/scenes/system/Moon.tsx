@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import type { Group } from 'three'
 
 import type { Moon as MoonData } from '@/engine'
+import { simClock } from '@/scenes/system/simClock'
 
 const FULL_TURN = Math.PI * 2
 /** orbitRadius=1 기준 각속도 (rad/s) — 케플러 근사로 안쪽 위성이 빠르다. */
@@ -71,10 +72,11 @@ export function Moon({ moon, planetVisualRadius, orbitSpanScale = 1 }: MoonProps
   const lightness = 48 + (moon.paletteSeed % 18)
   const moonColor = `hsl(${hue}, 6%, ${lightness}%)`
 
-  useFrame((state) => {
+  useFrame(() => {
     const group = groupRef.current
     if (group == null) return
-    const angle = initialAngle + state.clock.elapsedTime * angularSpeed
+    // 배속 시계 — 위성 공전도 배속에 반응한다 (simulation-speed).
+    const angle = initialAngle + simClock.now * angularSpeed
     group.position.set(Math.cos(angle) * orbitRadius, 0, Math.sin(angle) * orbitRadius)
   })
 

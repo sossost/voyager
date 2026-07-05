@@ -15,8 +15,12 @@ import { Vector3 } from 'three'
 export const G_RENDER = 100
 /** 고정 적분 타임스텝(초) — fps와 무관한 결정론적 궤적을 위한 substep 간격. */
 export const SIM_DT = 1 / 120
-/** 프레임당 최대 substep — 장시간 히치 후 death spiral 방지 (초과분은 호출자가 스냅). */
-export const MAX_SUBSTEPS_PER_FRAME = 8
+/**
+ * 프레임당 최대 substep — 장시간 히치 후 death spiral 방지 (초과분은 호출자가 스냅).
+ * 60fps·16배속(simulation-speed)에서 프레임당 sim 전진 ≈ 0.267s = 32 substep이라, 최대 배속에서도
+ * 다중성계 행성이 밀리지 않도록 32로 잡는다(1배속에선 2~4 substep만 필요해 비용 불변).
+ */
+export const MAX_SUBSTEPS_PER_FRAME = 32
 
 /** Plummer softening 길이(렌더 유닛) — 근접 시 1/r² 발산 방지. */
 const SOFTENING = 2

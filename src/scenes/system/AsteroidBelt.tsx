@@ -5,6 +5,7 @@ import { type InstancedMesh, Object3D } from 'three'
 import type { Belt, BeltKind } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { auToOrbitRadius } from '@/scenes/system/Planet'
+import { simClock } from '@/scenes/system/simClock'
 import { useGameStore } from '@/store'
 
 /**
@@ -116,12 +117,13 @@ export function AsteroidBelt({ belt, orbitOffset = 0 }: AsteroidBeltProps) {
     mesh.instanceMatrix.needsUpdate = true
   }, [belt.densitySeed, innerRadius, outerRadius, count, params])
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     const mesh = meshRef.current
     if (mesh == null) return
-    // 행성과 같은 공전 방향 — planetOrbitPosition은 위치를 (cosθ, sinθ)·θ증가로 +z쪽으로 돌리는데,
-    // +Y축 회전(rotation.y+)은 우수좌표계에서 −z쪽(반대)이므로 부호를 뒤집어 방향을 맞춘다.
-    mesh.rotation.y -= params.angularSpeed * delta
+    // 배속 시계 기준 절대 회전 — delta 누적 대신 simClock.now에 각속도를 곱해 배속·일시정지가
+    // 그대로 반영되게 한다 (simulation-speed). 행성과 같은 공전 방향: planetOrbitPosition은 위치를
+    // (cosθ, sinθ)·θ증가로 +z쪽으로 돌리는데, +Y축 회전은 우수좌표계에서 −z쪽(반대)이라 부호를 뒤집는다.
+    mesh.rotation.y = -params.angularSpeed * simClock.now
   })
 
   return (

@@ -12,6 +12,7 @@ import { deriveAtmosphere } from '@/scenes/system/atmosphere'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
 import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
+import { simClock } from '@/scenes/system/simClock'
 import { Moon, moonSpanScaleFor } from '@/scenes/system/Moon'
 import { PlanetRings } from '@/scenes/system/PlanetRings'
 import {
@@ -163,10 +164,11 @@ export function Planet({
   const spinSpeed = SPIN_BASE_SPEED + SPIN_SPEED_SPAN * fract(planet.paletteSeed * 0.0173)
   const spinDirection = planet.paletteSeed % 2 === 0 ? 1 : -1
 
-  useFrame((state) => {
+  useFrame(() => {
     const group = groupRef.current
     if (group == null) return
-    const elapsed = state.clock.elapsedTime
+    // 배속 시계 — 공전·자전 모두 배속에 반응한다(simulation-speed). 일시정지(0)면 멈춘다.
+    const elapsed = simClock.now
     // 다중성계 중력 모드: CurrentSystem이 적분해 게시한 위치를 읽는다. 미준비(첫 프레임)거나
     // 단일성계면 closed-form으로 폴백 — 시드가 궤도 위이므로 전환 seam이 없다.
     const useGravity =

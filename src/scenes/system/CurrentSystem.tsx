@@ -14,7 +14,6 @@ import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies
 import {
   clearCurrentPlanetOrbits,
   currentPlanetOrbits,
-  MAX_FRAME_DT,
   MAX_PLANETS,
   TRAIL_ORBITS,
   TRAIL_POINTS,
@@ -45,6 +44,7 @@ import { OrbitTrail } from '@/scenes/system/OrbitTrail'
 import { auToOrbitRadius, orbitInitialPhase, orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { Pulsar } from '@/scenes/system/Pulsar'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
+import { simClock } from '@/scenes/system/simClock'
 import { StarSurface } from '@/scenes/system/StarSurface'
 import { SYSTEM_LOD_DISTANCE } from '@/scenes/system/starCrossfade'
 import { useGameStore } from '@/store'
@@ -159,9 +159,6 @@ export function CurrentSystem() {
   const planetStatesRef = useRef(Array.from({ length: MAX_PLANETS }, createOrbitState))
   const simTimeRef = useRef(0)
   const seededStarRef = useRef<string | null>(null)
-  // 로컬 적분 시계 — clamp된 프레임 delta로만 전진. state.clock.elapsedTime은 탭 복귀 시 점프/리셋돼
-  // 캐치업이 얼 수 있어(움직임 멈춤), 단조 증가하는 자체 시계로 별 위치·행성 적분을 함께 구동한다.
-  const simClockRef = useRef(0)
   // 트레일 역적분 프리롤 전용 임시 상태 (라이브 상태를 건드리지 않고 과거 경로만 계산).
   const trailScratchRef = useRef(createOrbitState())
 
@@ -317,8 +314,9 @@ export function CurrentSystem() {
     const group = systemGroupRef.current
     if (group == null) return
 
-    // 로컬 적분 시계 — clamp된 delta로만 전진(탭 복귀 점프/리셋 흡수). 별 위치·행성 적분을 함께 구동.
-    const simNow = (simClockRef.current += Math.min(delta, MAX_FRAME_DT))
+    // 배속 시계 — 별 위치·행성 적분을 함께 구동한다 (simulation-speed). SimClock이 clamp된 실시간
+    // delta×timeScale로 누적하므로 탭 복귀 점프를 흡수하고 배속·일시정지가 그대로 반영된다.
+    const simNow = simClock.now
 
     // LOD — 임계 거리 초과 시 그룹 전체 비가시화 (백로그 H-3).
     const dist = state.camera.position.distanceTo(

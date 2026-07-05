@@ -9,11 +9,8 @@ import {
   Vector3,
 } from 'three'
 
-import {
-  currentPlanetOrbits,
-  MAX_FRAME_DT,
-  TRAIL_POINTS,
-} from '@/scenes/system/currentPlanetOrbits'
+import { currentPlanetOrbits, TRAIL_POINTS } from '@/scenes/system/currentPlanetOrbits'
+import { simClock } from '@/scenes/system/simClock'
 import { systemFadeOpacity } from '@/scenes/system/starCrossfade'
 
 /**
@@ -38,7 +35,8 @@ interface OrbitTrailProps {
 
 export function OrbitTrail({ orbitIndex, sampleDt }: OrbitTrailProps) {
   const scratchWorld = useMemo(() => new Vector3(), [])
-  const progress = useRef({ count: 0, sinceSample: 0, generation: -1 })
+  // lastNow: 직전 프레임의 simClock.now — 프레임 간 sim 경과(배속 반영)를 sinceSample에 더한다.
+  const progress = useRef({ count: 0, sinceSample: 0, generation: -1, lastNow: 0 })
 
   // THREE.Line 직접 구성 — 위치 버퍼(빈 값) + 색 그라디언트(index별 고정). 점이 index를 따라
   // 뒤로 밀리며 어두워진다(혜성 꼬리). vertexColors + 거리 페이드 opacity.
@@ -75,7 +73,7 @@ export function OrbitTrail({ orbitIndex, sampleDt }: OrbitTrailProps) {
     line.geometry.setDrawRange(0, 0)
   }, [orbitIndex, line])
 
-  useFrame((state, delta) => {
+  useFrame((state) => {
     const isValid = currentPlanetOrbits.active && orbitIndex < currentPlanetOrbits.count
     if (isValid) {
       const position = currentPlanetOrbits.localPositions[orbitIndex] as Vector3
@@ -89,12 +87,15 @@ export function OrbitTrail({ orbitIndex, sampleDt }: OrbitTrailProps) {
         array.set(currentPlanetOrbits.trails[orbitIndex] as Float32Array)
         state0.count = TRAIL_POINTS
         state0.sinceSample = 0
+        state0.lastNow = simClock.now
         line.geometry.setDrawRange(0, TRAIL_POINTS)
       }
 
-      // 새 점은 sim-시간 기준으로 커밋 — clamp된 delta라 탭 복귀에도 폭주·정지하지 않는다.
+      // 새 점은 sim-시간 경과 기준으로 커밋 — simClock.now가 이미 clamp된 delta×timeScale이라 배속에
+      // 맞춰 샘플 간격이 조밀해지고(트레일 길이 일관), 탭 복귀·일시정지에도 폭주·정지하지 않는다.
       // 간격 sampleDt가 궤도 주기 비례라 트레일 길이가 궤도 크기에 맞춰 스케일된다.
-      state0.sinceSample += Math.min(delta, MAX_FRAME_DT)
+      state0.sinceSample += Math.max(0, simClock.now - state0.lastNow)
+      state0.lastNow = simClock.now
       if (sampleDt > 0 && state0.sinceSample >= sampleDt) {
         state0.sinceSample -= sampleDt
         // 기존 점들을 한 슬롯 뒤로 시프트(copyWithin은 겹침 안전) → index0에 새 head 자리 확보.

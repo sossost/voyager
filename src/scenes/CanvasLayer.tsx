@@ -5,6 +5,7 @@ import { starById } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { QualityAdapter } from '@/quality/QualityAdapter'
 import { SceneRouter } from '@/scenes/SceneRouter'
+import { SimClock } from '@/scenes/SimClock'
 import { ContextLossGuard } from '@/scenes/shared/ContextLossGuard'
 import { useGameStore } from '@/store'
 
@@ -84,6 +85,7 @@ export function CanvasLayer() {
           onContextLost={handleContextLost}
           onContextRestored={handleContextRestored}
         />
+        <SimClock />
         <QualityAdapter />
         <SceneRouter />
         {shouldRenderPostFx ? (
