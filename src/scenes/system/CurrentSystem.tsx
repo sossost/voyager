@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { Group, PointLight } from 'three'
 import { PerspectiveCamera, Vector3 } from 'three'
 
-import type { StarKind } from '@/engine'
+import type { Star, StarKind } from '@/engine'
 import { hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
@@ -14,6 +14,8 @@ import {
   clearCurrentPlanetOrbits,
   currentPlanetOrbits,
   MAX_PLANETS,
+  RECORD_STRIDE,
+  TRAIL_POINTS,
 } from '@/scenes/system/currentPlanetOrbits'
 import { kindRadiusFactor, kindSurface } from '@/scenes/system/exotic'
 import {
@@ -137,6 +139,8 @@ export function CurrentSystem() {
   const planetStatesRef = useRef(Array.from({ length: MAX_PLANETS }, createOrbitState))
   const simTimeRef = useRef(0)
   const seededStarRef = useRef<string | null>(null)
+  // 트레일 역적분 프리롤 전용 임시 상태 (라이브 상태를 건드리지 않고 과거 경로만 계산).
+  const trailScratchRef = useRef(createOrbitState())
 
   const star = useMemo(() => starById(seed, starId), [seed, starId])
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
@@ -238,6 +242,39 @@ export function CurrentSystem() {
     return [primary, ...companions]
   }, [star])
 
+  // 트레일 프리롤 — 시드 상태에서 -SIM_DT로 역적분해 과거 경로를 currentPlanetOrbits.trails[slot]에
+  // 채운다. head(index0)=시드 위치, 이후 슬롯일수록 과거. attractor는 각 과거 시각의 별 위치를
+  // simBodyScratch에 샘플한다(라이브 적분과 동일 시계). 라이브 상태는 건드리지 않는다(temp 사용).
+  const fillBackwardTrail = (
+    slot: number,
+    seedState: PlanetOrbitState,
+    temp: PlanetOrbitState,
+    star: Star,
+    entryElapsed: number,
+  ): void => {
+    temp.pos.copy(seedState.pos)
+    temp.vel.copy(seedState.vel)
+    temp.home = seedState.home
+    const trail = currentPlanetOrbits.trails[slot] as Float32Array
+    trail[0] = temp.pos.x
+    trail[1] = temp.pos.y
+    trail[2] = temp.pos.z
+    let recordIndex = 1
+    let sinceRecord = 0
+    for (let k = 1; recordIndex < TRAIL_POINTS; k++) {
+      bodyPositions(star, entryElapsed - k * SIM_DT, simBodyScratch)
+      stepOrbit(temp, gravityAttractors, -SIM_DT)
+      sinceRecord++
+      if (sinceRecord >= RECORD_STRIDE) {
+        sinceRecord = 0
+        trail[recordIndex * 3] = temp.pos.x
+        trail[recordIndex * 3 + 1] = temp.pos.y
+        trail[recordIndex * 3 + 2] = temp.pos.z
+        recordIndex++
+      }
+    }
+  }
+
   useFrame((state, delta) => {
     const group = systemGroupRef.current
     if (group == null) return
@@ -289,16 +326,22 @@ export function CurrentSystem() {
       const planetCount = Math.min(planets.length, MAX_PLANETS)
       // 진입·별 변경 시 재시드 — 각 행성을 궤도 반경 위 원궤도 초기조건으로.
       if (seededStarRef.current !== starId) {
+        const trailScratch = trailScratchRef.current
         for (let i = 0; i < planetCount; i++) {
           const planet = planets[i]
           if (planet == null) continue
+          const seedState = states[i] as PlanetOrbitState
           seedCircularOrbit(
-            states[i] as PlanetOrbitState,
+            seedState,
             orbitRadiusOf(planet, orbitOffset),
             orbitInitialPhase(planet),
             totalGm,
           )
+          // 트레일 프리롤 — 시드 상태에서 시간을 거꾸로(-SIM_DT) 적분해 '과거 경로'를 채운다.
+          // velocity-Verlet은 시간 가역이라 실제 지나왔을 궤적이 나온다(빈 트레일 시작 방지).
+          fillBackwardTrail(i, seedState, trailScratch, star, elapsed)
         }
+        currentPlanetOrbits.trailGeneration++
         simTimeRef.current = elapsed
         seededStarRef.current = starId
       }

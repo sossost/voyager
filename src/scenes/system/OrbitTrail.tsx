@@ -9,7 +9,11 @@ import {
   Vector3,
 } from 'three'
 
-import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
+import {
+  currentPlanetOrbits,
+  RECORD_STRIDE,
+  TRAIL_POINTS,
+} from '@/scenes/system/currentPlanetOrbits'
 import { systemFadeOpacity } from '@/scenes/system/starCrossfade'
 
 /**
@@ -21,11 +25,6 @@ import { systemFadeOpacity } from '@/scenes/system/starCrossfade'
  * 시각 연출 전용이라 초월함수·three 사용 가능 (OrbitRing과 동일 규율). GEN_VERSION 무관.
  */
 
-/** 트레일 점 개수 — 링버퍼 용량. */
-const TRAIL_POINTS = 256
-/** 새 점 커밋 간격(프레임) — head는 매 프레임 라이브, 이 간격마다 뒤로 한 점 밀어 궤적을 남긴다.
- *  256점 × 4프레임 / 60fps ≈ 17초 궤적 (느린 궤도도 곡률·세차가 보일 길이). */
-const RECORD_STRIDE = 4
 const TRAIL_BASE_OPACITY = 0.75
 /** head(최신)=밝음 → tail(과거)=배경색으로 페이드 (혜성 꼬리). */
 const HEAD_COLOR = new Color('#8899d0')
@@ -37,7 +36,7 @@ interface OrbitTrailProps {
 
 export function OrbitTrail({ orbitIndex }: OrbitTrailProps) {
   const scratchWorld = useMemo(() => new Vector3(), [])
-  const progress = useRef({ count: 0, sinceCommit: 0 })
+  const progress = useRef({ count: 0, sinceCommit: 0, generation: -1 })
 
   // THREE.Line 직접 구성 — 위치 버퍼(빈 값) + 색 그라디언트(index별 고정). 점이 index를 따라
   // 뒤로 밀리며 어두워진다(혜성 꼬리). vertexColors + 거리 페이드 opacity.
@@ -70,6 +69,7 @@ export function OrbitTrail({ orbitIndex }: OrbitTrailProps) {
   useEffect(() => {
     progress.current.count = 0
     progress.current.sinceCommit = 0
+    progress.current.generation = -1
     line.geometry.setDrawRange(0, 0)
   }, [orbitIndex, line])
 
@@ -80,6 +80,15 @@ export function OrbitTrail({ orbitIndex }: OrbitTrailProps) {
       const positionAttr = line.geometry.getAttribute('position') as Float32BufferAttribute
       const array = positionAttr.array as Float32Array
       const state0 = progress.current
+
+      // (재)시드 세대가 바뀌면 프리롤된 과거 경로를 초기 트레일로 통째 로드 — 빈 시작 방지.
+      if (state0.generation !== currentPlanetOrbits.trailGeneration) {
+        state0.generation = currentPlanetOrbits.trailGeneration
+        array.set(currentPlanetOrbits.trails[orbitIndex] as Float32Array)
+        state0.count = TRAIL_POINTS
+        state0.sinceCommit = 0
+        line.geometry.setDrawRange(0, TRAIL_POINTS)
+      }
 
       state0.sinceCommit++
       if (state0.sinceCommit >= RECORD_STRIDE) {
