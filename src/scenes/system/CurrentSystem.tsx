@@ -26,6 +26,7 @@ import {
   massOf,
   planetClearanceOffset,
   STAR_VISUAL_RADIUS,
+  stellarClearanceRadius,
 } from '@/scenes/system/multiplicity'
 import {
   type Attractor,
@@ -39,7 +40,7 @@ import {
 } from '@/scenes/system/orbitIntegrator'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { OrbitTrail } from '@/scenes/system/OrbitTrail'
-import { orbitInitialPhase, orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import { auToOrbitRadius, orbitInitialPhase, orbitRadiusOf, Planet } from '@/scenes/system/Planet'
 import { Pulsar } from '@/scenes/system/Pulsar'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { StarSurface } from '@/scenes/system/StarSurface'
@@ -85,6 +86,13 @@ const MOON_NEIGHBOR_SAFE_FRACTION = 0.45
 
 /** 다중성계 최대 별 수 (주성 + 동반성 2) — ref·스크래치 슬롯 사전 할당. */
 const MAX_BODIES = 3
+/**
+ * 다중성계 중력 모드에서 최내곽 행성이 성단 반경의 이 배수 밖을 돌게 한다 — circumbinary
+ * P-type 안정 궤도(Holman-Wiegert 근사). 이 아래는 이심률 펌핑 지대라 궤도가 다이브·별 관통한다.
+ */
+const SAFE_ORBIT_FACTOR = 2
+/** 하드 플로어 = 성단 반경 + 별 반경 + 이 여유 — 병리적 섭동에도 관통 막는 안전망 마진. */
+const PLANET_FLOOR_MARGIN = 2
 
 interface BodyVisual {
   readonly key: string
@@ -159,11 +167,21 @@ export function CurrentSystem() {
   useEffect(() => clearCurrentPlanetOrbits, [])
   // 언마운트 시 중력렌즈 비활성 (stale 활성 방지).
   useEffect(() => clearBlackHoleLens, [])
-  // 별 군집을 벗어나도록 행성 궤도를 바깥으로 미는 양 (별/행성 관통 방지).
-  const orbitOffset = useMemo(() => (star == null ? 0 : planetClearanceOffset(star)), [star])
   // 다중성계 중력 모드 — 별이 2개 이상일 때만 행성을 실제 중력으로 적분한다(단일성은 케플러 유지,
   // multi-star-gravity N-1). 블랙홀계는 showPlanets가 false라 자동 제외.
   const isGravityMode = star != null && showPlanets && star.multiplicity !== 'single'
+  // 행성 궤도를 별 군집 밖으로 미는 양 (별/행성 관통 방지). 단일성계는 planetClearanceOffset 그대로.
+  // 중력 모드는 최내곽 행성을 성단 반경의 SAFE_ORBIT_FACTOR배 밖으로 추가로 민다 — 이심률 펌핑·
+  // 별 관통을 막는 P-type 안정 궤도. 행성 간 간격은 균일 오프셋이라 보존된다.
+  const orbitOffset = useMemo(() => {
+    if (star == null) return 0
+    const base = planetClearanceOffset(star)
+    if (!isGravityMode || planets.length === 0) return base
+    const innermostAu = planets.reduce((min, planet) => Math.min(min, planet.orbitAu), Infinity)
+    const requiredInner = SAFE_ORBIT_FACTOR * stellarClearanceRadius(star)
+    const currentInner = auToOrbitRadius(innermostAu, base)
+    return base + Math.max(0, requiredInner - currentInner)
+  }, [star, isGravityMode, planets])
   // 중력원(별) — position은 simBodyScratch 슬롯을 가리키는 *라이브 별칭*이다. 적분 루프가 매
   // substep bodyPositions로 simBodyScratch를 갱신하면 attractor 위치가 자동으로 따라온다
   // (좌표를 복사해 캐시하면 안 됨 — 이 별칭 계약이 fps 독립 적분의 핵심).
@@ -255,6 +273,7 @@ export function CurrentSystem() {
     temp.pos.copy(seedState.pos)
     temp.vel.copy(seedState.vel)
     temp.home = seedState.home
+    temp.floor = seedState.floor
     const trail = currentPlanetOrbits.trails[slot] as Float32Array
     trail[0] = temp.pos.x
     trail[1] = temp.pos.y
@@ -327,6 +346,8 @@ export function CurrentSystem() {
       // 진입·별 변경 시 재시드 — 각 행성을 궤도 반경 위 원궤도 초기조건으로.
       if (seededStarRef.current !== starId) {
         const trailScratch = trailScratchRef.current
+        // 하드 플로어 — 성단 밖. 시드 반경이 이미 이보다 크지만, 병리적 섭동 시 관통 전에 클램프.
+        const orbitFloor = stellarClearanceRadius(star) + STAR_VISUAL_RADIUS + PLANET_FLOOR_MARGIN
         for (let i = 0; i < planetCount; i++) {
           const planet = planets[i]
           if (planet == null) continue
@@ -336,6 +357,7 @@ export function CurrentSystem() {
             orbitRadiusOf(planet, orbitOffset),
             orbitInitialPhase(planet),
             totalGm,
+            orbitFloor,
           )
           // 트레일 프리롤 — 시드 상태에서 시간을 거꾸로(-SIM_DT) 적분해 '과거 경로'를 채운다.
           // velocity-Verlet은 시간 가역이라 실제 지나왔을 궤적이 나온다(빈 트레일 시작 방지).

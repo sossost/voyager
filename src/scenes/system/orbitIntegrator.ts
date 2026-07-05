@@ -34,28 +34,31 @@ export interface Attractor {
   readonly mass: number
 }
 
-/** 행성 궤도 상태 — 원점(질량중심) 상대. home = 시드 반경(유계 기준). */
+/** 행성 궤도 상태 — 원점(질량중심) 상대. home = 시드 반경, floor = 하드 최소 반경(성단 밖). */
 export interface PlanetOrbitState {
   readonly pos: Vector3
   readonly vel: Vector3
   home: number
+  floor: number
 }
 
 /** 새 궤도 상태 슬롯 생성 (재사용용 — useFrame에서 매 프레임 할당 금지). */
 export function createOrbitState(): PlanetOrbitState {
-  return { pos: new Vector3(), vel: new Vector3(), home: 0 }
+  return { pos: new Vector3(), vel: new Vector3(), home: 0, floor: 0 }
 }
 
 /**
  * 원궤도 초기조건 시드 — pos = R·(cosθ,0,sinθ), vel = √(gm/R)·(−sinθ,0,cosθ).
  * 방향은 closed-form planetOrbitPosition과 같은 CCW라 단일성계와 회전 방향이 일치한다.
  * gm = G_RENDER × Σ(항성 질량). 이후 실제 중력이 세차·섭동을 더한다.
+ * floor = 절대 하한 반경(성단 밖) — 병리적 섭동에도 별 관통을 막는 하드 안전망 (기본 0).
  */
 export function seedCircularOrbit(
   state: PlanetOrbitState,
   radius: number,
   phaseAngle: number,
   gm: number,
+  floor = 0,
 ): void {
   const cos = Math.cos(phaseAngle)
   const sin = Math.sin(phaseAngle)
@@ -63,6 +66,7 @@ export function seedCircularOrbit(
   state.pos.set(cos * radius, 0, sin * radius)
   state.vel.set(-sin * speed, 0, cos * speed)
   state.home = radius
+  state.floor = floor
 }
 
 // useFrame 재사용 스크래치 — 모듈 단일 인스턴스(중첩 호출 없음: 스텝은 순차 실행).
@@ -91,7 +95,8 @@ function applyBound(state: PlanetOrbitState): void {
   const r = state.pos.length()
   if (r === 0) return
   const maxR = state.home * BOUND_MAX
-  const minR = state.home * BOUND_MIN
+  // 하한은 홈 비율과 하드 플로어(성단 밖) 중 큰 값 — 병리적 다이브도 별 관통 전에 막는다.
+  const minR = Math.max(state.home * BOUND_MIN, state.floor)
   const outOfMax = r > maxR
   const targetR = outOfMax ? maxR : r < minR ? minR : null
   if (targetR == null) return

@@ -119,5 +119,22 @@ describe('orbitIntegrator', () => {
         expect(state.pos.length()).toBeLessThanOrEqual(radius * BOUND_MAX * FLOAT_TOLERANCE)
       }
     })
+
+    it('하드 플로어 아래로 다이브하지 않는다 (별 관통 안전망)', () => {
+      const state = createOrbitState()
+      const radius = 30
+      const floor = 18 // 성단 밖 하드 하한
+      seedCircularOrbit(state, radius, 0, G_RENDER * 3, floor)
+      // 강한 안쪽 킥 — 중심으로 다이브 시도.
+      state.vel.multiplyScalar(-0.6)
+      const attractors = [fixedAttractor(3)]
+
+      const FLOAT_TOLERANCE = 0.9999
+      for (let i = 0; i < 4000; i++) {
+        stepOrbit(state, attractors, SIM_DT)
+        // 플로어 미세 오차 이하로는 내려가지 않는다.
+        expect(state.pos.length()).toBeGreaterThanOrEqual(floor * FLOAT_TOLERANCE)
+      }
+    })
   })
 })

@@ -221,9 +221,10 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
 
 /**
  * 별 군집이 질량중심(원점)에서 닿는 최대 반경 — 가장 바깥 별의 원점거리(apoapsis) + 그 별 반경.
- * 행성 궤도를 이만큼 바깥으로 밀어 별/행성 관통을 막는다 (planetClearanceOffset).
+ * 행성 궤도를 이만큼 바깥으로 밀어 별/행성 관통을 막는다 (planetClearanceOffset). 다중성계 중력
+ * 모드는 이 값의 배수를 P-type 안정 궤도·하드 플로어 기준으로 쓴다 (multi-star-gravity N-1).
  */
-function stellarClearanceRadius(star: Star): number {
+export function stellarClearanceRadius(star: Star): number {
   const primaryMass = massOf(star.spectral)
   const rPrimary = clearanceRadius(star.spectral, true, star.kind)
 
