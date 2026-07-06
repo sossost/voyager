@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Group, Mesh, Vector3 } from 'three'
+import type { Group, Mesh } from 'three'
+import { Vector3 } from 'three'
 
 import type { Planet as PlanetData, SpectralClass } from '@/engine'
 import { moonsOf } from '@/engine'
@@ -11,10 +12,12 @@ import { AtmosphereLimb } from '@/scenes/system/AtmosphereLimb'
 import { deriveAtmosphere } from '@/scenes/system/atmosphere'
 import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
+import { currentBodies } from '@/scenes/system/currentBodies'
 import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
 import { simClock } from '@/scenes/system/simClock'
 import { Moon, moonSpanScaleFor } from '@/scenes/system/Moon'
-import { PlanetRings } from '@/scenes/system/PlanetRings'
+import { PlanetRings, RING_INNER, RING_OUTER, RING_PLANE_NORMAL } from '@/scenes/system/PlanetRings'
+import { createRingShadowUniforms, injectRingShadow } from '@/scenes/system/ringShadow'
 import {
   bakePlanetTextures,
   disposePlanetTextures,
@@ -46,6 +49,13 @@ const SPIN_SPEED_SPAN = 0.09
 /** 구름층은 표면보다 약간 빨리 돌아 살아있는 느낌을 만든다. */
 const CLOUD_SPIN_FACTOR = 1.55
 const CLOUD_LAYER_SCALE = 1.035
+
+/**
+ * 표면 거칠기 (O-5) — 가스 거성은 완전 확산체(무광 0.92), 암석형은 바다·빙원의 스페큘러
+ * 글린트가 실제 관측 시그니처라 낮게(0.45). 종전 값이 물리적으로 정반대여서 스왑했다.
+ */
+const ROUGHNESS_ROCKY = 0.45
+const ROUGHNESS_GAS = 0.92
 
 /** AU → 궤도 렌더 반경 (affine 매핑). 행성·궤도링·HZ 밴드가 같은 식을 공유 (단일 소스). */
 export function auToOrbitRadius(orbitAu: number, orbitOffset = 0): number {
@@ -164,6 +174,21 @@ export function Planet({
   const spinSpeed = SPIN_BASE_SPEED + SPIN_SPEED_SPAN * fract(planet.paletteSeed * 0.0173)
   const spinDirection = planet.paletteSeed % 2 === 0 ? 1 : -1
 
+  // 고리 그림자 띠 (O-3) — 고리 있는 행성만 표면 재질에 해석 판정을 주입한다.
+  // 유니폼(별·행성 월드 좌표, 고리 월드 반경)은 아래 useFrame이 매 프레임 갱신한다.
+  const ringShadow = useMemo(
+    () => (planet.hasRings === true ? createRingShadowUniforms(RING_PLANE_NORMAL) : null),
+    [planet.hasRings],
+  )
+  const ringShadowCompile = useMemo(
+    () =>
+      ringShadow == null
+        ? undefined
+        : (shader: Parameters<typeof injectRingShadow>[0]) => injectRingShadow(shader, ringShadow),
+    [ringShadow],
+  )
+  const worldScaleScratch = useMemo(() => new Vector3(), [])
+
   useFrame(() => {
     const group = groupRef.current
     if (group == null) return
@@ -184,6 +209,17 @@ export function Planet({
     const spin = initialPhase + elapsed * spinSpeed * spinDirection
     if (surfaceRef.current != null) surfaceRef.current.rotation.y = spin
     if (cloudsRef.current != null) cloudsRef.current.rotation.y = spin * CLOUD_SPIN_FACTOR
+
+    // 고리 그림자 유니폼 갱신 (O-3) — 별·행성 월드 좌표와 뷰 스케일 반영 고리 반경.
+    if (ringShadow != null) {
+      group.getWorldPosition(ringShadow.ringCenter)
+      if (currentBodies.count > 0) {
+        ringShadow.starPos.copy(currentBodies.positions[0] as Vector3)
+      }
+      const ringWorldScale = group.getWorldScale(worldScaleScratch).x * visualRadius
+      ringShadow.ringInner.value = RING_INNER * ringWorldScale
+      ringShadow.ringOuter.value = RING_OUTER * ringWorldScale
+    }
   })
 
   return (
@@ -202,16 +238,18 @@ export function Planet({
           <meshStandardMaterial
             key="placeholder"
             color={placeholderColor(planet)}
-            roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
+            roughness={planet.kind === 'rocky' ? ROUGHNESS_ROCKY : ROUGHNESS_GAS}
             metalness={0.05}
+            onBeforeCompile={ringShadowCompile}
           />
         ) : (
           <meshStandardMaterial
             key="baked"
             color="#ffffff"
             map={textures.surface}
-            roughness={planet.kind === 'rocky' ? 0.92 : 0.45}
+            roughness={planet.kind === 'rocky' ? ROUGHNESS_ROCKY : ROUGHNESS_GAS}
             metalness={0.05}
+            onBeforeCompile={ringShadowCompile}
           />
         )}
       </mesh>
