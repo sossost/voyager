@@ -7,7 +7,7 @@ import type { Star, StarKind } from '@/engine'
 import { beltsOf, hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { AsteroidBelt } from '@/scenes/system/AsteroidBelt'
-import { EXOTIC_RENDER, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import { EXOTIC_RENDER, SPECTRAL_LIGHT_FACTOR, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
 import { BlackHole } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
@@ -20,7 +20,6 @@ import {
 } from '@/scenes/system/currentPlanetOrbits'
 import { kindRadiusFactor, kindSurface } from '@/scenes/system/exotic'
 import {
-  bodyLightFactor,
   bodyPositions,
   bodyVisualRadius,
   isCircumbinary,
@@ -69,8 +68,12 @@ import { useGameStore } from '@/store'
 const STAR_LIGHT_INTENSITY_SHIP = 500
 const STAR_LIGHT_INTENSITY_PERSPECTIVE = 19
 const STAR_LIGHT_DECAY = 1.6
-/** 주변광 — 밤면 가독성. */
-const AMBIENT_INTENSITY = 0.9
+/**
+ * 주변광 (O-2) — 우주 공간의 행성 밤면은 검정에 가깝다. 0.9는 밤면·위상을 붕괴시켰으므로
+ * 잔광 수준(0.15)으로 낮춘다 — 행성 위상(초승달~보름)이 포인트라이트만으로 자연 발생한다.
+ * 색은 주성 별빛색으로 틴트해 산란광의 근원을 따른다.
+ */
+const AMBIENT_INTENSITY = 0.15
 
 /**
  * 은하 항법(퍼스펙티브) 뷰의 항성계 스케일 — 함교 뷰(1.0)에 비해 1/8.
@@ -264,7 +267,8 @@ export function CurrentSystem() {
       color: primaryColor,
       // 시각 반경 = 충돌 반경(renderedRadius)과 같은 식 — kindRadiusFactor 공유 (결정 12).
       radius: STAR_VISUAL_RADIUS * kindRadiusFactor(star.kind),
-      lightFactor: 1,
+      // 주계열성은 분광형 광도 로그 압축(O-4, G=1.0 불변). 이색 천체는 kindSurface가 담당.
+      lightFactor: star.kind === 'main_sequence' ? SPECTRAL_LIGHT_FACTOR[star.spectral] : 1,
       kind: star.kind,
       lightColor: star.kind === 'black_hole' ? BLACK_HOLE_LIGHT_COLOR : primaryColor,
     }
@@ -272,7 +276,8 @@ export function CurrentSystem() {
       key: `companion-${index}`,
       color: SPECTRAL_RENDER[companion.spectral].color,
       radius: bodyVisualRadius(companion.spectral, STAR_VISUAL_RADIUS),
-      lightFactor: bodyLightFactor(companion.spectral),
+      // 주성과 같은 분광형 광도 계수(O-4) — 질량 제곱근비 대신 문헌 광도 로그 압축으로 통일.
+      lightFactor: SPECTRAL_LIGHT_FACTOR[companion.spectral],
       kind: 'main_sequence',
       lightColor: SPECTRAL_RENDER[companion.spectral].color,
     }))
@@ -467,7 +472,7 @@ export function CurrentSystem() {
 
   return (
     <>
-      <ambientLight intensity={AMBIENT_INTENSITY} />
+      <ambientLight intensity={AMBIENT_INTENSITY} color={bodies[0]?.lightColor ?? '#ffffff'} />
 
       {/* 별·행성을 같은 스케일 그룹에 둔다 — 광원도 그룹 자식이라 별과 함께 공전한다.
           단일성에선 주성이 원점(0,0,0)에 고정되어 기존 렌더와 동일하다. */}
@@ -492,7 +497,8 @@ export function CurrentSystem() {
                     radius={body.radius}
                     color={body.color}
                     emissiveBoost={kindSurface(body.kind).emissiveBoost}
-                    coronaScale={kindSurface(body.kind).coronaScale}
+                    // 코로나도 광도를 따라 √배 스케일(O-4) — M 왜성은 작게, O형은 크게. G=1 불변.
+                    coronaScale={kindSurface(body.kind).coronaScale * Math.sqrt(body.lightFactor)}
                   />
                 )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
