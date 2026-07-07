@@ -4,7 +4,7 @@ import { type InstancedMesh, Object3D } from 'three'
 
 import type { Belt, BeltKind } from '@/engine'
 import { QUALITY_PRESETS } from '@/quality/presets'
-import { auToOrbitRadius } from '@/scenes/system/Planet'
+import { auToOrbitRadius, IDENTITY_ORBIT_DISPLAY, type OrbitDisplay } from '@/scenes/system/Planet'
 import { simClock } from '@/scenes/system/simClock'
 import { useGameStore } from '@/store'
 
@@ -79,15 +79,21 @@ interface AsteroidBeltProps {
   readonly belt: Belt
   /** 다중성계에서 별 군집을 벗어나도록 궤도를 바깥으로 미는 양 (행성과 공유, 기본 0). */
   readonly orbitOffset?: number
+  /** 궤도 표시 정규화 (O-1·N-3) — 행성과 같은 변환을 써야 벨트가 궤도 사이에 남는다. */
+  readonly orbitDisplay?: OrbitDisplay
 }
 
-export function AsteroidBelt({ belt, orbitOffset = 0 }: AsteroidBeltProps) {
+export function AsteroidBelt({
+  belt,
+  orbitOffset = 0,
+  orbitDisplay = IDENTITY_ORBIT_DISPLAY,
+}: AsteroidBeltProps) {
   const meshRef = useRef<InstancedMesh>(null)
   const qualityTier = useGameStore((state) => state.qualityTier)
   const params = BELT_RENDER[belt.kind]
 
-  const innerRadius = auToOrbitRadius(belt.innerAu, orbitOffset)
-  const outerRadius = auToOrbitRadius(belt.outerAu, orbitOffset)
+  const innerRadius = auToOrbitRadius(belt.innerAu, orbitOffset, orbitDisplay)
+  const outerRadius = auToOrbitRadius(belt.outerAu, orbitOffset, orbitDisplay)
   const count = Math.round(QUALITY_PRESETS[qualityTier].asteroidBeltCount * params.countFactor)
 
   useLayoutEffect(() => {

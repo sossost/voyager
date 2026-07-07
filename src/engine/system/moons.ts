@@ -27,17 +27,22 @@ const ROCKY_MOON_COUNT_WEIGHTS: readonly WeightedEntry<number>[] = [
   { value: 2, weight: 10 },
 ]
 
+/**
+ * 가스 거성 위성 수 (사실성 v2 O-12 — GEN_VERSION 11). 실제 4대 거대행성은 전부 대형
+ * 위성계를 가진다 — 주변행성 원반(circumplanetary disk)의 자연 부산물이라 무위성이 예외다.
+ * 0개 가중치 20→2로 이동 (02-decisions), 최빈 1~2개.
+ */
 const GAS_MOON_COUNT_WEIGHTS: readonly WeightedEntry<number>[] = [
-  { value: 0, weight: 20 },
+  { value: 0, weight: 2 },
   { value: 1, weight: 40 },
-  { value: 2, weight: 25 },
-  { value: 3, weight: 10 },
-  { value: 4, weight: 5 },
+  { value: 2, weight: 31 },
+  { value: 3, weight: 17 },
+  { value: 4, weight: 10 },
 ]
 
 /**
  * 행성 → 위성 목록. 위성 전용 스트림('moon', planetId[, index])으로 완전 격리 —
- * 기존 별·행성·외계인 출력 불변, GEN_VERSION 불필요.
+ * 기존 별·행성·외계인 출력 불변 (단, 가중치 등 분포 변경은 결정 13에 따라 GEN_VERSION 대상).
  * 개별 위성 속성은 (seed, 'moon', planetId, index) 스트림에서 append-only 드로.
  */
 export function moonsOf(seed: Seed, planet: Planet): readonly Moon[] {

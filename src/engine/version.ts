@@ -64,5 +64,20 @@
  *   실제 orbitAu가 없기 때문. 결과: 생명은 F/G/K 태양형 HZ 궤도에 집중, M형(40%)·O/B는 무생명,
  *   전체 평균 ~5.7%로 희귀화. 프로브 섹터(2,0,3)의 F/G형 행성 hasLife가 바뀌어 우주 골든
  *   재생성 필요. Sol은 상수 분기(지구 생명 유지), LIFE1 인근 생명 행성 다수 보존(E2E green).
+ * v11 (2026-07-07): 사실성 v2 — 분포 변경 8건을 한 범프로 묶음 (docs/features/fidelity-v2):
+ *   ①O-1 궤도 그리드 분광형 종속 — orbitAu = 안정오프셋 + 그리드×orbitScaleOf(≈√L, HZ 비례).
+ *     정규화 궤도가 전 분광형 동일해져 M형 생명 0 해소. 동결선(belts)·가스 램프도 같은 스케일 +
+ *     거대행성 질량 상관(GAS_FREQUENCY_FACTOR, Johnson 2010). ②M형 생명 페널티 ×0.5
+ *     (Shields+ 2016 중립). ③HZ_PEAK 0.45→0.54 재튜닝 — 은하 평균 생명/행성 v10 동급(~5.8%).
+ *   ④M-4 다중성 분광 종속(MULTIPLICITY_WEIGHTS_BY_SPECTRAL — Duchêne & Kraus 2013).
+ *   ⑤N-3 다중성계 행성 안정 재배치 — stabilityOffsetAu(P-type, Holman-Wiegert ×2)를 엔진
+ *     orbitAu에 반영 (N-1 렌더 밀어내기는 안전망으로 격하, 표시는 OrbitDisplay 정규화).
+ *   ⑥O-7 진화 산물 정합 — K형 WD/RG 제거(수명>우주 나이), O형 BH>펄서, A형 RG 추가.
+ *   ⑦O-8 삼중성 Mardling-Aarseth 클램프(비 4.7) — 출력 재매핑만, draw 수 불변.
+ *   ⑧O-10 은하 밀도 — 나선팔 로그 나선(lnApprox, 피치 12.5°)·지수 원반(expNegApprox,
+ *     Rd=R/3, NORM 1.7로 총 별 수 v10 동급). O-12 가스 위성 0개 20→2.
+ *   전 항목 draw 수·순서 불변(클램프/재매핑 패턴) — PRNG 스트림 골든 불변, 출력 분포만 변경.
+ *   섹터 밀도·다중성·궤도가 바뀌어 우주 골든 재생성 필요. Sol은 상수 분기 무영향.
+ *   LIFE1 시작계 인근 생명 행성은 재검증 (E2E — 필요시 시드 교체).
  */
-export const GEN_VERSION = 10
+export const GEN_VERSION = 11

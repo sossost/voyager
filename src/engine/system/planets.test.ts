@@ -4,6 +4,7 @@ import type { PlanetId, Seed } from '../coords'
 import { makePlanetId, makeStarId, parseSeed } from '../coords'
 import { starById } from '../galaxy/position'
 import type { SpectralClass, Star, StarKind } from '../galaxy/sectors'
+import { starsInSector } from '../galaxy/sectors'
 import {
   getLifeProbability,
   habitability,
@@ -111,21 +112,34 @@ describe('planetsOf', () => {
     expect(obStarsChecked).toBeGreaterThan(0)
   })
 
-  it('M형 항성계는 사실상 생명체가 없다 (HZ 0.2AU vs 최소 궤도 0.6AU — 고증 수용)', () => {
-    let mPlanetCount = 0
-    let mLifeCount = 0
-
-    for (let i = 0; i < 4_000; i++) {
-      const starId = makeStarId({ sx: i % 60, sy: (i % 3) - 1, sz: Math.floor(i / 60) }, i % 7)
-      if (starById(seed, starId)?.spectral !== 'M') continue
-      for (const planet of planetsOf(seed, starId)) {
-        mPlanetCount += 1
-        if (planet.hasLife) mLifeCount += 1
+  it('M형 항성계에도 생명이 존재하되 G형보다 드물다 (v2 O-1 그리드 스케일 + M 페널티 ×0.5)', () => {
+    // 실존 별만 표본에 넣는다 (starById가 null인 조작 ID는 G 폴백이라 분광 비교가 오염된다).
+    const counts = { M: { planets: 0, life: 0 }, G: { planets: 0, life: 0 } }
+    for (let sx = -30; sx <= 30; sx++) {
+      for (let sz = -30; sz <= 30; sz++) {
+        for (const star of starsInSector(seed, { sx, sy: 0, sz })) {
+          if (star.kind !== 'main_sequence') continue
+          if (star.spectral !== 'M' && star.spectral !== 'G') continue
+          const entry = counts[star.spectral]
+          for (const planet of planetsOf(seed, star.id)) {
+            entry.planets += 1
+            if (planet.hasLife) entry.life += 1
+          }
+        }
       }
     }
+    const lifeRatioOf = (spectral: 'M' | 'G') => {
+      const entry = counts[spectral]
+      expect(entry.planets).toBeGreaterThan(100)
+      return entry.life / entry.planets
+    }
 
-    expect(mPlanetCount).toBeGreaterThan(100)
-    expect(mLifeCount).toBe(0)
+    const mRatio = lifeRatioOf('M')
+    const gRatio = lifeRatioOf('G')
+    // v10의 "M형 생명 0"이 해소된다 — 그리드가 HZ 스케일로 줄어 HZ 안 궤도가 생긴다.
+    expect(mRatio).toBeGreaterThan(0)
+    // 중간 페널티(×0.5) + 다중성 차이로 G형보다는 낮다.
+    expect(mRatio).toBeLessThan(gRatio)
   })
 
   it('HZ 적용 후 전체 생명률은 균일 10%보다 낮다 (희귀화 — M-2)', () => {
@@ -252,10 +266,34 @@ describe('getLifeProbability (HZ 생명 확률 — 순수)', () => {
     expect(getLifeProbability(fakeStar('G'), 3)).toBe(0)
   })
 
-  it('M형은 모든 궤도에서 0이다 (HZ 중심 0.2AU가 최소 궤도보다 훨씬 안쪽)', () => {
+  it('M형 HZ 평지 궤도(index 1)는 G형 피크의 절반이다 (v2 — 그리드 스케일 + 페널티 ×0.5)', () => {
+    // 그리드가 HZ 비례로 스케일되어 정규화 궤도는 분광형 불변(0.6, 1.2, …) — index 1은 평지.
+    expect(getLifeProbability(fakeStar('M'), 1)).toBeCloseTo(HZ_PEAK_PROBABILITY * 0.5, 10)
+    // 단일성계 같은 index면 정규화 궤도가 같아 M 확률 = G 확률 × 0.5 (전 궤도 공통).
     for (let index = 0; index < 8; index++) {
-      expect(getLifeProbability(fakeStar('M'), index)).toBe(0)
+      expect(getLifeProbability(fakeStar('M'), index)).toBeCloseTo(
+        getLifeProbability(fakeStar('G'), index) * 0.5,
+        10,
+      )
     }
+  })
+
+  it('다중성계는 안정 오프셋만큼 그리드가 밀려 생명 확률이 단일성계 이하다 (v2 N-3)', () => {
+    const single = fakeStar('G')
+    const binary: Star = {
+      ...single,
+      multiplicity: 'binary',
+      companions: [
+        { spectral: 'M', separation: 6, eccentricity: 0.3, phase: 0, hierarchy: 'inner' },
+      ],
+    }
+    for (let index = 0; index < 8; index++) {
+      expect(getLifeProbability(binary, index)).toBeLessThanOrEqual(
+        getLifeProbability(single, index),
+      )
+    }
+    // separation 6·e 0.3 → 오프셋 15.6AU — HZ(1AU) 바깥이라 전 궤도 무생명.
+    expect(getLifeProbability(binary, 0)).toBe(0)
   })
 
   it('확률은 항상 [0, P_PEAK] 범위다', () => {

@@ -32,8 +32,10 @@ export {
   HZ_PEAK_PROBABILITY,
   HZ_X_PLATEAU_INNER,
   HZ_X_PLATEAU_OUTER,
+  orbitScaleOf,
   planetById,
   planetsOf,
+  stabilityOffsetAu,
 } from './system/planets'
 export type { Moon } from './system/moons'
 export { moonsOf } from './system/moons'
