@@ -6,7 +6,7 @@ import { starWorldPosition } from '@/engine/galaxy/position'
 import { CalloutProjector } from '@/scenes/shared/CalloutProjector'
 import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
 import { planetClearanceOffset } from '@/scenes/system/multiplicity'
-import { planetOrbitPosition } from '@/scenes/system/Planet'
+import { orbitDisplayOf, planetOrbitPosition } from '@/scenes/system/Planet'
 import { simClock } from '@/scenes/system/simClock'
 import { useGameStore } from '@/store'
 
@@ -37,11 +37,10 @@ export function PlanetCalloutProjector() {
     [seed, currentStarId],
   )
 
-  // 행성 궤도 바깥밀기 — CurrentSystem과 동일 소스라야 콜아웃이 행성을 정확히 따라간다.
-  const orbitOffset = useMemo(() => {
-    const star = starById(seed, currentStarId)
-    return star == null ? 0 : planetClearanceOffset(star)
-  }, [seed, currentStarId])
+  // 행성 궤도 바깥밀기·표시 정규화 — CurrentSystem과 동일 소스라야 콜아웃이 행성을 정확히 따라간다.
+  const star = useMemo(() => starById(seed, currentStarId), [seed, currentStarId])
+  const orbitOffset = useMemo(() => (star == null ? 0 : planetClearanceOffset(star)), [star])
+  const orbitDisplay = useMemo(() => orbitDisplayOf(star), [star])
 
   // 다중성계 중력 모드면 CurrentSystem이 게시한 적분 위치를 읽어야 콜아웃이 정확히 따라간다
   // (상태화된 적분은 closed-form 재계산 불가). 선택 행성의 궤도 인덱스를 미리 찾아둔다 (없으면 null).
@@ -63,14 +62,14 @@ export function PlanetCalloutProjector() {
         out.copy(currentPlanetOrbits.localPositions[gravityOrbitIndex] as Vector3)
       } else {
         // 렌더(Planet)와 같은 배속 시계로 궤도 위치를 재계산해야 콜아웃이 행성에서 안 떨어진다.
-        planetOrbitPosition(planet, simClock.now, out, orbitOffset)
+        planetOrbitPosition(planet, simClock.now, out, orbitOffset, orbitDisplay)
       }
       out.x += starOffset[0]
       out.y += starOffset[1]
       out.z += starOffset[2]
       return true
     },
-    [planet, starOffset, orbitOffset, gravityOrbitIndex, currentStarId],
+    [planet, starOffset, orbitOffset, orbitDisplay, gravityOrbitIndex, currentStarId],
   )
 
   return (

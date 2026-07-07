@@ -40,7 +40,13 @@ import {
 } from '@/scenes/system/orbitIntegrator'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { OrbitTrail } from '@/scenes/system/OrbitTrail'
-import { auToOrbitRadius, orbitInitialPhase, orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import {
+  auToOrbitRadius,
+  orbitDisplayOf,
+  orbitInitialPhase,
+  orbitRadiusOf,
+  Planet,
+} from '@/scenes/system/Planet'
 import { Pulsar } from '@/scenes/system/Pulsar'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { simClock } from '@/scenes/system/simClock'
@@ -187,18 +193,21 @@ export function CurrentSystem() {
   // 다중성계 중력 모드 — 별이 2개 이상일 때만 행성을 실제 중력으로 적분한다(단일성은 케플러 유지,
   // multi-star-gravity N-1). 블랙홀계는 showPlanets가 false라 자동 제외.
   const isGravityMode = star != null && showPlanets && star.multiplicity !== 'single'
+  // 궤도 표시 정규화 (사실성 v2 O-1·N-3) — 엔진 물리 AU를 v10과 같은 시각 간격으로 되돌린다.
+  const orbitDisplay = useMemo(() => orbitDisplayOf(star), [star])
   // 행성 궤도를 별 군집 밖으로 미는 양 (별/행성 관통 방지). 단일성계는 planetClearanceOffset 그대로.
-  // 중력 모드는 최내곽 행성을 성단 반경의 SAFE_ORBIT_FACTOR배 밖으로 추가로 민다 — 이심률 펌핑·
-  // 별 관통을 막는 P-type 안정 궤도. 행성 간 간격은 균일 오프셋이라 보존된다.
+  // 중력 모드는 최내곽 행성을 성단 반경의 SAFE_ORBIT_FACTOR배 밖으로 추가로 민다 — 엔진이 이미
+  // 안정 오프셋(N-3)을 orbitAu에 넣지만 표시 정규화가 그것을 빼므로, 렌더 좌표계의 군집 회피는
+  // 이 안전망이 계속 맡는다. 행성 간 간격은 균일 오프셋이라 보존된다.
   const orbitOffset = useMemo(() => {
     if (star == null) return 0
     const base = planetClearanceOffset(star)
     if (!isGravityMode || planets.length === 0) return base
     const innermostAu = planets.reduce((min, planet) => Math.min(min, planet.orbitAu), Infinity)
     const requiredInner = SAFE_ORBIT_FACTOR * stellarClearanceRadius(star)
-    const currentInner = auToOrbitRadius(innermostAu, base)
+    const currentInner = auToOrbitRadius(innermostAu, base, orbitDisplay)
     return base + Math.max(0, requiredInner - currentInner)
-  }, [star, isGravityMode, planets])
+  }, [star, isGravityMode, planets, orbitDisplay])
   // 중력원(별) — position은 simBodyScratch 슬롯을 가리키는 *라이브 별칭*이다. 적분 루프가 매
   // substep bodyPositions로 simBodyScratch를 갱신하면 attractor 위치가 자동으로 따라온다
   // (좌표를 복사해 캐시하면 안 됨 — 이 별칭 계약이 fps 독립 적분의 핵심).
@@ -214,13 +223,16 @@ export function CurrentSystem() {
   )
   // 행성별 트레일 점 간격(초) — 프리롤·OrbitTrail 공용. 궤도 반경(=주기)에 비례해 길이 스케일.
   const trailSampleDts = useMemo(
-    () => planets.map((planet) => orbitTrailSampleDt(orbitRadiusOf(planet, orbitOffset), totalGm)),
-    [planets, orbitOffset, totalGm],
+    () =>
+      planets.map((planet) =>
+        orbitTrailSampleDt(orbitRadiusOf(planet, orbitOffset, orbitDisplay), totalGm),
+      ),
+    [planets, orbitOffset, orbitDisplay, totalGm],
   )
   // 행성별 위성 궤도 상한 — 가장 가까운 이웃 행성까지 궤도 간격의 안전 비율. 위성이 이웃
   // 궤도를 침범하지 않게 Planet이 이 값으로 외곽 스프레드를 압축한다 (렌더 전용).
   const moonOrbitLimits = useMemo(() => {
-    const radii = planets.map((planet) => orbitRadiusOf(planet, orbitOffset))
+    const radii = planets.map((planet) => orbitRadiusOf(planet, orbitOffset, orbitDisplay))
     return radii.map((radius, index) => {
       let nearestGap = Infinity
       radii.forEach((otherRadius, other) => {
@@ -229,7 +241,7 @@ export function CurrentSystem() {
       })
       return Number.isFinite(nearestGap) ? nearestGap * MOON_NEIGHBOR_SAFE_FRACTION : null
     })
-  }, [planets, orbitOffset])
+  }, [planets, orbitOffset, orbitDisplay])
   // 온도 기반 표면 재질에 쓸 분광형 — 무HZ 별(O/B·거성·왜성·펄서)이면 null이라 온도 재질을
   // 생략한다 (hasHabitableZone 단일 게이팅, hz-visualization).
   //
@@ -378,7 +390,7 @@ export function CurrentSystem() {
           const seedState = states[i] as PlanetOrbitState
           seedCircularOrbit(
             seedState,
-            orbitRadiusOf(planet, orbitOffset),
+            orbitRadiusOf(planet, orbitOffset, orbitDisplay),
             orbitInitialPhase(planet),
             totalGm,
             orbitFloor,
@@ -518,7 +530,12 @@ export function CurrentSystem() {
         {showPlanets ? (
           <group ref={planetCenterRef}>
             {belts.map((belt) => (
-              <AsteroidBelt key={belt.index} belt={belt} orbitOffset={orbitOffset} />
+              <AsteroidBelt
+                key={belt.index}
+                belt={belt}
+                orbitOffset={orbitOffset}
+                orbitDisplay={orbitDisplay}
+              />
             ))}
             {planets.map((planet, index) => (
               <group key={planet.id}>
@@ -526,7 +543,7 @@ export function CurrentSystem() {
                 {isGravityMode ? (
                   <OrbitTrail orbitIndex={index} sampleDt={trailSampleDts[index] ?? 0} />
                 ) : (
-                  <OrbitRing radius={orbitRadiusOf(planet, orbitOffset)} />
+                  <OrbitRing radius={orbitRadiusOf(planet, orbitOffset, orbitDisplay)} />
                 )}
                 <Planet
                   planet={planet}
@@ -534,6 +551,7 @@ export function CurrentSystem() {
                   hzSpectral={hzSpectral}
                   moonOrbitLimit={moonOrbitLimits[index]}
                   gravityOrbitIndex={isGravityMode ? index : null}
+                  orbitDisplay={orbitDisplay}
                 />
               </group>
             ))}

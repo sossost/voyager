@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Group, Mesh } from 'three'
 import { Vector3 } from 'three'
 
-import type { Planet as PlanetData, SpectralClass } from '@/engine'
-import { moonsOf } from '@/engine'
+import type { Planet as PlanetData, SpectralClass, Star } from '@/engine'
+import { moonsOf, orbitScaleOf, stabilityOffsetAu } from '@/engine'
 import { normalizedOrbit } from '@/scenes/system/habitableZone'
 import { QUALITY_PRESETS } from '@/quality/presets'
 import { fract } from '@/scenes/shared/fract'
@@ -57,14 +57,48 @@ const CLOUD_LAYER_SCALE = 1.035
 const ROUGHNESS_ROCKY = 0.45
 const ROUGHNESS_GAS = 0.92
 
-/** AU → 궤도 렌더 반경 (affine 매핑). 행성·궤도링·HZ 밴드가 같은 식을 공유 (단일 소스). */
-export function auToOrbitRadius(orbitAu: number, orbitOffset = 0): number {
-  return ORBIT_BASE_RADIUS + orbitAu * ORBIT_SCALE + orbitOffset
+/**
+ * 궤도 표시 정규화 (사실성 v2 O-1·N-3 렌더 정합) — 엔진 orbitAu는 물리 AU(분광형 스케일 ×
+ * 안정 오프셋 포함)라 그대로 매핑하면 M형은 뭉치고 A형은 화면 밖으로 나간다. 표시 전에
+ * 안정 오프셋을 빼고 분광형 스케일의 역수를 곱해 v10과 동일한 시각 간격으로 되돌린다
+ * (Sol 궤도 압축과 같은 "표시 전용 압축" — UI 수치·게임플레이는 물리 AU 유지).
+ * 다중성 군집 회피는 기존 렌더 orbitOffset(N-1)이 이어서 맡는다.
+ */
+export interface OrbitDisplay {
+  /** 물리 AU → 표시 AU 배율 (= 1 / orbitScaleOf). */
+  readonly auScale: number
+  /** 표시 전에 빼는 물리 AU (= stabilityOffsetAu). */
+  readonly auShift: number
+}
+
+export const IDENTITY_ORBIT_DISPLAY: OrbitDisplay = { auScale: 1, auShift: 0 }
+
+export function orbitDisplayOf(star: Star | null): OrbitDisplay {
+  if (star == null) return IDENTITY_ORBIT_DISPLAY
+  return { auScale: 1 / orbitScaleOf(star.spectral), auShift: stabilityOffsetAu(star) }
+}
+
+/** 물리 AU → 표시 AU. */
+function displayAu(orbitAu: number, display: OrbitDisplay): number {
+  return (orbitAu - display.auShift) * display.auScale
+}
+
+/** AU → 궤도 렌더 반경 (affine 매핑). 행성·궤도링·벨트가 같은 식을 공유 (단일 소스). */
+export function auToOrbitRadius(
+  orbitAu: number,
+  orbitOffset = 0,
+  display: OrbitDisplay = IDENTITY_ORBIT_DISPLAY,
+): number {
+  return ORBIT_BASE_RADIUS + displayAu(orbitAu, display) * ORBIT_SCALE + orbitOffset
 }
 
 /** orbitOffset: 다중성계에서 별 군집을 벗어나도록 궤도를 바깥으로 미는 양 (기본 0). */
-export function orbitRadiusOf(planet: PlanetData, orbitOffset = 0): number {
-  return auToOrbitRadius(planet.orbitAu, orbitOffset)
+export function orbitRadiusOf(
+  planet: PlanetData,
+  orbitOffset = 0,
+  display: OrbitDisplay = IDENTITY_ORBIT_DISPLAY,
+): number {
+  return auToOrbitRadius(planet.orbitAu, orbitOffset, display)
 }
 
 /** 궤도 시작 위상 — paletteSeed 파생 결정론 (자전 위상과도 공유). */
@@ -81,10 +115,13 @@ export function planetOrbitPosition(
   elapsedSeconds: number,
   out: Vector3,
   orbitOffset = 0,
+  display: OrbitDisplay = IDENTITY_ORBIT_DISPLAY,
 ): Vector3 {
-  const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(planet.orbitAu, 1.5)
+  // 각속도는 표시 AU 기준 — 계 내부 케플러 비율(바깥일수록 느림)은 보존하면서 분광형 간
+  // 시각 속도를 일정하게 유지한다 (물리 AU를 쓰면 M형 행성이 초당 수 회전으로 보인다).
+  const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(Math.max(displayAu(planet.orbitAu, display), 0.1), 1.5)
   const angle = orbitInitialPhase(planet) + elapsedSeconds * angularSpeed
-  const radius = orbitRadiusOf(planet, orbitOffset)
+  const radius = orbitRadiusOf(planet, orbitOffset, display)
   return out.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius)
 }
 
@@ -114,6 +151,8 @@ interface PlanetProps {
    * planetOrbitPosition 자가구동 (multi-star-gravity N-1).
    */
   readonly gravityOrbitIndex?: number | null
+  /** 궤도 표시 정규화 (O-1·N-3) — CurrentSystem이 orbitDisplayOf(star)로 산출한다. */
+  readonly orbitDisplay?: OrbitDisplay
 }
 
 /**
@@ -128,6 +167,7 @@ export function Planet({
   hzSpectral = null,
   moonOrbitLimit = null,
   gravityOrbitIndex = null,
+  orbitDisplay = IDENTITY_ORBIT_DISPLAY,
 }: PlanetProps) {
   const groupRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
@@ -203,7 +243,7 @@ export function Planet({
     if (useGravity) {
       group.position.copy(currentPlanetOrbits.localPositions[gravityOrbitIndex] as Vector3)
     } else {
-      planetOrbitPosition(planet, elapsed, group.position, orbitOffset)
+      planetOrbitPosition(planet, elapsed, group.position, orbitOffset, orbitDisplay)
     }
 
     const spin = initialPhase + elapsed * spinSpeed * spinDirection

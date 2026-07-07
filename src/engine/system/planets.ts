@@ -64,8 +64,46 @@ export const HZ_CENTER_AU: Record<SpectralClass, number> = {
   M: 0.2,
 }
 
-/** HZ 평지에서의 최대 생명 확률 (구 LIFE_PROBABILITY 대체 — 밸런스 튜닝 대상). */
-export const HZ_PEAK_PROBABILITY = 0.45
+/**
+ * HZ 평지에서의 최대 생명 확률 (구 LIFE_PROBABILITY 대체 — 밸런스 튜닝 대상).
+ * v11 재튜닝: 다중성 안정 오프셋(N-3)·M형 페널티가 생명률을 깎아 0.45 → 0.54로 보정 —
+ * 은하 평균 생명/행성이 v10(~5.9%)과 동급(~5.8%)으로 유지된다 (02-decisions 8).
+ */
+export const HZ_PEAK_PROBABILITY = 0.54
+
+/**
+ * 분광형별 궤도 그리드 스케일 (사실성 v2 O-1 — GEN_VERSION 11).
+ * 행성계 크기는 항성 광도를 따라 스케일한다 — HZ 중심(≈√L)과 같은 비율을 쓰면
+ * 정규화 궤도(궤도/HZ중심)가 전 분광형에서 동일해져(0.6, 1.2, …) M형 생명 0이 자동
+ * 해소되고, 실제 눈선(∝M²≈L^0.57, Kennedy & Kenyon 2008)도 √L 하나로 근사된다.
+ * 렌더는 이 스케일의 역수로 표시 반경을 정규화한다 (물리 AU와 시각 간격의 분리).
+ */
+export function orbitScaleOf(spectral: SpectralClass): number {
+  return HZ_CENTER_AU[spectral] / HZ_CENTER_AU.G
+}
+
+/**
+ * P-type(circumbinary) 안정 임계 배수 — 최외곽 동반성 원점거리(apoapsis)의 이 배수보다
+ * 안쪽 행성 궤도는 이심률 펌핑으로 수백만 년 내 방출된다 (Holman & Wiegert 1999 —
+ * 임계는 e·질량비 종속 2~4대, 보수적 하한 2를 쓴다. N-1 렌더 SAFE_ORBIT_FACTOR와 동일).
+ */
+const P_TYPE_STABILITY_FACTOR = 2
+
+/**
+ * 다중성계 행성 궤도의 안정 오프셋(AU) — 궤도 그리드 전체를 이만큼 바깥으로 민다
+ * (사실성 v2 N-3 — GEN_VERSION 11). 실제 물리에서 불안정 구간 행성은 애초에 남지 못하고
+ * 안정 구간에서 형성·잔존한다 — 행성 수는 보존하고 배치만 물리적으로 옮긴다(02-decisions 4).
+ * N-1의 렌더 밀어내기는 이 엔진 진실을 따르는 안전망으로 격하된다. 단일성계는 0.
+ */
+export function stabilityOffsetAu(star: Star | null): number {
+  if (star == null) return 0
+  let maxApoapsisAu = 0
+  for (const companion of star.companions) {
+    const apoapsisAu = companion.separation * (1 + companion.eccentricity)
+    if (apoapsisAu > maxApoapsisAu) maxApoapsisAu = apoapsisAu
+  }
+  return P_TYPE_STABILITY_FACTOR * maxApoapsisAu
+}
 
 // 정규화 궤도(= 궤도/HZ중심) 기준 거주성 곡선의 네 경계 — 안쪽 0 → 평지 1 → 바깥쪽 0.
 // 보수적/낙관적 HZ 경계가 불분명한 실제 물리를 평지+가장자리 감쇠로 근사한다.
@@ -109,19 +147,28 @@ export function habitability(x: number): number {
  *     엔진상 펄서·블랙홀도 O/B 전용 생성이라 이 한 줄이 펄서·블랙홀 억제까지 전부 커버한다.
  *   - red_giant·white_dwarf: 진화 말기/잔해라 생명이 깃들 수 없다 (기존 v8 규칙 — 결정 8).
  * 그 외(A/F/G/K/M 주계열): HZ 중심 대비 명목 궤도 위치의 거주성 곡선 × 평지 최대 확률.
+ *   - M형은 평지 최대 확률에 중간 페널티(×0.5) — 플레어 복사·조석 고정이 대기를 벗긴다는
+ *     논쟁(Shields, Ballard & Johnson 2016)과 TRAPPIST-1 관측 낙관론 사이 중립(02-decisions 7).
+ *   - 명목 궤도는 분광형 스케일(O-1) + 다중성 안정 오프셋(N-3)을 포함한다 — 근접 쌍성 밖
+ *     그리드는 HZ를 벗어나기 쉬워 다중성계 생명이 자연히 드물어진다(고증).
  *
- * 명목 궤도((index+1)·ORBIT_BASE_AU, jitter 제외)를 쓰는 이유: 생명 draw는 planet 스트림
- * 2번째라 궤도 draw(4번째)보다 앞서 실제 orbitAu가 아직 없다. jitter를 판정에 넣으려면 draw를
- * 앞당겨야 하고 이는 append-only 위반(철칙 3) — index 파생 명목값은 draw 없이 결정론적이다.
+ * 명목 궤도(jitter 제외)를 쓰는 이유: 생명 draw는 planet 스트림 2번째라 궤도 draw(4번째)보다
+ * 앞서 실제 orbitAu가 아직 없다. jitter를 판정에 넣으려면 draw를 앞당겨야 하고 이는
+ * append-only 위반(철칙 3) — index·star 파생 명목값은 draw 없이 결정론적이다.
  *
  * (테스트용 export — 공개 배럴 index.ts에는 노출하지 않는다.)
  */
+const M_DWARF_LIFE_FACTOR = 0.5
+
 export function getLifeProbability(star: Star | null, index: number): number {
   if (star == null) return 0
   if (star.spectral === 'O' || star.spectral === 'B') return 0
   if (star.kind === 'red_giant' || star.kind === 'white_dwarf') return 0
-  const normalizedOrbit = ((index + 1) * ORBIT_BASE_AU) / HZ_CENTER_AU[star.spectral]
-  return HZ_PEAK_PROBABILITY * habitability(normalizedOrbit)
+  const nominalOrbitAu =
+    stabilityOffsetAu(star) + (index + 1) * ORBIT_BASE_AU * orbitScaleOf(star.spectral)
+  const normalizedOrbit = nominalOrbitAu / HZ_CENTER_AU[star.spectral]
+  const peak = HZ_PEAK_PROBABILITY * (star.spectral === 'M' ? M_DWARF_LIFE_FACTOR : 1)
+  return peak * habitability(normalizedOrbit)
 }
 
 /**
@@ -150,12 +197,34 @@ const GAS_WEIGHT_OUTER = 86
 const GAS_WEIGHT_SPAN = GAS_WEIGHT_OUTER - GAS_WEIGHT_INNER
 
 /**
- * 궤도 인덱스별 rocky/gas 가중치. weighted()는 테이블과 무관하게 next() 1회만
- * 소비하므로 index로 테이블을 바꿔도 draw 순서·개수는 불변 (append-only 유지).
+ * 거대행성 빈도의 항성 질량 상관 (사실성 v2 O-1 연동 — Johnson et al. 2010).
+ * 관측: M왜성 ~3% vs FGK ~14% (≈×0.25), 질량이 클수록 증가. O/B는 표본 희소 — A형에 준한다.
+ * 궤도 그리드·동결선이 분광형 스케일로 함께 움직이므로 램프의 인덱스 형태는 유지하고
+ * 진폭만 이 계수로 보정한다.
  */
-function kindWeightsAtIndex(index: number): readonly WeightedEntry<PlanetKind>[] {
+const GAS_FREQUENCY_FACTOR: Record<SpectralClass, number> = {
+  O: 1.6,
+  B: 1.6,
+  A: 1.6,
+  F: 1.1,
+  G: 1,
+  K: 0.7,
+  M: 0.25,
+}
+/** 가스 가중 상한 — 최외곽에서도 암석 꼬리를 남긴다 (해왕성 바깥 명왕성류). */
+const GAS_WEIGHT_MAX = 92
+
+/**
+ * 궤도 인덱스·분광형별 rocky/gas 가중치. weighted()는 테이블과 무관하게 next() 1회만
+ * 소비하므로 테이블이 바뀌어도 draw 순서·개수는 불변 (append-only 유지).
+ */
+function kindWeightsAtIndex(
+  index: number,
+  spectral: SpectralClass,
+): readonly WeightedEntry<PlanetKind>[] {
   const t = index / (MAX_PLANETS_PER_SYSTEM - 1)
-  const gasWeight = GAS_WEIGHT_INNER + GAS_WEIGHT_SPAN * t
+  const rampWeight = GAS_WEIGHT_INNER + GAS_WEIGHT_SPAN * t
+  const gasWeight = Math.min(GAS_WEIGHT_MAX, rampWeight * GAS_FREQUENCY_FACTOR[spectral])
   return [
     { value: 'rocky', weight: 100 - gasWeight },
     { value: 'gas', weight: gasWeight },
@@ -176,6 +245,10 @@ export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
   // 별은 확률 0이고, hasLife를 끄면 외계 조우·생명 렌더·통신 파동·힌트가 단일 소스(planet.hasLife)로
   // 전부 사라진다. 행성 자체는 유지(개수·궤도 불변) — 부적합 별을 도는 메마른 세계로 남는다.
   const star = starById(seed, starId)
+  // 궤도 그리드는 분광형 스케일(O-1) × 안정 오프셋(N-3) — star 파생 결정론 값이라 draw와 무관.
+  const spectral = star?.spectral ?? 'G'
+  const orbitScale = orbitScaleOf(spectral)
+  const orbitOffsetAu = stabilityOffsetAu(star)
 
   const countRng = rngFor(seed, 'planets', starId)
   const count = 1 + countRng.int(MAX_PLANETS_PER_SYSTEM)
@@ -185,8 +258,8 @@ export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
     const id = makePlanetId(starId, index)
     const rng = rngFor(seed, 'planet', id)
     // append-only draw 순서: kind → hasLife → radius → orbit → paletteSeed
-    // kind 가중치는 궤도 인덱스 종속(동결선, M-1)이나 draw는 여전히 weighted() 1회.
-    const kind = rng.weighted(kindWeightsAtIndex(index))
+    // kind 가중치는 궤도 인덱스·분광형 종속(동결선 M-1 + 질량 상관 v2)이나 draw는 weighted() 1회.
+    const kind = rng.weighted(kindWeightsAtIndex(index, spectral))
     // 부적합 별이어도 draw(rng.next())는 그대로 소비해 RNG 스트림·이후 속성·다른 행성을
     // 보존하고(append-only), 확률만 HZ 규칙으로 정한다 (블랙홀 단일성계 보정과 같은 패턴).
     const lifeRoll = rng.next()
@@ -195,7 +268,8 @@ export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
       kind === 'rocky'
         ? ROCKY_RADIUS_MIN + rng.next() * ROCKY_RADIUS_SPAN
         : GAS_RADIUS_MIN + rng.next() * GAS_RADIUS_SPAN
-    const orbitAu = (index + 1) * ORBIT_BASE_AU + rng.next() * ORBIT_JITTER_AU
+    const orbitAu =
+      orbitOffsetAu + ((index + 1) * ORBIT_BASE_AU + rng.next() * ORBIT_JITTER_AU) * orbitScale
     const paletteSeed = rng.int(INT32_MAX)
     const name = planetName(rngFor(seed, 'name', id))
 

@@ -2,7 +2,7 @@ import type { Seed, StarId } from '../coords'
 import { starById } from '../galaxy/position'
 import type { SpectralClass } from '../galaxy/sectors'
 import { rngFor } from '../rng/streams'
-import { planetsOf } from './planets'
+import { orbitScaleOf, planetsOf } from './planets'
 import { SOL_STAR_ID, SOLAR_SYSTEM_BELTS } from './sol'
 
 const INT32_MAX = 2_147_483_647
@@ -31,12 +31,17 @@ export interface Belt {
 }
 
 /**
- * 동결선(frost line, AU 근사) — planets.ts kindWeightsAtIndex의 암석/가스 교차점(orbitAu≈2.8,
- * 실제 눈선 ~2.7AU)과 정렬한다. 이 안쪽은 휘발성 물질이 증발한 암석·금속 파편(암석대),
- * 바깥쪽은 얼음이 응결한 얼음 파편(카이퍼대)이 남는다. 여기선 벨트 종류·배치 판정에만 쓰고
- * 행성 생성(kindWeightsAtIndex)은 건드리지 않는다 — 그쪽을 바꾸면 출력 분포가 바뀐다(철칙 2).
+ * G형 기준 동결선(frost line, AU 근사) — planets.ts kindWeightsAtIndex의 암석/가스 교차점
+ * (orbitAu≈2.8, 실제 눈선 ~2.7AU)과 정렬한다. 이 안쪽은 휘발성 물질이 증발한 암석·금속 파편
+ * (암석대), 바깥쪽은 얼음이 응결한 얼음 파편(카이퍼대)이 남는다.
+ * 사실성 v2(O-1 연동): 눈선은 광도 함수라 궤도 그리드와 같은 분광형 스케일(orbitScaleOf)을
+ * 곱한다 — M왜성 ~0.5AU, A형 ~12AU급 (Kennedy & Kenyon 2008의 √L 근사).
  */
-const FROST_LINE_AU = 2.7
+const FROST_LINE_G_AU = 2.7
+
+function frostLineAu(spectral: SpectralClass): number {
+  return FROST_LINE_G_AU * orbitScaleOf(spectral)
+}
 
 /**
  * 잔해원반 검출률은 분광형에 강하게 의존한다 — 벨트 생성 확률을 실제 관측 빈도에 맞춘다(고증).
@@ -136,10 +141,11 @@ function deriveMainBelt(
 ): Belt | null {
   if (roll >= MAIN_BELT_PROBABILITY_BY_SPECTRAL[spectral]) return null
 
+  const frostLine = frostLineAu(spectral)
   for (let i = 0; i < planets.length - 1; i++) {
     const innerAu = planets[i]!.orbitAu
     const outerAu = planets[i + 1]!.orbitAu
-    const straddlesFrostLine = innerAu < FROST_LINE_AU && FROST_LINE_AU <= outerAu
+    const straddlesFrostLine = innerAu < frostLine && frostLine <= outerAu
     if (!straddlesFrostLine) continue
     if (outerAu / innerAu < MAIN_BELT_MIN_GAP_RATIO) return null
 

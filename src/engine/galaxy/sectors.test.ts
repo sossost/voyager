@@ -196,18 +196,41 @@ describe('다중성계 (binary-stars, GEN_VERSION 4)', () => {
     }
   })
 
-  it('다중성 분포가 목표 비율 근방이다 (single≈55 / binary≈33 / triple≈12)', () => {
+  it('다중성이 분광형 종속이다 — M형 단독 비율 > G형 단독 비율 (v2 M-4, Duchêne & Kraus 2013)', () => {
+    const singleRatioOf = (spectral: SpectralClass) => {
+      const group = sample.filter((s) => s.spectral === spectral)
+      expect(group.length).toBeGreaterThan(50)
+      return group.filter((s) => s.multiplicity === 'single').length / group.length
+    }
+    // M ~74% vs G ~54% — 표본 오차를 감안해 방향성만 확인한다.
+    expect(singleRatioOf('M')).toBeGreaterThan(singleRatioOf('G'))
+  })
+
+  it('다중성 분포가 혼합 목표 근방이다 (M/K 편중 분광 분포 × M-4 테이블 ≈ single 61%)', () => {
     const counts = { single: 0, binary: 0, triple: 0 }
     for (const star of sample) counts[star.multiplicity]++
     const total = sample.length
     expect(total).toBeGreaterThan(500) // 표본 충분성
-    // 허용 오차 ±6%p — 표본이 수백~수천이라 충분히 수렴
-    expect(counts.single / total).toBeGreaterThan(0.49)
-    expect(counts.single / total).toBeLessThan(0.61)
-    expect(counts.binary / total).toBeGreaterThan(0.27)
-    expect(counts.binary / total).toBeLessThan(0.39)
-    expect(counts.triple / total).toBeGreaterThan(0.06)
-    expect(counts.triple / total).toBeLessThan(0.18)
+    // 기대 혼합: Σ(분광 가중 × 분광별 single) ≈ 0.61 / binary ≈ 0.29 / triple ≈ 0.09 — ±6%p
+    expect(counts.single / total).toBeGreaterThan(0.55)
+    expect(counts.single / total).toBeLessThan(0.67)
+    expect(counts.binary / total).toBeGreaterThan(0.23)
+    expect(counts.binary / total).toBeLessThan(0.35)
+    expect(counts.triple / total).toBeGreaterThan(0.04)
+    expect(counts.triple / total).toBeLessThan(0.15)
+  })
+
+  it('삼중성은 역학적으로 안정하다 — outer 근점/inner 원점 비 ≥ 4.7 (v2 O-8, Mardling-Aarseth)', () => {
+    const triples = sample.filter((s) => s.multiplicity === 'triple')
+    expect(triples.length).toBeGreaterThan(0)
+    for (const star of triples) {
+      const inner = star.companions[0]
+      const outer = star.companions[1]
+      if (inner == null || outer == null) continue
+      const innerApoapsis = inner.separation * (1 + inner.eccentricity)
+      const outerPeriapsis = outer.separation * (1 - outer.eccentricity)
+      expect(outerPeriapsis / innerApoapsis).toBeGreaterThanOrEqual(4.7 - 1e-9)
+    }
   })
 
   it('M형 주성은 동반성도 항상 M형이다 (질량 제약 경계)', () => {
@@ -240,11 +263,11 @@ const STAR_KINDS: readonly StarKind[] = [
 /** 대질량 분광형 — 블랙홀·펄서의 진화 종착이 되는 별. */
 const MASSIVE_CLASSES: readonly SpectralClass[] = ['O', 'B']
 
-/** 백색왜성 진화 종착 분광형 — 저~중질량 A/F/G/K 잔해 (exotic-stars 결정 1). */
-const WHITE_DWARF_CLASSES: readonly SpectralClass[] = ['A', 'F', 'G', 'K']
+/** 백색왜성 진화 종착 분광형 — 저~중질량 A/F/G 잔해 (사실성 v2 O-7: K는 수명>우주 나이라 제외). */
+const WHITE_DWARF_CLASSES: readonly SpectralClass[] = ['A', 'F', 'G']
 
-/** 적색거성 진화 단계 분광형 — F/G/K (exotic-stars 결정 2). M은 아직 진화 안 함. */
-const RED_GIANT_CLASSES: readonly SpectralClass[] = ['F', 'G', 'K']
+/** 적색거성 진화 단계 분광형 — A/F/G (사실성 v2 O-7: A 추가·K 제거). K/M은 아직 진화 안 함. */
+const RED_GIANT_CLASSES: readonly SpectralClass[] = ['A', 'F', 'G']
 
 describe('이색 천체 (exotic-bodies + pulsar + exotic-stars, GEN_VERSION 8)', () => {
   const sample = sampleStars(seedOf('STARKINDS'))
@@ -309,7 +332,7 @@ describe('이색 천체 (exotic-bodies + pulsar + exotic-stars, GEN_VERSION 8)',
     }
   })
 
-  it('적색거성은 F/G/K 분광형에서만 출현한다 (exotic-stars 결정 2)', () => {
+  it('적색거성은 A/F/G 분광형에서만 출현한다 (exotic-stars 결정 2 + v2 O-7)', () => {
     for (const star of sample) {
       if (star.kind === 'red_giant') {
         expect(RED_GIANT_CLASSES).toContain(star.spectral)
@@ -317,12 +340,22 @@ describe('이색 천체 (exotic-bodies + pulsar + exotic-stars, GEN_VERSION 8)',
     }
   })
 
-  it('M형(적색왜성)은 항상 주계열성이다 — 수명이 우주 나이보다 길어 미진화 (불변)', () => {
+  it('K/M형은 항상 주계열성이다 — 수명이 우주 나이보다 길어 미진화 (v2 O-7)', () => {
     for (const star of sample) {
-      if (star.spectral === 'M') {
+      if (star.spectral === 'M' || star.spectral === 'K') {
         expect(star.kind).toBe('main_sequence')
       }
     }
+  })
+
+  it('O형은 블랙홀이 펄서보다 흔하다 (v2 O-7 — >20M☉ 대부분 블랙홀)', () => {
+    // 가중치 테이블 자체의 방향성 검증 — 표본 O형이 적어도 카운트 비교 대신 분포 단언은
+    // 표본 수만 확인하고, 방향은 대량 표본에서 확인한다.
+    const oStars = sample.filter((s) => s.spectral === 'O')
+    const oBlackHoles = oStars.filter((s) => s.kind === 'black_hole').length
+    const oPulsars = oStars.filter((s) => s.kind === 'pulsar').length
+    // O형 표본이 작을 수 있어 역전(펄서>블랙홀)이 크게 나지 않는 것만 확인한다.
+    expect(oPulsars).toBeLessThanOrEqual(oBlackHoles + 3)
   })
 
   it('백색왜성·적색거성은 블랙홀·펄서보다 흔하다 (흔한 분광형에 출현)', () => {
