@@ -9,6 +9,8 @@ import { crossfadeProgress } from '@/scenes/system/starCrossfade'
  * 항성 표면 — 절차 셰이더 구 + 가산 빌보드 코로나 (백로그 F-1, 결정 29).
  *
  * 표면은 시간 애니메이션 value noise 입상반(끓는 표면)과 림 다크닝으로 셰이딩하고,
+ * 입상반 진폭과 림 저온층 색은 분광형에서 파생한다(O-6, SPECTRAL_SURFACE) —
+ * 복사 외피(O/B)는 매끈하고 저온 대류별일수록 림이 붉게 식는다.
  * 뜨거운 입상반 꼭대기는 1을 넘는 백색으로 — high 티어 Bloom(임계 0.3)이 증폭한다.
  * 코로나는 텍스처 없는 라디얼 셰이더 쿼드라 Bloom 없는 티어에서도 빛무리가 보인다.
  * 렌더 전용 — 분광형 색(SPECTRAL_RENDER)만 소비하며 GEN_VERSION 무관.
@@ -34,9 +36,11 @@ const SURFACE_VERTEX_SHADER = /* glsl */ `
 
 const SURFACE_FRAGMENT_SHADER = /* glsl */ `
   uniform vec3 uColor;
+  uniform vec3 uRimColor;
   uniform float uTime;
   uniform float uOpacity;
   uniform float uEmissiveBoost;
+  uniform float uGranulation;
   varying vec3 vUnit;
   varying vec3 vNormal;
   varying vec3 vViewDir;
@@ -74,20 +78,26 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
   }
 
   void main() {
-    // 끓는 표면: 위상이 다른 두 노이즈 장을 교차 — 입상반이 일렁인다
+    // 끓는 표면: 위상이 다른 두 노이즈 장을 교차 — 입상반이 일렁인다.
+    // uGranulation은 대류 외피 진폭(O-6) — 0이면 fbm 평균(0.5)으로 붕괴해 복사 외피가
+    // 매끈해지고, 평균이 보존되므로 전체 밝기는 진폭과 무관하게 일정하다.
     vec3 p = vUnit * 8.0;
     float fieldA = fbm(p + vec3(0.0, uTime * 0.055, 0.0));
     float fieldB = fbm(p * 1.7 + vec3(uTime * 0.04, 0.0, -uTime * 0.047));
-    float granulation = 0.6 * fieldA + 0.4 * fieldB;
+    float granulation = mix(0.5, 0.6 * fieldA + 0.4 * fieldB, uGranulation);
 
-    // 림 다크닝 — 실제 항성처럼 가장자리가 어둡고 중심이 또렷하다
+    // 림 다크닝 — 실제 항성처럼 가장자리가 어둡고 중심이 또렷하다.
+    // 림은 광학 깊이가 얕아 저온 상층이 노출되므로 uRimColor(붉은 쪽)로 색도 함께 식는다(O-6).
     float facing = clamp(dot(normalize(vNormal), normalize(vViewDir)), 0.0, 1.0);
-    float darkening = 0.42 + 0.58 * pow(facing, 0.55);
+    float limbProfile = pow(facing, 0.55);
+    float darkening = 0.42 + 0.58 * limbProfile;
+    vec3 photosphere = mix(uRimColor, uColor, limbProfile);
 
-    vec3 surface = uColor * (0.68 + 0.55 * granulation) * darkening;
+    vec3 surface = photosphere * (0.68 + 0.55 * granulation) * darkening;
 
     // 뜨거운 입상반 꼭대기는 1을 넘는 백색(1.45 = Bloom 임계 0.3 대비 증폭 목표)으로.
     // uEmissiveBoost: 백색왜성(>1, 강렬) / 적색거성(<1, 은은). 기본 1이면 기존과 동일.
+    // 진폭 0(복사 외피)이면 granulation=0.5로 고정되어 핫스팟도 자연히 사라진다.
     float hotness = smoothstep(0.72, 0.95, granulation) * facing;
     surface = mix(surface, vec3(1.45), clamp(hotness * 0.5 * uEmissiveBoost, 0.0, 1.0));
 
@@ -131,6 +141,13 @@ interface StarSurfaceProps {
   readonly emissiveBoost?: number
   /** 코로나 크기 배수 (이색 천체용, 기본 1). */
   readonly coronaScale?: number
+  /**
+   * 입상반 진폭 배수 (O-6, SPECTRAL_SURFACE 파생) — 0=복사 외피(매끈), 1=기존 렌더 불변.
+   * 평균 밝기는 진폭과 무관하게 보존된다.
+   */
+  readonly granulation?: number
+  /** 림 다크닝 저온층 색 (O-6, SPECTRAL_SURFACE 파생). 생략 시 color와 동일 = 기존 렌더 불변. */
+  readonly rimColor?: string
 }
 
 export function StarSurface({
@@ -138,6 +155,8 @@ export function StarSurface({
   color,
   emissiveBoost = 1,
   coronaScale = 1,
+  granulation = 1,
+  rimColor,
 }: StarSurfaceProps) {
   const coronaRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
@@ -150,14 +169,16 @@ export function StarSurface({
         fragmentShader: SURFACE_FRAGMENT_SHADER,
         uniforms: {
           uColor: { value: new Color(color) },
+          uRimColor: { value: new Color(rimColor ?? color) },
           uTime: { value: 0 },
           uOpacity: { value: 1 },
           uEmissiveBoost: { value: emissiveBoost },
+          uGranulation: { value: granulation },
         },
         // 워프 도착 크로스페이드 동안 반투명으로 차오른다 — 정박(근거리)에선 불투명 (결정 41-c)
         transparent: true,
       }),
-    [color, emissiveBoost],
+    [color, emissiveBoost, granulation, rimColor],
   )
 
   const coronaMaterial = useMemo(

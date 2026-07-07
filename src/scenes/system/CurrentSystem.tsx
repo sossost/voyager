@@ -7,7 +7,12 @@ import type { Star, StarKind } from '@/engine'
 import { beltsOf, hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { AsteroidBelt } from '@/scenes/system/AsteroidBelt'
-import { EXOTIC_RENDER, SPECTRAL_LIGHT_FACTOR, SPECTRAL_RENDER } from '@/scenes/galaxy/spectral'
+import {
+  EXOTIC_RENDER,
+  SPECTRAL_LIGHT_FACTOR,
+  SPECTRAL_RENDER,
+  SPECTRAL_SURFACE,
+} from '@/scenes/galaxy/spectral'
 import { BlackHole } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
@@ -124,6 +129,10 @@ interface BodyVisual {
   readonly kind: StarKind
   /** point light 색 — 블랙홀은 강착원반 발광색으로 행성을 비춘다(본체는 검은 구). */
   readonly lightColor: string
+  /** 입상반 진폭 (O-6) — 주계열성만 분광 파생, 이색 천체는 1(기존 렌더 불변). */
+  readonly granulation: number
+  /** 림 다크닝 저온층 색 (O-6) — 주계열성만 분광 파생, 이색 천체는 본체 색 그대로. */
+  readonly rimColor: string
 }
 
 /** 블랙홀 강착원반 발광색 — 검은 본체 대신 이 따뜻한 빛이 행성·동반성을 비춘다. */
@@ -266,6 +275,8 @@ export function CurrentSystem() {
           lightFactor: 1,
           kind: 'main_sequence',
           lightColor: '#ffffff',
+          granulation: 1,
+          rimColor: '#ffffff',
         },
       ]
     }
@@ -283,6 +294,12 @@ export function CurrentSystem() {
       lightFactor: star.kind === 'main_sequence' ? SPECTRAL_LIGHT_FACTOR[star.spectral] : 1,
       kind: star.kind,
       lightColor: star.kind === 'black_hole' ? BLACK_HOLE_LIGHT_COLOR : primaryColor,
+      // 입상반 진폭·림 저온색은 주계열성만 분광 파생(O-6) — 이색 천체는 사용자 튜닝된
+      // 기존 표면(진폭 1, 림 무채)을 유지한다.
+      granulation:
+        star.kind === 'main_sequence' ? SPECTRAL_SURFACE[star.spectral].granulation : 1,
+      rimColor:
+        star.kind === 'main_sequence' ? SPECTRAL_SURFACE[star.spectral].rimColor : primaryColor,
     }
     const companions = star.companions.map<BodyVisual>((companion, index) => ({
       key: `companion-${index}`,
@@ -292,6 +309,8 @@ export function CurrentSystem() {
       lightFactor: SPECTRAL_LIGHT_FACTOR[companion.spectral],
       kind: 'main_sequence',
       lightColor: SPECTRAL_RENDER[companion.spectral].color,
+      granulation: SPECTRAL_SURFACE[companion.spectral].granulation,
+      rimColor: SPECTRAL_SURFACE[companion.spectral].rimColor,
     }))
     return [primary, ...companions]
   }, [star])
@@ -511,6 +530,9 @@ export function CurrentSystem() {
                     emissiveBoost={kindSurface(body.kind).emissiveBoost}
                     // 코로나도 광도를 따라 √배 스케일(O-4) — M 왜성은 작게, O형은 크게. G=1 불변.
                     coronaScale={kindSurface(body.kind).coronaScale * Math.sqrt(body.lightFactor)}
+                    // 입상반 진폭·림 저온색 분광 파생(O-6) — O/B 복사 외피는 매끈, 림은 붉게.
+                    granulation={body.granulation}
+                    rimColor={body.rimColor}
                   />
                 )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
