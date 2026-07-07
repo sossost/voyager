@@ -101,12 +101,6 @@ function pairSemiMajor(rawSep: number, rA: number, rB: number, eccEff: number): 
   return Math.max(minSemi, Math.min(raw, MAX_PAIR_SEMIMAJOR))
 }
 
-/** 동반성 광도 보정 계수 — 질량 제곱근비 클램프 (Phase 5 튜닝 대상). */
-export function bodyLightFactor(spectral: SpectralClass): number {
-  const ratio = Math.sqrt(massOf(spectral) / massOf('G'))
-  return Math.min(Math.max(ratio, 0.35), 1.5)
-}
-
 /**
  * 행성 궤도 중심을 질량중심(원점)에 둘지 여부.
  * 다중성계는 모두 질량중심을 공전한다(circumbinary) — 행성은 항상 "쌍성 전체의 질량중심"

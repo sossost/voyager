@@ -19,6 +19,23 @@ export const SPECTRAL_RENDER: Readonly<Record<SpectralClass, { color: string; si
 }
 
 /**
+ * 분광형별 광원 강도 계수 (O-4) — 주계열(V) 대표 광도의 로그 압축.
+ * 실제 중간값 광도(O ~5×10⁴ · B ~10³ · A ~20 · F ~4 · G ~1 · K ~0.3 · M ~0.04 L☉,
+ * Carroll & Ostlie "An Introduction to Modern Astrophysics" 부록 G)를 그대로 쓰면
+ * 10⁶배 차이라 렌더 불가능하므로 1 + 0.4·log₁₀(L/L☉)로 압축 후 [0.5, 3.0] 클램프.
+ * G형이 정확히 1.0이라 태양형 계 렌더는 픽셀 불변이다. 렌더 전용 — GEN_VERSION 무관.
+ */
+export const SPECTRAL_LIGHT_FACTOR: Readonly<Record<SpectralClass, number>> = {
+  O: 2.9,
+  B: 2.2,
+  A: 1.5,
+  F: 1.24,
+  G: 1.0,
+  K: 0.79,
+  M: 0.5,
+}
+
+/**
  * 이색 천체 맵 노드 색/크기 (결정 10) — SPECTRAL_RENDER 미러.
  * 블랙홀=거의 안 보이는 점 — 함교 스캔으로 드러낸 것만 항법뷰 홀로 마커로 표시된다
  * (exotic-scan, ScannedExoticMarkers). 펄서=전기 청백의 밝은 점(펄서 결정 8).
