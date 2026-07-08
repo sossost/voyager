@@ -6,6 +6,7 @@ import {
   createOrbitState,
   G_RENDER,
   seedCircularOrbit,
+  seedLocalCircularOrbit,
   SIM_DT,
   stepOrbit,
 } from './orbitIntegrator'
@@ -81,6 +82,101 @@ describe('orbitIntegrator', () => {
       }
       // 에너지 표류가 초기 결합에너지의 5% 미만 — 발산하지 않음.
       expect(maxDrift).toBeLessThan(Math.abs(initialEnergy) * 0.05)
+    })
+  })
+
+  describe('seedLocalCircularOrbit (실제 합력 기준 시드)', () => {
+    /** 반경 R에서 궤도를 N스텝 적분해 반경 최소·최대를 잰다. */
+    function radialBand(
+      seed: (state: ReturnType<typeof createOrbitState>) => void,
+      attractors: readonly Attractor[],
+      steps: number,
+    ): { minR: number; maxR: number } {
+      const state = createOrbitState()
+      seed(state)
+      let minR = Infinity
+      let maxR = -Infinity
+      for (let i = 0; i < steps; i++) {
+        stepOrbit(state, attractors, SIM_DT)
+        const r = state.pos.length()
+        minR = Math.min(minR, r)
+        maxR = Math.max(maxR, r)
+      }
+      return { minR, maxR }
+    }
+
+    it('위상 0에서 pos=(R,0,0), vel은 +z 방향(CCW) — 기존 시드와 방향 일치', () => {
+      const state = createOrbitState()
+      const radius = 20
+      seedLocalCircularOrbit(state, radius, 0, [fixedAttractor(1)], G_RENDER * 1)
+
+      expect(state.pos.x).toBeCloseTo(radius)
+      expect(state.pos.z).toBeCloseTo(0)
+      expect(state.vel.z).toBeGreaterThan(0)
+      expect(state.vel.x).toBeCloseTo(0)
+      expect(state.home).toBe(radius)
+    })
+
+    it('단일 중력원: softening을 반영해 점질량 시드보다 원에 가깝다', () => {
+      const radius = 20
+      const gm = G_RENDER * 1
+      const attractors = [fixedAttractor(1)]
+      const steps = 4000
+
+      const point = radialBand((s) => seedCircularOrbit(s, radius, 0, gm), attractors, steps)
+      const local = radialBand(
+        (s) => seedLocalCircularOrbit(s, radius, 0, attractors, gm),
+        attractors,
+        steps,
+      )
+
+      const pointSpread = point.maxR - point.minR
+      const localSpread = local.maxR - local.minR
+      expect(localSpread).toBeLessThan(pointSpread)
+      // 국소 시드는 실제 힘 법칙과 자기일관적이라 반경이 ±1% 안에 머문다.
+      expect(local.minR).toBeGreaterThan(radius * 0.99)
+      expect(local.maxR).toBeLessThan(radius * 1.01)
+    })
+
+    it('고정 쌍성 퍼텐셜: 점질량 시드보다 반경 요동이 작다', () => {
+      // 질량중심 원점, x축 위 ±5에 두 별 — circumbinary 행성의 정적 근사.
+      const binary: readonly Attractor[] = [
+        { position: new Vector3(5, 0, 0), mass: 1 },
+        { position: new Vector3(-5, 0, 0), mass: 1 },
+      ]
+      const radius = 25
+      const gm = G_RENDER * 2
+      const steps = 6000
+
+      const point = radialBand((s) => seedCircularOrbit(s, radius, 0.7, gm), binary, steps)
+      const local = radialBand(
+        (s) => seedLocalCircularOrbit(s, radius, 0.7, binary, gm),
+        binary,
+        steps,
+      )
+
+      expect(local.maxR - local.minR).toBeLessThan(point.maxR - point.minR)
+    })
+
+    it('내향 합력이 없으면 점질량 폴백으로 안전 처리 (NaN 없음)', () => {
+      const state = createOrbitState()
+      seedLocalCircularOrbit(state, 20, 0, [], G_RENDER * 1)
+      // 중력원이 없어도 폴백 gm으로 유한 속도를 시드한다.
+      expect(Number.isFinite(state.vel.length())).toBe(true)
+      expect(state.vel.length()).toBeGreaterThan(0)
+    })
+
+    it('반경 0은 속도 0으로 안전 처리', () => {
+      const state = createOrbitState()
+      seedLocalCircularOrbit(state, 0, 0, [fixedAttractor(1)], G_RENDER)
+      expect(state.vel.length()).toBe(0)
+      expect(Number.isNaN(state.pos.x)).toBe(false)
+    })
+
+    it('floor 인자를 상태에 전달한다', () => {
+      const state = createOrbitState()
+      seedLocalCircularOrbit(state, 30, 0, [fixedAttractor(1)], G_RENDER, 18)
+      expect(state.floor).toBe(18)
     })
   })
 
