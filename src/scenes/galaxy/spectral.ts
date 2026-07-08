@@ -36,6 +36,31 @@ export const SPECTRAL_LIGHT_FACTOR: Readonly<Record<SpectralClass, number>> = {
 }
 
 /**
+ * 분광형별 표면 셰이딩 파라미터 (O-6) — StarSurface uniform 2개의 원천.
+ *
+ * granulation — 입상반 진폭 배수 (G=1.0 기준). 입상반은 표면 대류 외피의 산물이라
+ * 복사 외피인 O/B는 매끈하다(대류 경계 ~7000K, 초기 F형 부근). 대류별 중에서는
+ * 표면 대비가 고온일수록 크다 — F형이 가장 격렬하고 M왜성은 미미하다
+ * (Trampedach et al. 2013, ApJ 769; Bastien et al. 2013 Nature "flicker" 관측).
+ *
+ * rimColor — 림 다크닝 시 노출되는 저온 상층부의 색. 광학 림 다크닝은 저온 대기일수록
+ * 강하고 붉으며, O/B는 전자 산란 지배 대기라 색온도 구배가 미미해 photosphere 색
+ * 그대로 둔다 (Claret 2000, A&A 363 림 다크닝 계수표). G형 값은 태양 사진의
+ * 주황빛 가장자리를 따른다. 렌더 전용 — GEN_VERSION 무관.
+ */
+export const SPECTRAL_SURFACE: Readonly<
+  Record<SpectralClass, { granulation: number; rimColor: string }>
+> = {
+  O: { granulation: 0, rimColor: '#7fa3ff' },
+  B: { granulation: 0, rimColor: '#95b5ff' },
+  A: { granulation: 0.2, rimColor: '#c3ccec' },
+  F: { granulation: 1.2, rimColor: '#f0dfc4' },
+  G: { granulation: 1.0, rimColor: '#f7c069' },
+  K: { granulation: 0.7, rimColor: '#ef9a52' },
+  M: { granulation: 0.45, rimColor: '#e57a3e' },
+}
+
+/**
  * 이색 천체 맵 노드 색/크기 (결정 10) — SPECTRAL_RENDER 미러.
  * 블랙홀=거의 안 보이는 점 — 함교 스캔으로 드러낸 것만 항법뷰 홀로 마커로 표시된다
  * (exotic-scan, ScannedExoticMarkers). 펄서=전기 청백의 밝은 점(펄서 결정 8).
