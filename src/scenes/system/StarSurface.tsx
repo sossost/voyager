@@ -148,6 +148,11 @@ interface StarSurfaceProps {
   readonly granulation?: number
   /** 림 다크닝 저온층 색 (O-6, SPECTRAL_SURFACE 파생). 생략 시 color와 동일 = 기존 렌더 불변. */
   readonly rimColor?: string
+  /**
+   * 코로나 글로우 반폭 상한 (coronaMaxRadii 파생) — 가산 빌보드가 이웃 별 원반을 덮어
+   * 초승달 위상 착시를 만들지 않게 클램프. 기본 Infinity = 단일성·기존 렌더 불변.
+   */
+  readonly maxCoronaRadius?: number
 }
 
 export function StarSurface({
@@ -157,6 +162,7 @@ export function StarSurface({
   coronaScale = 1,
   granulation = 1,
   rimColor,
+  maxCoronaRadius = Infinity,
 }: StarSurfaceProps) {
   const coronaRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
@@ -221,7 +227,8 @@ export function StarSurface({
     }
   })
 
-  const coronaSize = radius * CORONA_SIZE_FACTOR * coronaScale
+  // 쿼드 한 변 = 글로우 반폭 × 2 (셰이더 falloff가 uv 중심→모서리 절반 거리에서 1이 된다).
+  const coronaSize = Math.min(radius * CORONA_SIZE_FACTOR * coronaScale, maxCoronaRadius * 2)
 
   return (
     <>

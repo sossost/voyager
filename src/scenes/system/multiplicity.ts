@@ -214,6 +214,65 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
 }
 
 /**
+ * 별별 코로나 글로우 반폭 상한 — 가산 코로나 빌보드가 이웃 별 원반을 덮으면 뒤쪽 별에
+ * 초승달 위상 착시(별에는 밤면이 없으므로 오류)가 생긴다. 각 별의 글로우 반경을
+ * "이웃 별까지 최소 거리 − 이웃 별 반경"으로 클램프해 겹침을 원천 차단한다.
+ *
+ * 최소 거리는 렌더 궤도(bodyPositions와 동일 파라미터)의 근점에서 해석적으로 구한다:
+ * 같은 쌍의 두 별은 근점에서 aTotal(1−eccEff), 삼중성 외부 별↔내부 쌍 멤버는 보수적
+ * 하한 periOuter − memberApo. pairSemiMajor의 표면 간격 하한 덕에 결과는 항상 자기
+ * 원반 반경 + PAIR_SURFACE_GAP 이상이라 글로우가 원반 아래로 줄지 않는다.
+ * 반환 순서는 bodyPositions와 동일 [주성, ...동반성]. 단일성은 [Infinity](기존 불변).
+ * 렌더 전용 — GEN_VERSION 무관.
+ */
+export function coronaMaxRadii(star: Star): number[] {
+  const primaryMass = massOf(star.spectral)
+  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+
+  if (star.multiplicity === 'binary') {
+    const companion = star.companions[0]
+    if (companion == null) return [Infinity]
+    const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
+    const rCompanion = renderedRadius(companion.spectral, false)
+    const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
+    const periapsis = aTotal * (1 - eccEff)
+    return [periapsis - rCompanion, periapsis - rPrimary]
+  }
+
+  if (star.multiplicity === 'triple') {
+    const inner = star.companions[0]
+    const outer = star.companions[1]
+    if (inner == null || outer == null) return [Infinity]
+    const innerPairMass = primaryMass + massOf(inner.spectral)
+    const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
+    const rInnerBody = renderedRadius(inner.spectral, false)
+    const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
+    const aPrimary = (aTotalInner * massOf(inner.spectral)) / innerPairMass
+    const aInner = (aTotalInner * primaryMass) / innerPairMass
+    const innerPairExtent = Math.max(
+      aPrimary * (1 + eccInnerEff) + rPrimary,
+      aInner * (1 + eccInnerEff) + rInnerBody,
+    )
+    const eccOuterEff = outer.eccentricity * ECC_RENDER_FACTOR
+    const rOuterBody = renderedRadius(outer.spectral, false)
+    const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
+    // 내부 쌍 근점 — 두 멤버는 같은 θ를 공유하므로 정확한 최소 거리.
+    const periInner = aTotalInner * (1 - eccInnerEff)
+    // 외부 별 ↔ 내부 멤버 — 외부 근점에서 멤버가 Bi 반대편 최대 이각일 때의 보수적 하한.
+    const periOuter = aTotalOuter * (1 - eccOuterEff)
+    const minOuterToPrimary = periOuter - aPrimary * (1 + eccInnerEff)
+    const minOuterToInner = periOuter - aInner * (1 + eccInnerEff)
+    return [
+      Math.min(periInner - rInnerBody, minOuterToPrimary - rOuterBody),
+      Math.min(periInner - rPrimary, minOuterToInner - rOuterBody),
+      Math.min(minOuterToPrimary - rPrimary, minOuterToInner - rInnerBody),
+    ]
+  }
+
+  return [Infinity]
+}
+
+/**
  * 별 군집이 질량중심(원점)에서 닿는 최대 반경 — 가장 바깥 별의 원점거리(apoapsis) + 그 별 반경.
  * 행성 궤도를 이만큼 바깥으로 밀어 별/행성 관통을 막는다 (planetClearanceOffset). 다중성계 중력
  * 모드는 이 값의 배수를 P-type 안정 궤도·하드 플로어 기준으로 쓴다 (multi-star-gravity N-1).

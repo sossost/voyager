@@ -27,6 +27,7 @@ import { kindRadiusFactor, kindSurface } from '@/scenes/system/exotic'
 import {
   bodyPositions,
   bodyVisualRadius,
+  coronaMaxRadii,
   isCircumbinary,
   massOf,
   planetClearanceOffset,
@@ -39,7 +40,7 @@ import {
   G_RENDER,
   MAX_SUBSTEPS_PER_FRAME,
   type PlanetOrbitState,
-  seedCircularOrbit,
+  seedLocalCircularOrbit,
   SIM_DT,
   stepOrbit,
 } from '@/scenes/system/orbitIntegrator'
@@ -315,6 +316,10 @@ export function CurrentSystem() {
     return [primary, ...companions]
   }, [star])
 
+  // 코로나 글로우 반폭 상한 — 가산 코로나가 이웃 별 원반을 덮으면 뒤쪽 별에 초승달 위상
+  // 착시가 생긴다(별에는 밤면이 없다). 이웃 근점 거리 기준 클램프, 단일성은 Infinity(불변).
+  const coronaMax = useMemo(() => (star == null ? [Infinity] : coronaMaxRadii(star)), [star])
+
   // 트레일 프리롤 — 시드 상태에서 -SIM_DT로 역적분해 과거 경로를 currentPlanetOrbits.trails[slot]에
   // 채운다. head(index0)=시드 위치, 이후 슬롯일수록 과거. attractor는 각 과거 시각의 별 위치를
   // simBodyScratch에 샘플한다(라이브 적분과 동일 시계). 라이브 상태는 건드리지 않는다(temp 사용).
@@ -403,20 +408,34 @@ export function CurrentSystem() {
         const trailScratch = trailScratchRef.current
         // 하드 플로어 — 성단 밖. 시드 반경이 이미 이보다 크지만, 병리적 섭동 시 관통 전에 클램프.
         const orbitFloor = stellarClearanceRadius(star) + STAR_VISUAL_RADIUS + PLANET_FLOOR_MARGIN
+        // 시드는 실제 합력 기준(seedLocalCircularOrbit) — 점질량 √(gm/R)과 실제 쌍성 퍼텐셜의
+        // 어긋남이 인위적 이심률이 되는 것을 막는다. attractor(simBodyScratch 별칭)를 시드 시각의
+        // 별 위치로 먼저 채운다. 트레일 프리롤은 simBodyScratch를 과거 시각으로 덮으므로 별도 루프.
+        bodyPositions(star, simNow, simBodyScratch)
         for (let i = 0; i < planetCount; i++) {
           const planet = planets[i]
           if (planet == null) continue
-          const seedState = states[i] as PlanetOrbitState
-          seedCircularOrbit(
-            seedState,
+          seedLocalCircularOrbit(
+            states[i] as PlanetOrbitState,
             orbitRadiusOf(planet, orbitOffset, orbitDisplay),
             orbitInitialPhase(planet),
+            gravityAttractors,
             totalGm,
             orbitFloor,
           )
+        }
+        for (let i = 0; i < planetCount; i++) {
+          if (planets[i] == null) continue
           // 트레일 프리롤 — 시드 상태에서 시간을 거꾸로(-SIM_DT) 적분해 '과거 경로'를 채운다.
           // velocity-Verlet은 시간 가역이라 실제 지나왔을 궤적이 나온다(빈 트레일 시작 방지).
-          fillBackwardTrail(i, seedState, trailScratch, star, simNow, trailSampleDts[i] ?? SIM_DT * 4)
+          fillBackwardTrail(
+            i,
+            states[i] as PlanetOrbitState,
+            trailScratch,
+            star,
+            simNow,
+            trailSampleDts[i] ?? SIM_DT * 4,
+          )
         }
         currentPlanetOrbits.trailGeneration++
         simTimeRef.current = simNow
@@ -533,6 +552,7 @@ export function CurrentSystem() {
                     // 입상반 진폭·림 저온색 분광 파생(O-6) — O/B 복사 외피는 매끈, 림은 붉게.
                     granulation={body.granulation}
                     rimColor={body.rimColor}
+                    maxCoronaRadius={coronaMax[index] ?? Infinity}
                   />
                 )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
