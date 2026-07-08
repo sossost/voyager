@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { Vector3 } from 'three'
 
 import type { Companion, Star } from '@/engine'
-import { bodyCount, bodyPositions, isCircumbinary, massOf } from './multiplicity'
+import {
+  bodyCount,
+  bodyPositions,
+  bodyVisualRadius,
+  coronaMaxRadii,
+  isCircumbinary,
+  massOf,
+  STAR_VISUAL_RADIUS,
+} from './multiplicity'
 
 function makeStar(overrides: Partial<Star>): Star {
   return {
@@ -122,5 +130,75 @@ describe('multiplicity render math', () => {
     expect(
       bodyCount(makeStar({ multiplicity: 'binary', companions: [companion({})] })),
     ).toBe(2)
+  })
+})
+
+describe('coronaMaxRadii (코로나 겹침 클램프)', () => {
+  /** 궤도 여러 주기를 샘플해 두 별 사이 최소 거리를 실측한다. */
+  function minPairDistance(star: Star, indexA: number, indexB: number): number {
+    const out = [new Vector3(), new Vector3(), new Vector3()]
+    let min = Infinity
+    for (let t = 0; t < 600; t += 0.25) {
+      bodyPositions(star, t, out)
+      min = Math.min(min, (out[indexA] as Vector3).distanceTo(out[indexB] as Vector3))
+    }
+    return min
+  }
+
+  it('단일성은 무제한(Infinity) — 기존 렌더 불변', () => {
+    expect(coronaMaxRadii(makeStar({ multiplicity: 'single' }))).toEqual([Infinity])
+  })
+
+  it('쌍성: 각 별의 코로나 반폭 + 이웃 별 반경 ≤ 실측 최소 거리 (겹침 없음)', () => {
+    const star = makeStar({
+      multiplicity: 'binary',
+      spectral: 'G',
+      companions: [companion({ spectral: 'M', separation: 3, eccentricity: 0.5, phase: 0.2 })],
+    })
+    const [primaryMax, companionMax] = coronaMaxRadii(star)
+    const observedMin = minPairDistance(star, 0, 1)
+    const rPrimary = STAR_VISUAL_RADIUS
+    const rCompanion = bodyVisualRadius('M', STAR_VISUAL_RADIUS)
+
+    expect((primaryMax ?? Infinity) + rCompanion).toBeLessThanOrEqual(observedMin + 1e-9)
+    expect((companionMax ?? Infinity) + rPrimary).toBeLessThanOrEqual(observedMin + 1e-9)
+  })
+
+  it('쌍성: 클램프는 자기 원반 반경보다 크다 (글로우가 원반 아래로 줄지 않음)', () => {
+    const star = makeStar({
+      multiplicity: 'binary',
+      spectral: 'G',
+      // 표면 간격 하한(PAIR_SURFACE_GAP)이 발동하는 초근접 쌍.
+      companions: [companion({ spectral: 'G', separation: 0.5, eccentricity: 0.6 })],
+    })
+    const [primaryMax, companionMax] = coronaMaxRadii(star)
+    expect(primaryMax ?? 0).toBeGreaterThan(STAR_VISUAL_RADIUS)
+    expect(companionMax ?? 0).toBeGreaterThan(bodyVisualRadius('G', STAR_VISUAL_RADIUS))
+  })
+
+  it('삼중성: 세 별 모두 코로나 반폭 + 이웃 반경 ≤ 해당 쌍 실측 최소 거리', () => {
+    const star = makeStar({
+      multiplicity: 'triple',
+      spectral: 'G',
+      companions: [
+        companion({ spectral: 'K', hierarchy: 'inner', separation: 1.5, eccentricity: 0.3 }),
+        companion({ spectral: 'M', hierarchy: 'outer', separation: 9, eccentricity: 0.4 }),
+      ],
+    })
+    const radii = [
+      STAR_VISUAL_RADIUS,
+      bodyVisualRadius('K', STAR_VISUAL_RADIUS),
+      bodyVisualRadius('M', STAR_VISUAL_RADIUS),
+    ]
+    const maxima = coronaMaxRadii(star)
+    expect(maxima).toHaveLength(3)
+
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (i === j) continue
+        const observedMin = minPairDistance(star, i, j)
+        expect((maxima[i] ?? Infinity) + (radii[j] ?? 0)).toBeLessThanOrEqual(observedMin + 1e-9)
+      }
+    }
   })
 })

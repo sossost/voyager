@@ -73,6 +73,38 @@ export function seedCircularOrbit(
   state.floor = floor
 }
 
+/**
+ * 실제 합력 기준 원궤도 시드 (고증 — 다중성계 궤도 요동 완화). 점질량 √(gm/R)은 쌍성
+ * 사중극 항·softening과 어긋나 그 오차가 곧바로 인위적 이심률이 된다. 여기선 시드 위치의
+ * 실제 중력(적분기와 동일한 힘 법칙, softening 포함)에서 내향 성분을 취해 구심 균형
+ * v=√(a_r·R)을 만든다 — 남는 요동은 시변 쌍성 퍼텐셜의 강제 이심률, 즉 진짜 물리만이다.
+ * attractors가 비었거나 내향 합력이 없으면(병리적 배치) 점질량 fallbackGm으로 폴백.
+ */
+export function seedLocalCircularOrbit(
+  state: PlanetOrbitState,
+  radius: number,
+  phaseAngle: number,
+  attractors: readonly Attractor[],
+  fallbackGm: number,
+  floor = 0,
+): void {
+  const cos = Math.cos(phaseAngle)
+  const sin = Math.sin(phaseAngle)
+  state.pos.set(cos * radius, 0, sin * radius)
+  accelerationInto(accel0, state.pos, attractors)
+  // 내향(구심) 성분만 원운동에 기여 — 접선 성분은 시변 섭동으로 남는다.
+  const inwardAccel = radius > 0 ? -(accel0.x * cos + accel0.z * sin) : 0
+  const speed =
+    radius === 0
+      ? 0
+      : inwardAccel > 0
+        ? Math.sqrt(inwardAccel * radius)
+        : Math.sqrt(fallbackGm / radius)
+  state.vel.set(-sin * speed, 0, cos * speed)
+  state.home = radius
+  state.floor = floor
+}
+
 // useFrame 재사용 스크래치 — 모듈 단일 인스턴스(중첩 호출 없음: 스텝은 순차 실행).
 const accel0 = new Vector3()
 const accel1 = new Vector3()
