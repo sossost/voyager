@@ -9,8 +9,12 @@ import {
   coronaMaxRadii,
   isCircumbinary,
   massOf,
+  meanMotion,
+  solveEccentricAnomaly,
   STAR_VISUAL_RADIUS,
 } from './multiplicity'
+import { G_RENDER } from './orbitIntegrator'
+import { moonAngularSpeed } from './Moon'
 
 function makeStar(overrides: Partial<Star>): Star {
   return {
@@ -130,6 +134,104 @@ describe('multiplicity render math', () => {
     expect(
       bodyCount(makeStar({ multiplicity: 'binary', companions: [companion({})] })),
     ).toBe(2)
+  })
+})
+
+describe('궤도 운동학 정합 (P-1)', () => {
+  it('solveEccentricAnomaly: E − e·sinE = M 항등식을 만족한다', () => {
+    for (const ecc of [0, 0.1, 0.24]) {
+      for (let mean = -7; mean < 7; mean += 0.37) {
+        const anomaly = solveEccentricAnomaly(mean, ecc)
+        expect(Math.abs(anomaly - ecc * Math.sin(anomaly) - mean)).toBeLessThan(1e-10)
+      }
+    }
+  })
+
+  it('meanMotion: 케플러 3법칙 ω=√(GM/a³) — 질량·반장축 종속', () => {
+    expect(meanMotion(2, 10)).toBeCloseTo(Math.sqrt((G_RENDER * 2) / 1000), 12)
+    // 같은 반장축에서 질량 4배 → 각속도 2배.
+    expect(meanMotion(4, 10) / meanMotion(1, 10)).toBeCloseTo(2, 12)
+    // 같은 질량에서 반장축 4배 → 각속도 1/8 (주기 8배).
+    expect(meanMotion(1, 4) / meanMotion(1, 1)).toBeCloseTo(1 / 8, 12)
+  })
+
+  it('케플러 2법칙: 편심 쌍성은 근점에서 원점보다 빠르게 쓸고 지나간다', () => {
+    const star = makeStar({
+      multiplicity: 'binary',
+      spectral: 'G',
+      // 조석 원궤도화 램프(sep<2.5)를 피하는 넓은 편심 쌍.
+      companions: [companion({ spectral: 'K', separation: 5, eccentricity: 0.6, phase: 0 })],
+    })
+    const out = [new Vector3(), new Vector3(), new Vector3()]
+    const dt = 0.001
+    // 근점·원점 탐색 — 동반성 원점거리의 최소/최대 시각.
+    let periTime = 0
+    let apoTime = 0
+    let minR = Infinity
+    let maxR = -Infinity
+    for (let t = 0; t < 40; t += 0.01) {
+      bodyPositions(star, t, out)
+      const r = (out[1] as Vector3).length()
+      if (r < minR) {
+        minR = r
+        periTime = t
+      }
+      if (r > maxR) {
+        maxR = r
+        apoTime = t
+      }
+    }
+    const angularRateAt = (time: number): number => {
+      bodyPositions(star, time, out)
+      const a0 = Math.atan2((out[1] as Vector3).z, (out[1] as Vector3).x)
+      bodyPositions(star, time + dt, out)
+      const a1 = Math.atan2((out[1] as Vector3).z, (out[1] as Vector3).x)
+      const diff = Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0))
+      return Math.abs(diff) / dt
+    }
+    expect(maxR).toBeGreaterThan(minR * 1.2) // 편심 궤도 확인 (원이면 검사 무의미)
+    expect(angularRateAt(periTime)).toBeGreaterThan(angularRateAt(apoTime) * 1.5)
+  })
+
+  it('조석 원궤도화: 근접 쌍(sep≤1.2)은 편심이 있어도 원궤도로 렌더된다', () => {
+    const star = makeStar({
+      multiplicity: 'binary',
+      spectral: 'G',
+      companions: [companion({ spectral: 'K', separation: 1.0, eccentricity: 0.6, phase: 0.3 })],
+    })
+    const out = [new Vector3(), new Vector3(), new Vector3()]
+    let minR = Infinity
+    let maxR = -Infinity
+    for (let t = 0; t < 30; t += 0.01) {
+      bodyPositions(star, t, out)
+      const r = (out[0] as Vector3).distanceTo(out[1] as Vector3)
+      minR = Math.min(minR, r)
+      maxR = Math.max(maxR, r)
+    }
+    expect(maxR - minR).toBeLessThan(1e-9)
+  })
+
+  it('조석 원궤도화: 원거리 쌍(sep≥2.5)은 편심을 보존한다', () => {
+    const star = makeStar({
+      multiplicity: 'binary',
+      spectral: 'G',
+      companions: [companion({ spectral: 'K', separation: 5, eccentricity: 0.6, phase: 0 })],
+    })
+    const out = [new Vector3(), new Vector3(), new Vector3()]
+    let minR = Infinity
+    let maxR = -Infinity
+    for (let t = 0; t < 40; t += 0.01) {
+      bodyPositions(star, t, out)
+      const r = (out[0] as Vector3).distanceTo(out[1] as Vector3)
+      minR = Math.min(minR, r)
+      maxR = Math.max(maxR, r)
+    }
+    // 렌더 이심률 0.6×0.4=0.24 → apo/peri = (1+e)/(1−e) ≈ 1.63.
+    expect(maxR / minR).toBeGreaterThan(1.5)
+  })
+
+  it('moonAngularSpeed: 케플러 3법칙 — 궤도 반경 4배 → 각속도 1/8', () => {
+    expect(moonAngularSpeed(4) / moonAngularSpeed(1)).toBeCloseTo(1 / 8, 12)
   })
 })
 
