@@ -14,6 +14,7 @@ import { enqueueBake } from '@/scenes/system/bakeQueue'
 import { LifeSignalWaves } from '@/scenes/system/LifeSignalWaves'
 import { currentBodies } from '@/scenes/system/currentBodies'
 import { currentPlanetOrbits } from '@/scenes/system/currentPlanetOrbits'
+import { massOf } from '@/scenes/system/multiplicity'
 import { simClock } from '@/scenes/system/simClock'
 import { Moon, moonSpanScaleFor } from '@/scenes/system/Moon'
 import { PlanetRings, RING_INNER, RING_OUTER, RING_PLANE_NORMAL } from '@/scenes/system/PlanetRings'
@@ -69,13 +70,23 @@ export interface OrbitDisplay {
   readonly auScale: number
   /** 표시 전에 빼는 물리 AU (= stabilityOffsetAu). */
   readonly auShift: number
+  /**
+   * 공전 각속도 배율 = √(주성 질량/태양 질량) — ω=√(GM/a³)의 질량 항 (P-1/O-9 부수).
+   * 다중성계 행성은 적분기가 실제 질량 중력으로 굴리므로, closed-form 단일성계도 같은
+   * 질량 종속을 갖게 해 solver 간 운동학을 정합한다.
+   */
+  readonly speedScale: number
 }
 
-export const IDENTITY_ORBIT_DISPLAY: OrbitDisplay = { auScale: 1, auShift: 0 }
+export const IDENTITY_ORBIT_DISPLAY: OrbitDisplay = { auScale: 1, auShift: 0, speedScale: 1 }
 
 export function orbitDisplayOf(star: Star | null): OrbitDisplay {
   if (star == null) return IDENTITY_ORBIT_DISPLAY
-  return { auScale: 1 / orbitScaleOf(star.spectral), auShift: stabilityOffsetAu(star) }
+  return {
+    auScale: 1 / orbitScaleOf(star.spectral),
+    auShift: stabilityOffsetAu(star),
+    speedScale: Math.sqrt(massOf(star.spectral)),
+  }
 }
 
 /** 물리 AU → 표시 AU. */
@@ -118,8 +129,11 @@ export function planetOrbitPosition(
   display: OrbitDisplay = IDENTITY_ORBIT_DISPLAY,
 ): Vector3 {
   // 각속도는 표시 AU 기준 — 계 내부 케플러 비율(바깥일수록 느림)은 보존하면서 분광형 간
-  // 시각 속도를 일정하게 유지한다 (물리 AU를 쓰면 M형 행성이 초당 수 회전으로 보인다).
-  const angularSpeed = BASE_ANGULAR_SPEED / Math.pow(Math.max(displayAu(planet.orbitAu, display), 0.1), 1.5)
+  // 시각 속도 폭주를 막는다 (물리 AU를 쓰면 M형 행성이 초당 수 회전으로 보인다).
+  // speedScale(√M)이 ω=√(GM/a³)의 질량 항 — 다중성계 적분기와 운동학 정합 (P-1).
+  const angularSpeed =
+    (BASE_ANGULAR_SPEED * display.speedScale) /
+    Math.pow(Math.max(displayAu(planet.orbitAu, display), 0.1), 1.5)
   const angle = orbitInitialPhase(planet) + elapsedSeconds * angularSpeed
   const radius = orbitRadiusOf(planet, orbitOffset, display)
   return out.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius)

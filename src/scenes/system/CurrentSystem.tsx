@@ -32,6 +32,7 @@ import {
   massOf,
   planetClearanceOffset,
   STAR_VISUAL_RADIUS,
+  stableOrbitFloor,
   stellarClearanceRadius,
 } from '@/scenes/system/multiplicity'
 import {
@@ -214,7 +215,12 @@ export function CurrentSystem() {
     const base = planetClearanceOffset(star)
     if (!isGravityMode || planets.length === 0) return base
     const innermostAu = planets.reduce((min, planet) => Math.min(min, planet.orbitAu), Infinity)
-    const requiredInner = SAFE_ORBIT_FACTOR * stellarClearanceRadius(star)
+    // Holman–Wiegert P-type 안정 하한(stableOrbitFloor)이 시각 회피(2×성단반경)보다 바깥이면
+    // 그쪽을 쓴다 — 케플러 정합(P-1) 후 임계 안쪽 행성은 실제로 카오스 킥·클램프 꺾임이 발생.
+    const requiredInner = Math.max(
+      SAFE_ORBIT_FACTOR * stellarClearanceRadius(star),
+      stableOrbitFloor(star),
+    )
     const currentInner = auToOrbitRadius(innermostAu, base, orbitDisplay)
     return base + Math.max(0, requiredInner - currentInner)
   }, [star, isGravityMode, planets, orbitDisplay])

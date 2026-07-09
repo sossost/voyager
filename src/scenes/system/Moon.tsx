@@ -6,8 +6,16 @@ import type { Moon as MoonData } from '@/engine'
 import { simClock } from '@/scenes/system/simClock'
 
 const FULL_TURN = Math.PI * 2
-/** orbitRadius=1 기준 각속도 (rad/s) — 케플러 근사로 안쪽 위성이 빠르다. */
+/** orbitRadius=1 기준 각속도 (rad/s) — 케플러 3법칙 ω∝r^−1.5 (P-1 ①/O-9). */
 const BASE_MOON_ANGULAR_SPEED = 1.5
+
+/**
+ * 위성 공전 각속도 — 케플러 3법칙 ω = BASE/r^1.5. 종전 r^−0.5는 갈릴레이 위성 주기비를
+ * 왜곡했다 (이오:칼리스토 궤도비 ≈4.5 → 주기비 1:9.6이어야 하는데 1:2.1로 렌더).
+ */
+export function moonAngularSpeed(orbitRadius: number): number {
+  return BASE_MOON_ANGULAR_SPEED / Math.pow(orbitRadius, 1.5)
+}
 
 /**
  * 위성 궤도 반경 = 행성 시각반경 × (MIN + orbitFactor × SPAN × spanScale).
@@ -66,7 +74,7 @@ export function Moon({ moon, planetVisualRadius, orbitSpanScale = 1 }: MoonProps
   // 대비를 넓혔다 (paletteSeed %100 = 상대 크기, sol.ts 인코딩).
   const moonRadius = planetVisualRadius * (0.06 + (moon.paletteSeed % 100) / 750)
   const initialAngle = moon.phaseFactor * FULL_TURN
-  const angularSpeed = BASE_MOON_ANGULAR_SPEED / Math.sqrt(orbitRadius)
+  const angularSpeed = moonAngularSpeed(orbitRadius)
 
   const hue = moon.paletteSeed % 360
   const lightness = 48 + (moon.paletteSeed % 18)

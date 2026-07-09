@@ -1,7 +1,8 @@
 import { Vector3 } from 'three'
 
-import type { SpectralClass, Star, StarKind } from '@/engine'
+import type { Companion, SpectralClass, Star, StarKind } from '@/engine'
 import { kindRadiusFactor } from '@/scenes/system/exotic'
+import { G_RENDER } from '@/scenes/system/orbitIntegrator'
 
 /**
  * 다중성계 렌더 수학 — 질량 룩업·질량중심 공전·circumbinary 판정 (binary-stars 결정 9).
@@ -31,8 +32,6 @@ export const STAR_VISUAL_RADIUS = 3
 
 /** 추상 separation(AU-유사) → 렌더 유닛 변환. (CurrentSystem ORBIT_SCALE=6과 균형) */
 const COMPANION_ORBIT_SCALE = 3.2
-/** 공전 각속도 기준(rad/s) — separation^1.5에 반비례(케플러 근사). */
-const ORBIT_ANGULAR_BASE = 0.5
 const FULL_TURN = Math.PI * 2
 
 /**
@@ -44,6 +43,14 @@ const FULL_TURN = Math.PI * 2
  *  - 별 군집 전체를 감싸는 반경을 구해 행성 궤도를 그만큼 바깥으로 민다.
  */
 const ECC_RENDER_FACTOR = 0.4
+/**
+ * 조석 원궤도화 (P-1 ④/O-21) — 근접 쌍성은 조석 소산으로 이심률이 0으로 감쇠한다
+ * (Meibom & Mathieu 2005: 오래된 성단의 원궤도화 한계 주기 ≈10일). 게임 separation은
+ * 추상 단위지만 근접 쌍(계층형 inner 0.8~2.5) 영역이 실제 원궤도화 영역과 대응하므로,
+ * TIDAL_CIRC_SEP 이하 완전 원, TIDAL_FREE_SEP 이상 원래 이심률로 선형 램프한다.
+ */
+const TIDAL_CIRC_SEP = 1.2
+const TIDAL_FREE_SEP = 2.5
 const PAIR_SURFACE_GAP = 2.4
 const MAX_PAIR_SEMIMAJOR = 11
 /** 행성 최내곽 궤도 기준(orbitRadiusOf 최소 ≈ 8.6)보다 보수적으로 낮게 — 여유분. */
@@ -115,9 +122,61 @@ export function bodyCount(star: Star): number {
   return 1 + star.companions.length
 }
 
-/** 타원 극형식 반경 — 초점(질량중심)에서의 거리. r(θ)=a(1-e²)/(1+e·cosθ). */
-function ellipseRadius(semiMajor: number, eccentricity: number, theta: number): number {
-  return (semiMajor * (1 - eccentricity * eccentricity)) / (1 + eccentricity * Math.cos(theta))
+/**
+ * 렌더 이심률 — 생성 이심률 × 시각 축소(ECC_RENDER_FACTOR) × 조석 원궤도화 램프.
+ * bodyPositions·coronaMaxRadii·stellarClearanceRadius가 반드시 이 단일 값을 공유해야
+ * 근점 해석(코로나 클램프·충돌 하한)이 실제 궤도와 일치한다.
+ */
+function renderEccentricity(companion: Companion): number {
+  const tidalRamp = Math.min(
+    1,
+    Math.max(0, (companion.separation - TIDAL_CIRC_SEP) / (TIDAL_FREE_SEP - TIDAL_CIRC_SEP)),
+  )
+  return companion.eccentricity * ECC_RENDER_FACTOR * tidalRamp
+}
+
+/**
+ * 평균 운동 n = √(G·M/a³) (케플러 3법칙, P-1 ③) — 행성 적분기와 같은 G_RENDER·질량을 써서
+ * 별 궤도와 행성이 받는 중력이 하나의 물리로 정합한다. 이 정합 덕에 seedLocalCircularOrbit의
+ * 강제 이심률이 "올바른 별 운동에 대한 올바른 동역학 반응"이 된다 (PR #40 후속).
+ */
+export function meanMotion(totalMass: number, semiMajor: number): number {
+  return Math.sqrt((G_RENDER * totalMass) / (semiMajor * semiMajor * semiMajor))
+}
+
+/**
+ * 케플러 방정식 E − e·sinE = M 뉴턴 해 (케플러 2법칙, P-1 ②) — 등각속도 대신 이심근점이각을
+ * 풀어 근점에서 빨라지는 실제 궤도 속도를 얻는다. 렌더 이심률 상한(0.24)에서 4회면 기계
+ * 정밀도 수렴. 렌더 레이어라 초월함수 허용 — engine/ 순수성과 무관.
+ */
+const KEPLER_NEWTON_ITERATIONS = 4
+export function solveEccentricAnomaly(meanAnomaly: number, eccentricity: number): number {
+  let anomaly = meanAnomaly + eccentricity * Math.sin(meanAnomaly)
+  for (let i = 0; i < KEPLER_NEWTON_ITERATIONS; i++) {
+    anomaly -=
+      (anomaly - eccentricity * Math.sin(anomaly) - meanAnomaly) /
+      (1 - eccentricity * Math.cos(anomaly))
+  }
+  return anomaly
+}
+
+/**
+ * 단위 반장축(a=1) 타원의 초점(질량중심) 상대 좌표 — 근점이 +x축.
+ * x = cosE − e, z = √(1−e²)·sinE. useFrame 무할당을 위해 모듈 스크래치에 쓴다
+ * (중첩 호출 없음 — bodyPositions 내 레벨별 순차 사용).
+ */
+const unitOrbit = { x: 0, z: 0 }
+function unitOrbitAt(
+  elapsed: number,
+  phase: number,
+  eccentricity: number,
+  totalMass: number,
+  semiMajor: number,
+): void {
+  const mean = phase * FULL_TURN + elapsed * meanMotion(totalMass, semiMajor)
+  const eccAnomaly = solveEccentricAnomaly(mean, eccentricity)
+  unitOrbit.x = Math.cos(eccAnomaly) - eccentricity
+  unitOrbit.z = Math.sqrt(1 - eccentricity * eccentricity) * Math.sin(eccAnomaly)
 }
 
 /**
@@ -125,8 +184,9 @@ function ellipseRadius(semiMajor: number, eccentricity: number, theta: number): 
  * out[0]=주성, out[1..]=companions 순서. 반환값 = 채운 개수.
  * 할당을 피하려고 out(길이 ≥ bodyCount)을 재사용한다 (useFrame 규율).
  *
- * 질량중심 보존: 두 별은 같은 진근점이각 θ를 공유하고 반대편에 위치하며
+ * 질량중심 보존: 두 별은 같은 이심근점이각 E를 공유하고 반대편에 위치하며
  * 반장축이 질량 반비례(a1·m1 = a2·m2)라 m₁r₁ + m₂r₂ = 0 이 항상 성립한다.
+ * 궤도 운동학은 케플러 정합(P-1): 평균 운동 √(GM/a³) + 케플러 방정식 해(근점 가속).
  */
 export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3[]): number {
   const primaryMass = massOf(star.spectral)
@@ -144,20 +204,16 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
     }
     const companionMass = massOf(companion.spectral)
     const totalMass = primaryMass + companionMass
-    const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
+    const eccEff = renderEccentricity(companion)
     // 블랙홀이면 디스크 외곽까지 비우는 유효 반경(clearanceRadius)을 써 동반성이 디스크 밖에서 공전.
     const rPrimary = clearanceRadius(star.spectral, true, star.kind)
     const rCompanion = renderedRadius(companion.spectral, false)
     const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
     const aPrimary = (aTotal * companionMass) / totalMass
     const aCompanion = (aTotal * primaryMass) / totalMass
-    const omega = ORBIT_ANGULAR_BASE / Math.pow(companion.separation, 1.5)
-    const theta = companion.phase * FULL_TURN + elapsed * omega
-    const rBase = ellipseRadius(1, eccEff, theta)
-    const dirX = Math.cos(theta)
-    const dirZ = Math.sin(theta)
-    out[0]?.set(-dirX * aPrimary * rBase, 0, -dirZ * aPrimary * rBase)
-    out[1]?.set(dirX * aCompanion * rBase, 0, dirZ * aCompanion * rBase)
+    unitOrbitAt(elapsed, companion.phase, eccEff, totalMass, aTotal)
+    out[0]?.set(-unitOrbit.x * aPrimary, 0, -unitOrbit.z * aPrimary)
+    out[1]?.set(unitOrbit.x * aCompanion, 0, unitOrbit.z * aCompanion)
     return 2
   }
 
@@ -173,7 +229,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
   const innerPairMass = primaryMass + innerMass
 
   // 내부 레벨 — 주성과 inner가 Bi를 공전 (먼저 풀어 inner 쌍의 외곽 반경을 구한다).
-  const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
+  const eccInnerEff = renderEccentricity(inner)
   const rPrimary = clearanceRadius(star.spectral, true, star.kind)
   const rInnerBody = renderedRadius(inner.spectral, false)
   const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
@@ -187,29 +243,23 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
 
   // 외부 레벨 — inner 쌍의 질량중심(Bi)과 outer가 원점을 공전. inner 쌍을 반경
   // innerPairExtent의 한 천체로 취급해 outer가 쌍을 가르지 않도록 한다.
-  const eccOuterEff = outer.eccentricity * ECC_RENDER_FACTOR
+  // 외부 평균 운동은 세 별 총질량 기준 — 계층형 근사(inner 쌍 = 점질량).
+  const eccOuterEff = renderEccentricity(outer)
   const rOuterBody = renderedRadius(outer.spectral, false)
   const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
   const totalOuterMass = innerPairMass + outerMass
   const aBi = (aTotalOuter * outerMass) / totalOuterMass
   const aOuter = (aTotalOuter * innerPairMass) / totalOuterMass
-  const omegaOuter = ORBIT_ANGULAR_BASE / Math.pow(outer.separation, 1.5)
-  const thetaOuter = outer.phase * FULL_TURN + elapsed * omegaOuter
-  const rOuter = ellipseRadius(1, eccOuterEff, thetaOuter)
-  const oX = Math.cos(thetaOuter)
-  const oZ = Math.sin(thetaOuter)
-  const biX = -oX * aBi * rOuter
-  const biZ = -oZ * aBi * rOuter
+  unitOrbitAt(elapsed, outer.phase, eccOuterEff, totalOuterMass, aTotalOuter)
+  const biX = -unitOrbit.x * aBi
+  const biZ = -unitOrbit.z * aBi
+  const oX = unitOrbit.x * aOuter
+  const oZ = unitOrbit.z * aOuter
 
-  const omegaInner = ORBIT_ANGULAR_BASE / Math.pow(inner.separation, 1.5)
-  const thetaInner = inner.phase * FULL_TURN + elapsed * omegaInner
-  const rInner = ellipseRadius(1, eccInnerEff, thetaInner)
-  const iX = Math.cos(thetaInner)
-  const iZ = Math.sin(thetaInner)
-
-  out[0]?.set(biX - iX * aPrimary * rInner, 0, biZ - iZ * aPrimary * rInner)
-  out[1]?.set(biX + iX * aInner * rInner, 0, biZ + iZ * aInner * rInner)
-  out[2]?.set(oX * aOuter * rOuter, 0, oZ * aOuter * rOuter)
+  unitOrbitAt(elapsed, inner.phase, eccInnerEff, innerPairMass, aTotalInner)
+  out[0]?.set(biX - unitOrbit.x * aPrimary, 0, biZ - unitOrbit.z * aPrimary)
+  out[1]?.set(biX + unitOrbit.x * aInner, 0, biZ + unitOrbit.z * aInner)
+  out[2]?.set(oX, 0, oZ)
   return 3
 }
 
@@ -232,7 +282,7 @@ export function coronaMaxRadii(star: Star): number[] {
   if (star.multiplicity === 'binary') {
     const companion = star.companions[0]
     if (companion == null) return [Infinity]
-    const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
+    const eccEff = renderEccentricity(companion)
     const rCompanion = renderedRadius(companion.spectral, false)
     const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
     const periapsis = aTotal * (1 - eccEff)
@@ -244,7 +294,7 @@ export function coronaMaxRadii(star: Star): number[] {
     const outer = star.companions[1]
     if (inner == null || outer == null) return [Infinity]
     const innerPairMass = primaryMass + massOf(inner.spectral)
-    const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
+    const eccInnerEff = renderEccentricity(inner)
     const rInnerBody = renderedRadius(inner.spectral, false)
     const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
     const aPrimary = (aTotalInner * massOf(inner.spectral)) / innerPairMass
@@ -253,7 +303,7 @@ export function coronaMaxRadii(star: Star): number[] {
       aPrimary * (1 + eccInnerEff) + rPrimary,
       aInner * (1 + eccInnerEff) + rInnerBody,
     )
-    const eccOuterEff = outer.eccentricity * ECC_RENDER_FACTOR
+    const eccOuterEff = renderEccentricity(outer)
     const rOuterBody = renderedRadius(outer.spectral, false)
     const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
     // 내부 쌍 근점 — 두 멤버는 같은 θ를 공유하므로 정확한 최소 거리.
@@ -284,7 +334,7 @@ export function stellarClearanceRadius(star: Star): number {
   if (star.multiplicity === 'binary') {
     const companion = star.companions[0]
     if (companion == null) return rPrimary
-    const eccEff = companion.eccentricity * ECC_RENDER_FACTOR
+    const eccEff = renderEccentricity(companion)
     const rCompanion = renderedRadius(companion.spectral, false)
     const totalMass = primaryMass + massOf(companion.spectral)
     const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
@@ -301,7 +351,7 @@ export function stellarClearanceRadius(star: Star): number {
     const outer = star.companions[1]
     if (inner == null || outer == null) return rPrimary
     const innerPairMass = primaryMass + massOf(inner.spectral)
-    const eccInnerEff = inner.eccentricity * ECC_RENDER_FACTOR
+    const eccInnerEff = renderEccentricity(inner)
     const rInnerBody = renderedRadius(inner.spectral, false)
     const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
     const aPrimary = (aTotalInner * massOf(inner.spectral)) / innerPairMass
@@ -310,7 +360,7 @@ export function stellarClearanceRadius(star: Star): number {
       aPrimary * (1 + eccInnerEff) + rPrimary,
       aInner * (1 + eccInnerEff) + rInnerBody,
     )
-    const eccOuterEff = outer.eccentricity * ECC_RENDER_FACTOR
+    const eccOuterEff = renderEccentricity(outer)
     const rOuterBody = renderedRadius(outer.spectral, false)
     const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
     const totalOuterMass = innerPairMass + massOf(outer.spectral)
@@ -323,6 +373,73 @@ export function stellarClearanceRadius(star: Star): number {
   }
 
   return rPrimary
+}
+
+/**
+ * Holman & Wiegert 1999 P-type(circumbinary) 안정 임계 반경 계수 —
+ * a_c/a_bin = 1.60 + 5.10e − 2.22e² + 4.12μ − 4.27eμ − 5.09μ² + 4.61e²μ² (Table 7 피팅).
+ * 이 반경 안쪽 행성은 쌍성 공명·카오스 킥으로 수 궤도 내 이탈한다 — P-1 케플러 정합으로
+ * 별이 실제 속도로 돌자 이 불안정이 렌더에서 실제로 발현(클램프 충돌 = 궤도 꺾임)됐다.
+ */
+function holmanWiegertFactor(ecc: number, massRatio: number): number {
+  return (
+    1.6 +
+    5.1 * ecc -
+    2.22 * ecc * ecc +
+    4.12 * massRatio -
+    4.27 * ecc * massRatio -
+    5.09 * massRatio * massRatio +
+    4.61 * ecc * ecc * massRatio * massRatio
+  )
+}
+
+/** 피팅 오차(±4~11%)·강제 이심률 여유 마진. */
+const STABLE_ORBIT_MARGIN = 1.1
+
+/**
+ * P-type 행성 안정 하한 반경 (렌더 유닛) — 최외곽 쌍(binary는 그 쌍, triple은 외부 레벨)의
+ * 렌더 반장축·이심률·질량비로 Holman–Wiegert 임계를 구한다. bodyPositions와 동일한
+ * pairSemiMajor·renderEccentricity를 쓰므로 화면에 보이는 궤도 기준의 정확한 경계다.
+ * 단일성은 0 (케플러 닫힌 해 — 불안정 없음).
+ */
+export function stableOrbitFloor(star: Star): number {
+  const primaryMass = massOf(star.spectral)
+  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+
+  if (star.multiplicity === 'binary') {
+    const companion = star.companions[0]
+    if (companion == null) return 0
+    const companionMass = massOf(companion.spectral)
+    const eccEff = renderEccentricity(companion)
+    const rCompanion = renderedRadius(companion.spectral, false)
+    const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
+    const massRatio = companionMass / (primaryMass + companionMass)
+    return STABLE_ORBIT_MARGIN * aTotal * holmanWiegertFactor(eccEff, massRatio)
+  }
+
+  if (star.multiplicity === 'triple') {
+    const inner = star.companions[0]
+    const outer = star.companions[1]
+    if (inner == null || outer == null) return 0
+    const innerPairMass = primaryMass + massOf(inner.spectral)
+    const eccInnerEff = renderEccentricity(inner)
+    const rInnerBody = renderedRadius(inner.spectral, false)
+    const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
+    const aPrimary = (aTotalInner * massOf(inner.spectral)) / innerPairMass
+    const aInner = (aTotalInner * primaryMass) / innerPairMass
+    const innerPairExtent = Math.max(
+      aPrimary * (1 + eccInnerEff) + rPrimary,
+      aInner * (1 + eccInnerEff) + rInnerBody,
+    )
+    const eccOuterEff = renderEccentricity(outer)
+    const rOuterBody = renderedRadius(outer.spectral, false)
+    const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
+    const outerMass = massOf(outer.spectral)
+    const massRatio = outerMass / (innerPairMass + outerMass)
+    return STABLE_ORBIT_MARGIN * aTotalOuter * holmanWiegertFactor(eccOuterEff, massRatio)
+  }
+
+  return 0
 }
 
 /**
