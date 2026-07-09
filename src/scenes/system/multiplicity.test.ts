@@ -11,9 +11,17 @@ import {
   massOf,
   meanMotion,
   solveEccentricAnomaly,
+  stableOrbitFloor,
   STAR_VISUAL_RADIUS,
 } from './multiplicity'
-import { G_RENDER } from './orbitIntegrator'
+import {
+  type Attractor,
+  createOrbitState,
+  G_RENDER,
+  seedLocalCircularOrbit,
+  SIM_DT,
+  stepOrbit,
+} from './orbitIntegrator'
 import { moonAngularSpeed } from './Moon'
 
 function makeStar(overrides: Partial<Star>): Star {
@@ -232,6 +240,53 @@ describe('궤도 운동학 정합 (P-1)', () => {
 
   it('moonAngularSpeed: 케플러 3법칙 — 궤도 반경 4배 → 각속도 1/8', () => {
     expect(moonAngularSpeed(4) / moonAngularSpeed(1)).toBeCloseTo(1 / 8, 12)
+  })
+})
+
+describe('stableOrbitFloor (Holman–Wiegert P-type 안정 하한)', () => {
+  it('단일성은 0 — 케플러 닫힌 해라 불안정 구역이 없다', () => {
+    expect(stableOrbitFloor(makeStar({ multiplicity: 'single' }))).toBe(0)
+  })
+
+  it('이심률이 클수록 안정 하한이 바깥으로 밀린다', () => {
+    const withEcc = (eccentricity: number): number =>
+      stableOrbitFloor(
+        makeStar({
+          multiplicity: 'binary',
+          spectral: 'G',
+          companions: [companion({ spectral: 'G', separation: 8, eccentricity })],
+        }),
+      )
+    expect(withEcc(0.6)).toBeGreaterThan(withEcc(0))
+  })
+
+  it('하한 바깥에 시드한 행성은 편심 쌍성 120s 적분에서 유계 클램프에 닿지 않는다', () => {
+    // 개발서버에서 궤도 꺾임이 관측된 최악 구성 (K+K sep 8.8, e 0.57 — LIFE1 -4:-1:-4:1).
+    const star = makeStar({
+      multiplicity: 'binary',
+      spectral: 'K',
+      companions: [companion({ spectral: 'K', separation: 8.8, eccentricity: 0.57, phase: 0 })],
+    })
+    const bodies = [new Vector3(), new Vector3(), new Vector3()]
+    const attractors: Attractor[] = [massOf(star.spectral), massOf('K')].map((mass, i) => ({
+      position: bodies[i] as Vector3,
+      mass,
+    }))
+    const gm = G_RENDER * (massOf('K') * 2)
+    const radius = stableOrbitFloor(star)
+    const state = createOrbitState()
+    bodyPositions(star, 0, bodies)
+    seedLocalCircularOrbit(state, radius, 0.7, attractors, gm)
+
+    const steps = Math.round(120 / SIM_DT)
+    for (let step = 0; step < steps; step++) {
+      bodyPositions(star, step * SIM_DT, bodies)
+      stepOrbit(state, attractors, SIM_DT)
+      const r = state.pos.length()
+      // 유계 클램프 경계(home×[0.5,1.6])에 닿으면 궤도가 각으로 꺾인다 — 회귀 가드.
+      expect(r).toBeGreaterThan(state.home * 0.5 + 1e-6)
+      expect(r).toBeLessThan(state.home * 1.6 - 1e-6)
+    }
   })
 })
 

@@ -376,6 +376,73 @@ export function stellarClearanceRadius(star: Star): number {
 }
 
 /**
+ * Holman & Wiegert 1999 P-type(circumbinary) 안정 임계 반경 계수 —
+ * a_c/a_bin = 1.60 + 5.10e − 2.22e² + 4.12μ − 4.27eμ − 5.09μ² + 4.61e²μ² (Table 7 피팅).
+ * 이 반경 안쪽 행성은 쌍성 공명·카오스 킥으로 수 궤도 내 이탈한다 — P-1 케플러 정합으로
+ * 별이 실제 속도로 돌자 이 불안정이 렌더에서 실제로 발현(클램프 충돌 = 궤도 꺾임)됐다.
+ */
+function holmanWiegertFactor(ecc: number, massRatio: number): number {
+  return (
+    1.6 +
+    5.1 * ecc -
+    2.22 * ecc * ecc +
+    4.12 * massRatio -
+    4.27 * ecc * massRatio -
+    5.09 * massRatio * massRatio +
+    4.61 * ecc * ecc * massRatio * massRatio
+  )
+}
+
+/** 피팅 오차(±4~11%)·강제 이심률 여유 마진. */
+const STABLE_ORBIT_MARGIN = 1.1
+
+/**
+ * P-type 행성 안정 하한 반경 (렌더 유닛) — 최외곽 쌍(binary는 그 쌍, triple은 외부 레벨)의
+ * 렌더 반장축·이심률·질량비로 Holman–Wiegert 임계를 구한다. bodyPositions와 동일한
+ * pairSemiMajor·renderEccentricity를 쓰므로 화면에 보이는 궤도 기준의 정확한 경계다.
+ * 단일성은 0 (케플러 닫힌 해 — 불안정 없음).
+ */
+export function stableOrbitFloor(star: Star): number {
+  const primaryMass = massOf(star.spectral)
+  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+
+  if (star.multiplicity === 'binary') {
+    const companion = star.companions[0]
+    if (companion == null) return 0
+    const companionMass = massOf(companion.spectral)
+    const eccEff = renderEccentricity(companion)
+    const rCompanion = renderedRadius(companion.spectral, false)
+    const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
+    const massRatio = companionMass / (primaryMass + companionMass)
+    return STABLE_ORBIT_MARGIN * aTotal * holmanWiegertFactor(eccEff, massRatio)
+  }
+
+  if (star.multiplicity === 'triple') {
+    const inner = star.companions[0]
+    const outer = star.companions[1]
+    if (inner == null || outer == null) return 0
+    const innerPairMass = primaryMass + massOf(inner.spectral)
+    const eccInnerEff = renderEccentricity(inner)
+    const rInnerBody = renderedRadius(inner.spectral, false)
+    const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
+    const aPrimary = (aTotalInner * massOf(inner.spectral)) / innerPairMass
+    const aInner = (aTotalInner * primaryMass) / innerPairMass
+    const innerPairExtent = Math.max(
+      aPrimary * (1 + eccInnerEff) + rPrimary,
+      aInner * (1 + eccInnerEff) + rInnerBody,
+    )
+    const eccOuterEff = renderEccentricity(outer)
+    const rOuterBody = renderedRadius(outer.spectral, false)
+    const aTotalOuter = pairSemiMajor(outer.separation, innerPairExtent, rOuterBody, eccOuterEff)
+    const outerMass = massOf(outer.spectral)
+    const massRatio = outerMass / (innerPairMass + outerMass)
+    return STABLE_ORBIT_MARGIN * aTotalOuter * holmanWiegertFactor(eccOuterEff, massRatio)
+  }
+
+  return 0
+}
+
+/**
  * 행성 궤도를 바깥으로 미는 양 — 최내곽 행성이 별 군집(또는 부푼 본체)을 벗어나도록.
  * CurrentSystem·Planet·PlanetCalloutProjector가 공유한다. stellarClearanceRadius가 kind 반경을
  * 이미 반영하므로 단일성계도 그대로 흐른다: 일반 단일 항성(반경 3)·백색왜성(≈1)·펄서(≈2.1)는
