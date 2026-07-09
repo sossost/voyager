@@ -16,6 +16,7 @@ import {
   bandPanoramaKey,
   createBandPanoramaJob,
 } from '@/scenes/galaxy/galaxyBandPanorama'
+import { ditherCanvas } from '@/scenes/shared/canvasDither'
 
 /**
  * 우주선 뷰 은하 광원감 (백로그 G-b-6, 결정 38) — 함내에서 은하가 "별 점의 집합"이
@@ -161,6 +162,8 @@ function getCoreGlowTexture(): CanvasTexture {
   gradient.addColorStop(1, 'rgba(255, 180, 120, 0)')
   context.fillStyle = gradient
   context.fillRect(0, 0, CORE_TEXTURE_SIZE, CORE_TEXTURE_SIZE)
+  // 256px 베이크를 1,800u로 확대하면 저알파 구간이 동심원 계단으로 노출된다 (O-11)
+  ditherCanvas(context)
 
   cachedCoreTexture = new CanvasTexture(canvas)
   cachedCoreTexture.colorSpace = 'srgb'

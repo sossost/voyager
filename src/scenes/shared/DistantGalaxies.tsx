@@ -2,6 +2,8 @@ import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import { AdditiveBlending, CanvasTexture, type Group, MeshBasicMaterial } from 'three'
 
+import { ditherCanvas } from '@/scenes/shared/canvasDither'
+
 /**
  * 원거리 배경 은하 — 우리 은하 바깥의 빈 검정을 채우는 장식 레이어 (백로그 E-1, 결정 24).
  *
@@ -81,6 +83,8 @@ function buildGalaxySmudgeTexture(): CanvasTexture {
   gradient.addColorStop(1, 'rgba(120, 140, 255, 0)')
   context.fillStyle = gradient
   context.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE)
+  // 192px 베이크를 최대 2,200u로 확대하면 저알파 구간이 동심원 계단으로 노출된다 (O-11)
+  ditherCanvas(context)
 
   const texture = new CanvasTexture(canvas)
   texture.colorSpace = 'srgb'
