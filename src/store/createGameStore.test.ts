@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { PlanetId, Seed, Star, StarId, StarKind } from '@/engine'
-import { originStar, parseSeed, starsInSector } from '@/engine'
+import {
+  DISK_BH_STAR_ID,
+  FEEDING_BH_STAR_ID,
+  originStar,
+  parseSeed,
+  starsInSector,
+} from '@/engine'
 import { MemoryDriver } from '@/persistence/memoryDriver'
 import type { GameStoreApi } from './createGameStore'
 import { createGameStore } from './createGameStore'
@@ -407,6 +413,66 @@ describe('현상 발견 (exotic-bodies)', () => {
       const profile = await driver.loadProfile()
       expect(profile?.discoveredPhenomena?.map((d) => d.starId)).toContain(exoticStarA.id)
     })
+  })
+})
+
+describe('특이계 발견 (exotic-codex)', () => {
+  it('유니크계로 워프하면 특이계 도감에 등록되고 토스트가 뜬다', () => {
+    expect(store.getState().discoveredUniques).toHaveLength(0)
+
+    store.getState().warpTo(DISK_BH_STAR_ID)
+
+    const discoveries = store.getState().discoveredUniques
+    expect(discoveries).toHaveLength(1)
+    expect(discoveries[0]).toMatchObject({ uniqueId: 'disk_bh', discoveredAt: 12_345 })
+    expect(store.getState().toasts.some((toast) => toast.message.includes('특이계 발견'))).toBe(
+      true,
+    )
+    // 유니크계는 블랙홀이기도 하다 — 현상 도감(kind)에도 같은 워프로 함께 기록된다.
+    expect(
+      store.getState().discoveredPhenomena.some((d) => d.starId === DISK_BH_STAR_ID),
+    ).toBe(true)
+  })
+
+  it('유니크계 재방문은 중복 등록하지 않는다 (멱등)', () => {
+    store.getState().warpTo(FEEDING_BH_STAR_ID)
+    store.getState().onWarpComplete()
+    store.getState().warpTo(mainStar.id)
+    store.getState().onWarpComplete()
+    store.getState().warpTo(FEEDING_BH_STAR_ID)
+
+    expect(store.getState().discoveredUniques).toHaveLength(1)
+    expect(
+      store.getState().toasts.filter((toast) => toast.message.includes('특이계 발견')),
+    ).toHaveLength(1)
+  })
+
+  it('일반 별 워프는 특이계를 기록하지 않는다', () => {
+    store.getState().warpTo(mainStar.id)
+    expect(store.getState().discoveredUniques).toHaveLength(0)
+  })
+
+  it('발견은 프로필에 영속된다 (Profile.discoveredUniques)', async () => {
+    store.getState().warpTo(DISK_BH_STAR_ID)
+
+    await vi.waitFor(async () => {
+      const profile = await driver.loadProfile()
+      expect(profile?.discoveredUniques?.map((d) => d.uniqueId)).toContain('disk_bh')
+    })
+  })
+
+  it('initialDiscoveredUniques로 하이드레이션된다', () => {
+    const hydrated = createGameStore({
+      seed,
+      startStarId,
+      driver,
+      now: () => 12_345,
+      createdAt: 1_000,
+      initialDiscoveredUniques: [{ uniqueId: 'feeding_bh', discoveredAt: 7 }],
+    })
+    expect(hydrated.getState().discoveredUniques).toEqual([
+      { uniqueId: 'feeding_bh', discoveredAt: 7 },
+    ])
   })
 })
 

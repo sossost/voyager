@@ -35,6 +35,7 @@ const FRAGMENT = /* glsl */ `
   uniform float uRs;
   uniform float uDiskInner;
   uniform float uDiskOuter;
+  uniform float uDiskEnabled; // 0=암흑(렌즈·그림자만, 절차 BH) / 1=강착원반(유니크계)
   uniform vec3 uDiskNormal;
   uniform vec2 uCenter;
   uniform float uScreenRadius;
@@ -251,7 +252,7 @@ const FRAGMENT = /* glsl */ `
     // 외곽 디스크 직선 패스 — 빈공간 스킵이 건너뛰는 근측 외곽 디스크(거의 안 휨)를 해석적으로
     // 먼저 합성한다. 마칭(START_R 안)은 강하게 휘는 안쪽·감김만 담당 → START_R을 낮춰 휨을
     // 디스크부터 시작해도 외곽 디스크가 안 잘린다. 근측(최근접 이전) + START_R 밖만 잡아 마칭과 비중복.
-    if (abs(rayDir.y) > 1e-5) {
+    if (uDiskEnabled > 0.5 && abs(rayDir.y) > 1e-5) {
       float tDisk = -pos.y / rayDir.y;
       if (tDisk > 0.0 && tDisk < along) {
         vec3 dh = pos + rayDir * tDisk;
@@ -291,7 +292,7 @@ const FRAGMENT = /* glsl */ `
       prevPos = pos;
       pos += rayDir * stepLen;
 
-      if (prevPos.y * pos.y < 0.0 && alpha < 0.99) {
+      if (uDiskEnabled > 0.5 && prevPos.y * pos.y < 0.0 && alpha < 0.99) {
         float t = -prevPos.y / (pos.y - prevPos.y);
         vec3 hit = mix(prevPos, pos, clamp(t, 0.0, 1.0));
         float hr = length(vec2(hit.x, hit.z));
@@ -371,6 +372,7 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uRs", new Uniform(1)],
         ["uDiskInner", new Uniform(2.5)],
         ["uDiskOuter", new Uniform(9)],
+        ["uDiskEnabled", new Uniform(0)],
         ["uDiskNormal", new Uniform(new Vector3(0, 1, 0))],
         ["uCenter", new Uniform(new Vector2(0.5, 0.5))],
         ["uScreenRadius", new Uniform(0.2)],
@@ -408,6 +410,7 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uRs", blackHoleLens.rs);
     set("uDiskInner", blackHoleLens.diskInner);
     set("uDiskOuter", blackHoleLens.diskOuter);
+    set("uDiskEnabled", blackHoleLens.diskEnabled ? 1 : 0);
     copy("uDiskNormal", blackHoleLens.diskNormal);
     copy("uCenter", blackHoleLens.center);
     set("uScreenRadius", blackHoleLens.screenRadius);

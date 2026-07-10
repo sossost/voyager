@@ -4,7 +4,14 @@ import type { Group, PointLight } from 'three'
 import { PerspectiveCamera, Vector3 } from 'three'
 
 import type { Star, StarKind } from '@/engine'
-import { beltsOf, hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
+import {
+  beltsOf,
+  hasHabitableZone,
+  planetsOf,
+  SOL_STAR_ID,
+  starById,
+  uniqueSystemOf,
+} from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { AsteroidBelt } from '@/scenes/system/AsteroidBelt'
 import {
@@ -13,8 +20,9 @@ import {
   SPECTRAL_RENDER,
   SPECTRAL_SURFACE,
 } from '@/scenes/galaxy/spectral'
-import { BlackHole } from '@/scenes/system/BlackHole'
+import { BlackHole, type BlackHoleVariant } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
+import { MatterStream } from '@/scenes/system/MatterStream'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
 import {
   clearCurrentPlanetOrbits,
@@ -139,6 +147,11 @@ interface BodyVisual {
 
 /** 블랙홀 강착원반 발광색 — 검은 본체 대신 이 따뜻한 빛이 행성·동반성을 비춘다. */
 const BLACK_HOLE_LIGHT_COLOR = '#ffcaa0'
+/** 암흑 블랙홀 광원색 — 원반이 없으니 발광원도 없다. 희미한 냉광(가독 최소한)만 남긴다. */
+const DARK_BLACK_HOLE_LIGHT_COLOR = '#4a4a5e'
+/** 강착원반 안/바깥 반경 배수 (rs 기준) — 레이마칭 lens 게시·궤도 클리어런스 공용. */
+const BH_DISK_INNER_FACTOR = 2.5
+const BH_DISK_OUTER_FACTOR = 18.0
 
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
@@ -186,9 +199,16 @@ export function CurrentSystem() {
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
   // 소행성대 — 궤도 갭(암석대)·최외곽 행성 바깥(카이퍼대). 행성과 같은 중심(궤도 그룹) 기준.
   const belts = useMemo(() => beltsOf(seed, starId), [seed, starId])
+  // 블랙홀 상태 (exotic-codex) — 환경 파생: 절차 BH는 고립·암흑(dark), 유니크계만 강착 상태.
+  const unique = uniqueSystemOf(starId)
+  const bhVariant: BlackHoleVariant =
+    unique?.id === 'feeding_bh' ? 'feeding' : unique?.id === 'disk_bh' ? 'disk' : 'dark'
   // 블랙홀은 행성을 숨긴다 — 강착원반이 내행성 궤도와 겹치고 천문학적으로도 이례적이다
-  // (펄서·왜성·거성은 행성 유지). planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
-  const showPlanets = scene.kind === 'galaxy' && star?.kind !== 'black_hole'
+  // (펄서·왜성·거성은 행성 유지). 예외: 아케론(disk_bh)은 원거리 쌍성이라 행성이 유지되고,
+  // 안정 하한(stellarClearanceRadius가 디스크 외곽 포함)이 궤도를 디스크 밖으로 민다.
+  // planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
+  const showPlanets =
+    scene.kind === 'galaxy' && (star?.kind !== 'black_hole' || unique?.id === 'disk_bh')
   const worldPosition = useMemo(
     () => starWorldPosition(seed, starId) ?? ([0, 0, 0] as const),
     [seed, starId],
@@ -300,7 +320,13 @@ export function CurrentSystem() {
       // 주계열성은 분광형 광도 로그 압축(O-4, G=1.0 불변). 이색 천체는 kindSurface가 담당.
       lightFactor: star.kind === 'main_sequence' ? SPECTRAL_LIGHT_FACTOR[star.spectral] : 1,
       kind: star.kind,
-      lightColor: star.kind === 'black_hole' ? BLACK_HOLE_LIGHT_COLOR : primaryColor,
+      // 암흑 BH는 원반(발광원)이 없다 — 희미한 냉광만. 유니크계는 원반 발광색 유지.
+      lightColor:
+        star.kind === 'black_hole'
+          ? bhVariant === 'dark'
+            ? DARK_BLACK_HOLE_LIGHT_COLOR
+            : BLACK_HOLE_LIGHT_COLOR
+          : primaryColor,
       // 입상반 진폭·림 저온색은 주계열성만 분광 파생(O-6) — 이색 천체는 사용자 튜닝된
       // 기존 표면(진폭 1, 림 무채)을 유지한다.
       granulation:
@@ -320,7 +346,7 @@ export function CurrentSystem() {
       rimColor: SPECTRAL_SURFACE[companion.spectral].rimColor,
     }))
     return [primary, ...companions]
-  }, [star])
+  }, [star, bhVariant])
 
   // 코로나 글로우 반폭 상한 — 가산 코로나가 이웃 별 원반을 덮으면 뒤쪽 별에 초승달 위상
   // 착시가 생긴다(별에는 밤면이 없다). 이웃 근점 거리 기준 클램프, 단일성은 Infinity(불변).
@@ -508,8 +534,10 @@ export function CurrentSystem() {
       blackHoleLens.rs = rs
       // 디스크 안쪽을 그림자(BCRIT≈4.8 rs)보다 훨씬 안까지 끌어내려 검은 구에 바짝 붙인다(갭 제거).
       // 전체 크기는 rs(kindRadiusFactor)로 조절.
-      blackHoleLens.diskInner = rs * 2.5
-      blackHoleLens.diskOuter = rs * 18.0
+      blackHoleLens.diskInner = rs * BH_DISK_INNER_FACTOR
+      blackHoleLens.diskOuter = rs * BH_DISK_OUTER_FACTOR
+      // 절차 BH는 암흑 — 렌즈·그림자만 그리고 원반은 유니크계(아케론·카리브디스) 전용.
+      blackHoleLens.diskEnabled = bhVariant !== 'dark'
       blackHoleLens.diskNormal.set(0, 1, 0)
       ndcScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
@@ -543,7 +571,7 @@ export function CurrentSystem() {
               >
                 {/* 이색 천체는 전용 컴포넌트로, 주계열성은 StarSurface로 렌더 — 주성만 가능 (결정 7·14). */}
                 {body.kind === 'black_hole' ? (
-                  <BlackHole radius={body.radius} />
+                  <BlackHole radius={body.radius} variant={bhVariant} />
                 ) : body.kind === 'pulsar' ? (
                   <Pulsar radius={body.radius} color={body.color} />
                 ) : (
@@ -574,6 +602,17 @@ export function CurrentSystem() {
               </group>
             ))
           : null}
+
+        {/* 로슈엽 물질 스트림 — 카리브디스(feeding) 전용. 자체 useFrame이 BH·반성 위치를
+            bodyPositions(동일 수식·simClock)로 계산해 별 위치와 항상 정합한다. */}
+        {!isWarping && star != null && bhVariant === 'feeding' && bodies.length > 1 ? (
+          <MatterStream
+            star={star}
+            bhRadius={(bodies[0] as BodyVisual).radius}
+            companionRadius={(bodies[1] as BodyVisual).radius}
+            diskOuterFactor={BH_DISK_OUTER_FACTOR}
+          />
+        ) : null}
 
         {showPlanets ? (
           <group ref={planetCenterRef}>

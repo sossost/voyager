@@ -6,6 +6,7 @@ import { planetName } from '../naming/names'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './sol'
+import { FEEDING_BH_STAR_ID } from './uniques'
 
 export type PlanetKind = 'rocky' | 'gas'
 
@@ -238,8 +239,14 @@ function kindWeightsAtIndex(
  * 뽑는다 (스트림 격리). 행성 속성 draw는 append-only — 순서 변경/삽입 금지.
  * Sol(SOL_STAR_ID)은 RNG 스트림 분리된 예외 노드 — 상수 반환.
  */
+/** 행성 없는 계의 공유 상수 — 호출마다 새 배열을 만들지 않는다 (참조 동일성 = memo 친화). */
+const NO_PLANETS: readonly Planet[] = []
+
 export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
   if (starId === SOL_STAR_ID) return SOLAR_SYSTEM_PLANETS
+  // 카리브디스(별 흡수 블랙홀계) — 근접 쌍성 질량 이전 환경은 행성 궤도가 유지되지 않는다
+  // (로슈엽 물질 스트림 + 강한 섭동). 핀 상수 분기라 RNG 스트림 미소비 (GEN_VERSION 12).
+  if (starId === FEEDING_BH_STAR_ID) return NO_PLANETS
 
   // 생명은 거주가능구역(HZ) 기반으로 결정한다 (getLifeProbability — M-2·M-3, 고증). O/B·죽은
   // 별은 확률 0이고, hasLife를 끄면 외계 조우·생명 렌더·통신 파동·힌트가 단일 소스(planet.hasLife)로

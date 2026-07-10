@@ -51,12 +51,21 @@ const RING_FRAGMENT_SHADER = /* glsl */ `
   }
 `
 
+/**
+ * 블랙홀 상태 (exotic-codex) — 환경 파생, 랜덤 아님.
+ *  - dark: 절차 BH 전부 — 고립이라 먹일 물질 없음, 렌즈·그림자만 (실제 항성질량 BH 대다수).
+ *  - disk: 유니크 아케론 — 원거리 반성의 항성풍 강착원반.
+ *  - feeding: 유니크 카리브디스 — 근접 반성 로슈엽 초과, 원반 + 물질 스트림(MatterStream).
+ */
+export type BlackHoleVariant = 'dark' | 'disk' | 'feeding'
+
 interface BlackHoleProps {
   /** 사건지평선 반경 (= STAR_VISUAL_RADIUS × kindRadiusFactor('black_hole')). */
   readonly radius: number
+  readonly variant: BlackHoleVariant
 }
 
-export function BlackHole({ radius }: BlackHoleProps) {
+export function BlackHole({ radius, variant }: BlackHoleProps) {
   const ringGroupRef = useRef<Group>(null)
   const ringMeshRef = useRef<Mesh>(null)
   const worldScratch = useMemo(() => new Vector3(), [])
@@ -107,9 +116,11 @@ export function BlackHole({ radius }: BlackHoleProps) {
         <meshBasicMaterial color="#000000" />
       </mesh>
 
-      <AccretionDisk radius={radius} />
+      {/* 강착원반은 유니크계만 — 절차 BH(dark)는 고립이라 원반이 없다 (exotic-codex). */}
+      {variant !== 'dark' ? <AccretionDisk radius={radius} /> : null}
 
-      {/* EHT 포톤 링 — 사건지평선을 두르는 밝은 비대칭 고리. depthTest off로 구 위에. */}
+      {/* EHT 포톤 링 — 사건지평선을 두르는 밝은 비대칭 고리. depthTest off로 구 위에.
+          dark에서도 유지 — 페이크 경로(렌즈 없음)에서 블랙홀 실루엣의 유일한 가독 장치. */}
       <group ref={ringGroupRef}>
         <mesh ref={ringMeshRef} material={ringMaterial} renderOrder={1}>
           <planeGeometry args={[ringSize, ringSize]} />

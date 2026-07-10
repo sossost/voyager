@@ -24,6 +24,11 @@ export const blackHoleLens = {
   /** 강착원반 안/바깥 반경(월드). */
   diskInner: 2.5,
   diskOuter: 9,
+  /**
+   * 강착원반 유무 (exotic-codex) — 절차 블랙홀은 고립·암흑(먹일 물질 없음)이라 false,
+   * 유니크계(아케론·카리브디스)만 true. false면 레이마칭이 렌즈·그림자만 그린다.
+   */
+  diskEnabled: false,
   /** 강착원반 평면 법선(월드, 정규화) — 수평 원반이면 (0,1,0). */
   diskNormal: new Vector3(0, 1, 0),
   /** 사건지평선 화면 중심(UV) — 게이팅용. */
