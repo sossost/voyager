@@ -1,6 +1,7 @@
 import { Vector3 } from 'three'
 
 import type { Companion, SpectralClass, Star, StarKind } from '@/engine'
+import { uniqueSystemOf } from '@/engine'
 import { kindRadiusFactor } from '@/scenes/system/exotic'
 import { G_RENDER } from '@/scenes/system/orbitIntegrator'
 
@@ -81,21 +82,27 @@ function renderedRadius(
 
 /** 블랙홀 강착원반 외곽 배수 — BlackHoleRayMarchEffect/CurrentSystem의 diskOuter(rs×18)와 일치. */
 const BLACK_HOLE_DISK_FACTOR = 18
+/** 항성풍 포획 원반(아케론) 외곽 배수 — CurrentSystem WIND_DISK_OUTER_FACTOR와 일치. */
+const WIND_BH_DISK_FACTOR = 11
 
 /**
- * 충돌·궤도 회피용 유효 반경. 블랙홀 주성은 *사건지평선*이 아니라 *강착원반 외곽*(rs×18)까지
- * 비워야 한다 — 안 그러면 동반성·행성이 디스크 안에서 도는 것처럼 보인다 (사용자 피드백 2026-06-16).
- * 시각 메시 반경(renderedRadius)과 별개의 "보이는 영향권" 개념. 렌더 전용 — GEN_VERSION 무관.
+ * 주성의 충돌·궤도 회피 유효 반경 — 블랙홀은 강착원반 외곽까지. 아케론(disk_bh)은 원반이
+ * 작아(rs×11) 반성이 더 가까이 돌 수 있다 — 원반 크기와 클리어런스의 단일 정합.
  */
-function clearanceRadius(
-  spectral: SpectralClass,
-  isPrimary: boolean,
-  kind: StarKind = 'main_sequence',
-): number {
-  const visual = renderedRadius(spectral, isPrimary, kind)
-  if (isPrimary && kind === 'black_hole') return visual * BLACK_HOLE_DISK_FACTOR
-  return visual
+function primaryClearance(star: Star): number {
+  const visual = renderedRadius(star.spectral, true, star.kind)
+  if (star.kind !== 'black_hole') return visual
+  const diskFactor =
+    uniqueSystemOf(star.id)?.id === 'disk_bh' ? WIND_BH_DISK_FACTOR : BLACK_HOLE_DISK_FACTOR
+  return visual * diskFactor
 }
+
+/**
+ * 유니크 BH계 공전 감속 — 전시(도감) 목적의 정박 계라 차분한 공전이 읽기 좋다.
+ * 행성이 없어(planetsOf 빈 배열) 중력 적분·케플러 정합(P-1)과 결합하지 않는 렌더 전용
+ * 스타일화 — 스트림·조석 방향도 같은 bodyPositions를 읽으므로 자동 동기.
+ */
+const UNIQUE_ORBIT_TIME_SCALE = 0.4
 
 /**
  * 쌍의 반장축(질량중심 기준 두 별 중심 거리) — 표면 간격 확보 하한 + 군집 상한 클램프.
@@ -189,6 +196,10 @@ function unitOrbitAt(
  * 궤도 운동학은 케플러 정합(P-1): 평균 운동 √(GM/a³) + 케플러 방정식 해(근점 가속).
  */
 export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3[]): number {
+  // 유니크 BH계는 감속 시계 — 모든 소비자(별 렌더·스트림·조석 방향)가 이 함수를 거치므로
+  // 여기 한 곳만 스케일하면 자동 동기된다 (UNIQUE_ORBIT_TIME_SCALE 주석 참조).
+  const orbitElapsed =
+    uniqueSystemOf(star.id) != null ? elapsed * UNIQUE_ORBIT_TIME_SCALE : elapsed
   const primaryMass = massOf(star.spectral)
 
   if (star.multiplicity === 'single') {
@@ -205,13 +216,13 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
     const companionMass = massOf(companion.spectral)
     const totalMass = primaryMass + companionMass
     const eccEff = renderEccentricity(companion)
-    // 블랙홀이면 디스크 외곽까지 비우는 유효 반경(clearanceRadius)을 써 동반성이 디스크 밖에서 공전.
-    const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+    // 블랙홀이면 디스크 외곽까지 비우는 유효 반경(primaryClearance)을 써 동반성이 디스크 밖에서 공전.
+    const rPrimary = primaryClearance(star)
     const rCompanion = renderedRadius(companion.spectral, false)
     const aTotal = pairSemiMajor(companion.separation, rPrimary, rCompanion, eccEff)
     const aPrimary = (aTotal * companionMass) / totalMass
     const aCompanion = (aTotal * primaryMass) / totalMass
-    unitOrbitAt(elapsed, companion.phase, eccEff, totalMass, aTotal)
+    unitOrbitAt(orbitElapsed, companion.phase, eccEff, totalMass, aTotal)
     out[0]?.set(-unitOrbit.x * aPrimary, 0, -unitOrbit.z * aPrimary)
     out[1]?.set(unitOrbit.x * aCompanion, 0, unitOrbit.z * aCompanion)
     return 2
@@ -230,7 +241,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
 
   // 내부 레벨 — 주성과 inner가 Bi를 공전 (먼저 풀어 inner 쌍의 외곽 반경을 구한다).
   const eccInnerEff = renderEccentricity(inner)
-  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+  const rPrimary = primaryClearance(star)
   const rInnerBody = renderedRadius(inner.spectral, false)
   const aTotalInner = pairSemiMajor(inner.separation, rPrimary, rInnerBody, eccInnerEff)
   const aPrimary = (aTotalInner * innerMass) / innerPairMass
@@ -250,13 +261,13 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
   const totalOuterMass = innerPairMass + outerMass
   const aBi = (aTotalOuter * outerMass) / totalOuterMass
   const aOuter = (aTotalOuter * innerPairMass) / totalOuterMass
-  unitOrbitAt(elapsed, outer.phase, eccOuterEff, totalOuterMass, aTotalOuter)
+  unitOrbitAt(orbitElapsed, outer.phase, eccOuterEff, totalOuterMass, aTotalOuter)
   const biX = -unitOrbit.x * aBi
   const biZ = -unitOrbit.z * aBi
   const oX = unitOrbit.x * aOuter
   const oZ = unitOrbit.z * aOuter
 
-  unitOrbitAt(elapsed, inner.phase, eccInnerEff, innerPairMass, aTotalInner)
+  unitOrbitAt(orbitElapsed, inner.phase, eccInnerEff, innerPairMass, aTotalInner)
   out[0]?.set(biX - unitOrbit.x * aPrimary, 0, biZ - unitOrbit.z * aPrimary)
   out[1]?.set(biX + unitOrbit.x * aInner, 0, biZ + unitOrbit.z * aInner)
   out[2]?.set(oX, 0, oZ)
@@ -277,7 +288,7 @@ export function bodyPositions(star: Star, elapsed: number, out: readonly Vector3
  */
 export function coronaMaxRadii(star: Star): number[] {
   const primaryMass = massOf(star.spectral)
-  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+  const rPrimary = primaryClearance(star)
 
   if (star.multiplicity === 'binary') {
     const companion = star.companions[0]
@@ -329,7 +340,7 @@ export function coronaMaxRadii(star: Star): number[] {
  */
 export function stellarClearanceRadius(star: Star): number {
   const primaryMass = massOf(star.spectral)
-  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+  const rPrimary = primaryClearance(star)
 
   if (star.multiplicity === 'binary') {
     const companion = star.companions[0]
@@ -404,7 +415,7 @@ const STABLE_ORBIT_MARGIN = 1.1
  */
 export function stableOrbitFloor(star: Star): number {
   const primaryMass = massOf(star.spectral)
-  const rPrimary = clearanceRadius(star.spectral, true, star.kind)
+  const rPrimary = primaryClearance(star)
 
   if (star.multiplicity === 'binary') {
     const companion = star.companions[0]
