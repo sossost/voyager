@@ -17,6 +17,7 @@ import {
   nebulaTintAt,
   nebulaTintShift,
 } from '@/scenes/galaxy/galaxyNebulae'
+import { enableLensEnvLayer } from '@/scenes/shared/lensEnvironment'
 
 /**
  * 은하 성운 헤이즈 — 밀도 함수를 텍스처로 구워 은하면에 깐 평면 1장 (드로콜 1).
@@ -172,7 +173,7 @@ export function GalaxyNebula() {
   const planeSize = BASE_TEXELS * SECTOR_SIZE
 
   return (
-    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} material={material}>
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} material={material} onUpdate={enableLensEnvLayer}>
       <planeGeometry args={[planeSize, planeSize]} />
     </mesh>
   )

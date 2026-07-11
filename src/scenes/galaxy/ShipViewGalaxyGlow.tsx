@@ -17,6 +17,7 @@ import {
   createBandPanoramaJob,
 } from '@/scenes/galaxy/galaxyBandPanorama'
 import { ditherCanvas } from '@/scenes/shared/canvasDither'
+import { enableLensEnvLayer } from '@/scenes/shared/lensEnvironment'
 
 /**
  * 우주선 뷰 은하 광원감 (백로그 G-b-6, 결정 38) — 함내에서 은하가 "별 점의 집합"이
@@ -251,7 +252,7 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
   return (
     <>
       {/* 원반 밴드 — 실린더 중심은 정박 별의 평면 좌표, 수직 중심은 원반면(y=0) */}
-      <mesh position={[anchor[0], 0, anchor[2]]} material={bandMaterial}>
+      <mesh position={[anchor[0], 0, anchor[2]]} material={bandMaterial} onUpdate={enableLensEnvLayer}>
         <cylinderGeometry
           args={[
             BAND_RADIUS,
@@ -264,7 +265,7 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
         />
       </mesh>
       <group ref={coreGroupRef}>
-        <mesh material={coreMaterial}>
+        <mesh material={coreMaterial} onUpdate={enableLensEnvLayer}>
           <planeGeometry args={[1, 1]} />
         </mesh>
       </group>

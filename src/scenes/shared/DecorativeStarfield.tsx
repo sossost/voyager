@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { BufferGeometry, Float32BufferAttribute } from 'three'
 
 import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMaterial'
+import { enableLensEnvLayer } from '@/scenes/shared/lensEnvironment'
 
 /**
  * 균일 장식 별밭 — 천구 전체에 고르게 흩어진 배경 별 (결정 28, 백로그 G-a-2).
@@ -103,6 +104,7 @@ export function DecorativeStarfield({ radius, center = SCENE_ORIGIN }: Decorativ
       geometry={geometry}
       material={material}
       position={[center[0], center[1], center[2]]}
+      onUpdate={enableLensEnvLayer}
     />
   )
 }

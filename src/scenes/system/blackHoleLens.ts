@@ -1,4 +1,4 @@
-import { Matrix4, Vector2, Vector3 } from 'three'
+import { Color, Matrix4, Vector2, Vector3 } from 'three'
 
 /**
  * 블랙홀 렌더 ↔ 포스트 패스 공유 상태.
@@ -47,13 +47,14 @@ export const blackHoleLens = {
    */
   diskTilt: 0,
   /**
-   * 전경 동반성 페더 — 동반성이 BH보다 앞일 때, 휜 광선이 동반성 실루엣에 걸리는 영역
-   * 주변(0.9~1.9R)을 직진 배경으로 부드럽게 섞어 폴백 경계선(얇은 원호 띠)을 없앤다.
-   * 뒤로 넘어가면 비활성 — 진짜 아인슈타인 상은 그대로 맺힌다.
+   * 동반성 해석적 구 (렌즈 리팩터) — 레이마처가 동반성을 원반처럼 직접 그린다.
+   * 앞에 있으면 광선이 자연히 먼저 부딪혀 가리고(전경 깊이 해킹 불필요), 뒤로 넘어가면
+   * 불투명한 진짜 아인슈타인 상이 맺힌다 (스크린공간 샘플 우회책 전면 대체).
    */
-  fgStarActive: false,
-  fgStarPos: new Vector3(),
-  fgStarRadius: 1,
+  companionActive: false,
+  companionPos: new Vector3(),
+  companionRadius: 1,
+  companionColor: new Color('#ffffff'),
   /** 반성 방향 월드 각(atan2(z,x)) — 스트림 나선의 시작 각. */
   streamAngle: 0,
   /** 스트림 시작 반경(월드) — 반성 표면 근방. */

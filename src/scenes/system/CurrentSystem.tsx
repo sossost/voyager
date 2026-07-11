@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { Group, PointLight } from 'three'
-import { PerspectiveCamera, Vector3 } from 'three'
+import { Color, PerspectiveCamera, Vector3 } from 'three'
 
 import type { Star, StarKind } from '@/engine'
 import {
@@ -354,6 +354,12 @@ export function CurrentSystem() {
     return [primary, ...companions]
   }, [star, bhVariant])
 
+  // 동반성 렌즈 색 — 렌즈 셰이더의 해석적 구가 쓸 분광색 (매 프레임 문자열 파싱 방지 캐시).
+  const companionLensColor = useMemo(
+    () => new Color(bodies[1]?.color ?? '#ffffff'),
+    [bodies],
+  )
+
   // 코로나 글로우 반폭 상한 — 가산 코로나가 이웃 별 원반을 덮으면 뒤쪽 별에 초승달 위상
   // 착시가 생긴다(별에는 밤면이 없다). 이웃 근점 거리 기준 클램프, 단일성은 Infinity(불변).
   const coronaMax = useMemo(() => (star == null ? [Infinity] : coronaMaxRadii(star)), [star])
@@ -584,19 +590,20 @@ export function CurrentSystem() {
       } else {
         blackHoleLens.streamEnabled = false
       }
-      // 전경 동반성 페더 게시 — BH보다 앞(카메라 쪽)일 때만. 폴백 경계선(띠) 완화용.
+      // 동반성 해석적 구 게시 (렌즈 리팩터) — 마처가 원반처럼 직접 그린다. 앞/뒤 판정
+      // 불필요: 광선-구 교차가 가림·아인슈타인 상을 물리대로 처리한다.
       if (star != null && star.companions.length > 0) {
         const companionLocal = bodyScratch[1] as Vector3
-        toBhScratch.set(
+        blackHoleLens.companionPos.set(
           worldPosition[0] + companionLocal.x * lensScale,
           worldPosition[1] + companionLocal.y * lensScale,
           worldPosition[2] + companionLocal.z * lensScale,
         )
-        blackHoleLens.fgStarPos.copy(toBhScratch)
-        blackHoleLens.fgStarRadius = (bodies[1]?.radius ?? 1) * lensScale
-        blackHoleLens.fgStarActive = cam.position.distanceTo(toBhScratch) < dist + rs * 2
+        blackHoleLens.companionRadius = (bodies[1]?.radius ?? 1) * lensScale
+        blackHoleLens.companionColor.copy(companionLensColor)
+        blackHoleLens.companionActive = true
       } else {
-        blackHoleLens.fgStarActive = false
+        blackHoleLens.companionActive = false
       }
       ndcScratch.set(bhX, bhY, bhZ).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)

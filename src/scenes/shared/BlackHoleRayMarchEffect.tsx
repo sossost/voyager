@@ -1,7 +1,9 @@
 import { wrapEffect } from "@react-three/postprocessing";
 import { BlendFunction, Effect, EffectAttribute } from "postprocessing";
 import {
+  Color,
   Matrix4,
+  type Texture,
   Uniform,
   Vector2,
   Vector3,
@@ -10,6 +12,7 @@ import {
 } from "three";
 
 import { QUALITY_PRESETS } from "@/quality/presets";
+import { lensEnv } from "@/scenes/shared/lensEnvironment";
 import { blackHoleLens } from "@/scenes/system/blackHoleLens";
 import { useGameStore } from "@/store";
 
@@ -41,9 +44,12 @@ const FRAGMENT = /* glsl */ `
   uniform float uStreamEnabled; // 로슈엽 물질 스트림 (카리브디스 전용)
   uniform float uStreamAngle;   // 반성 방향 월드 각 — 나선 시작 각
   uniform float uStreamStartR;  // 스트림 시작 반경(월드, 반성 표면 근방)
-  uniform float uFgStarActive;  // 전경 동반성 페더 (BH보다 앞일 때만)
-  uniform vec3 uFgStarPos;      // 동반성 월드 좌표
-  uniform float uFgStarRadius;  // 동반성 시각 반경(월드)
+  uniform samplerCube uEnvMap;  // 원거리 배경 환경맵 (lensEnvironment 베이크)
+  uniform float uEnvReady;      // 베이크 완료 전엔 절차 별밭 폴백
+  uniform float uCompanionActive; // 동반성 해석적 구 — 마처가 원반처럼 직접 그린다
+  uniform vec3 uCompanionPos;     // 동반성 월드 좌표
+  uniform float uCompanionRadius; // 동반성 시각 반경(월드)
+  uniform vec3 uCompanionColor;   // 동반성 분광색
   uniform vec3 uDiskNormal;
   uniform vec2 uCenter;
   uniform float uScreenRadius;
@@ -89,12 +95,6 @@ const FRAGMENT = /* glsl */ `
   const float STAR_DENSITY = 0.018;
   const float STAR_SIZE = 2.0;
   const float STAR_BRIGHT = 0.9;
-  const float NEB1_SCALE = 2.0;
-  const float NEB1_DENSITY = 0.5;
-  const float NEB1_BRIGHT = 0.15;
-  const float NEB2_SCALE = 6.0;
-  const float NEB2_DENSITY = 0.5;
-  const float NEB2_BRIGHT = 0.15;
 
   // 원반 프레임 변환 (Z축 회전) — 마칭·원반 판정은 "원반이 y=0"인 프레임에서 수행하고,
   // 탈출 광선만 월드로 되돌려 배경을 샘플한다. 그림자·렌즈는 회전 불변이라 형태 불변.
@@ -105,11 +105,6 @@ const FRAGMENT = /* glsl */ `
   }
   vec3 toWorldFrame(vec3 v, float c, float s) {
     return vec3(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
-  }
-
-  vec2 dirToScreenUv(vec3 dir) {
-    vec4 clip = uViewProj * vec4(uCameraPos + dir * 1e5, 1.0);
-    return (clip.xy / clip.w) * 0.5 + 0.5;
   }
 
   // 가르강튀아 황금빛 — 외곽 앰버 → 중간 금 → 내부 백금. 빨강·파랑 배제, 전체 금색.
@@ -208,16 +203,6 @@ const FRAGMENT = /* glsl */ `
     return starColor * starIntensity * STAR_BRIGHT;
   }
 
-  vec3 nebula(vec3 rayDir) {
-    float n1 = fbm(rayDir * NEB1_SCALE, 2.0, 0.5) * 2.0 - 1.0;
-    float layer1 = clamp(n1 + NEB1_DENSITY, 0.0, 1.0);
-    vec3 c1 = vec3(0.102, 0.0, 0.2) * layer1 * NEB1_BRIGHT;
-    float n2 = fbm(rayDir * NEB2_SCALE, 2.0, 0.5) * 2.0 - 1.0;
-    float layer2 = clamp(n2 + NEB2_DENSITY, 0.0, 1.0);
-    vec3 c2 = vec3(0.302, 0.102, 0.149) * layer2 * NEB2_BRIGHT;
-    return c1 + c2;
-  }
-
   vec4 diskSample(float hitR, float hitAngle, vec3 rayDir) {
     float normR = clamp((hitR - uDiskInner) / max(uDiskOuter - uDiskInner, 1e-4), 0.0, 1.0);
     // 우리 반경 → 레퍼런스 [4.1, 14.5] 프레임 (월드 스케일 무관 동일 룩)
@@ -314,6 +299,14 @@ const FRAGMENT = /* glsl */ `
     return vec4(col * (1.1 + 2.9 * t) * a, a);
   }
 
+  // 동반성 해석적 구 셰이딩 — 림 다크닝 근사 (StarSurface 룩과 연속). 불투명.
+  vec3 companionShade(vec3 hit, vec3 center, vec3 rd) {
+    vec3 n = normalize(hit - center);
+    float facing = clamp(dot(n, -rd), 0.0, 1.0);
+    float limb = 0.38 + 0.85 * pow(facing, 0.7);
+    return uCompanionColor * limb;
+  }
+
   vec3 marchRay(vec2 fragUv) {
     float rs = max(uRs, 0.01);
     vec4 farP = uInvViewProj * vec4(fragUv * 2.0 - 1.0, 1.0, 1.0);
@@ -336,12 +329,28 @@ const FRAGMENT = /* glsl */ `
     vec3 color = vec3(0.0);
     float alpha = 0.0;
 
+    // 동반성 해석적 구 (렌즈 리팩터) — 마처가 원반처럼 직접 그린다. 스크린공간 전경/유령
+    // 우회책(깊이 판정·페더·코로나 클램프 의존)을 전면 대체: 앞이면 광선이 자연히 먼저
+    // 부딪혀 가리고, 뒤면 휜 광선이 부딪혀 불투명한 진짜 아인슈타인 상이 맺힌다.
+    vec3 compC = toDiskFrame(uCompanionPos - uBhPos, tiltC, tiltS);
+    float compR2 = uCompanionRadius * uCompanionRadius;
+    float tComp = 1e20;
+    if (uCompanionActive > 0.5) {
+      vec3 oc = pos - compC;
+      float half_b = dot(oc, rayDir);
+      float disc = half_b * half_b - (dot(oc, oc) - compR2);
+      if (disc > 0.0) {
+        float t = -half_b - sqrt(disc);
+        if (t > 0.0) tComp = t;
+      }
+    }
+
     // 외곽 디스크 직선 패스 — 빈공간 스킵이 건너뛰는 근측 외곽 디스크(거의 안 휨)를 해석적으로
     // 먼저 합성한다. 마칭(START_R 안)은 강하게 휘는 안쪽·감김만 담당 → START_R을 낮춰 휨을
     // 디스크부터 시작해도 외곽 디스크가 안 잘린다. 근측(최근접 이전) + START_R 밖만 잡아 마칭과 비중복.
     if (uDiskEnabled > 0.5 && abs(rayDir.y) > 1e-5) {
       float tDisk = -pos.y / rayDir.y;
-      if (tDisk > 0.0 && tDisk < along) {
+      if (tDisk > 0.0 && tDisk < along && tDisk < tComp) {
         vec3 dh = pos + rayDir * tDisk;
         float dr3 = length(dh);
         float dr = length(vec2(dh.x, dh.z));
@@ -361,8 +370,14 @@ const FRAGMENT = /* glsl */ `
 
     if (along > 0.0 && length(pos) > startR) {
       float closest = length(pos + rayDir * along);
-      pos += rayDir * max(along - sqrt(max(startR * startR - closest * closest, 0.0)), 0.0);
+      float advance = max(along - sqrt(max(startR * startR - closest * closest, 0.0)), 0.0);
+      // 전진 직선 구간에 동반성이 있으면(주로 BH보다 앞) 여기서 광선이 끝난다 — 불투명.
+      if (tComp < advance) {
+        return color + companionShade(pos + rayDir * tComp, compC, rayDir) * (1.0 - alpha);
+      }
+      pos += rayDir * advance;
     }
+    // (카메라가 도메인 안이면 전진 없음 — 동반성은 아래 마칭 세그먼트 검사가 커버한다)
 
     float stepLen = STEP * rs;
     float escapeR = ESCAPE_R * rs;
@@ -385,6 +400,14 @@ const FRAGMENT = /* glsl */ `
       prevPos = pos;
       pos += rayDir * stepLen;
 
+      // 동반성 히트 — 휜 광선이 부딪히면 불투명 종료 (뒤편이면 이것이 아인슈타인 상).
+      if (uCompanionActive > 0.5) {
+        vec3 toComp = pos - compC;
+        if (dot(toComp, toComp) < compR2) {
+          return color + companionShade(pos, compC, rayDir) * (1.0 - alpha);
+        }
+      }
+
       if (uDiskEnabled > 0.5 && prevPos.y * pos.y < 0.0 && alpha < 0.99) {
         float t = -prevPos.y / (pos.y - prevPos.y);
         vec3 hit = mix(prevPos, pos, clamp(t, 0.0, 1.0));
@@ -403,49 +426,16 @@ const FRAGMENT = /* glsl */ `
       }
     }
 
-    // 배경 샘플 — 포획(r<captureR)·광자구 안(b<BCRIT·rs)만 진짜 그림자(검정)로 남긴다.
-    // 스텝 소진(미탈출·미포획)은 "빨려든 셈"이 아니라 예산 부족 — 검정 처리하면 원반
-    // 바깥에 비고증 검은 해자가 생긴다(강굴절 광선일수록 경로가 길어 소진되기 쉬움).
-    // 현재 진행 방향으로 탈출한 것으로 근사해 배경을 잇는다.
+    // 배경 = 환경맵 방향 샘플 (렌즈 리팩터) — 탈출 광선은 무한원 하늘을 본다. 화면 밖
+    // 문제·전경 깊이 판정·페더·가장자리 클램프가 모두 불필요해진다(구조적 해소).
+    // 포획(r<captureR)·광자구 안(b<BCRIT·rs)만 진짜 그림자(검정). 스텝 소진은 예산 부족이라
+    // 현재 진행 방향으로 탈출한 것으로 근사한다 (검은 해자 방지).
     if (!captured && alpha < 0.99 && impactB >= BCRIT * rs) {
       vec3 escapeDir = toWorldFrame(rayDir, tiltC, tiltS);
-      vec2 bgUv = dirToScreenUv(escapeDir);
-      // 화면 밖으로 휜 광선 — 샘플할 씬 버퍼가 없다. 검정으로 두면 렌즈 주위에 비고증
-      // 암흑 고리가 생긴다(실제로는 강한 렌즈 지대에 화면 밖 하늘이 압축돼 들어온다).
-      // 절차 별밭(starField, 방향 해시 기반 결정론)으로 폴백해 하늘 연속성을 근사한다.
-      if (bgUv.x < 0.0 || bgUv.x > 1.0 || bgUv.y < 0.0 || bgUv.y > 1.0) {
-        // 화면 가장자리 클램프 샘플 — 상수 바닥은 주변 하늘(은하 띠 방향은 밝고 반대는
-        // 어두운 비균일 톤)과 어긋나 회색 무리가 진다. 그 방향 가장자리의 실제 씬 색을
-        // 이어받으면 톤·그라디언트가 연속된다. 절차 별밭은 구조(별 줄무늬)만 얹는다.
-        vec2 clampedUv = clamp(bgUv, vec2(0.002), vec2(0.998));
-        // 밝기 상한 — 가장자리에 별 픽셀이 걸리면 같은 지점을 무는 광선들에 머리카락
-        // 스트릭으로 번진다. 이 샘플의 역할은 은은한 헤이즈 톤 연속뿐이라 상한으로 자른다
-        // (별 구조는 starField가 담당).
-        vec3 edgeSky = min(texture2D(inputBuffer, clampedUv).rgb, vec3(0.055));
-        color += (starField(escapeDir) + edgeSky) * (1.0 - alpha);
-      } else {
-        float dRaw = readDepth(bgUv);
-        float bhDist = length(uBhPos - uCameraPos);
-        // mainImage의 전경 판정과 동일 기준(+2rs) — 통과(passthrough)된 별이 휜 배경에
-        // 한 번 더 샘플되어 이중상이 생기는 것을 막는다. 전경으로 거부된 광선은 검정으로
-        // 두지 않고 직진 배경(vUv)으로 폴백한다 — 반성이 렌즈 영역과 겹칠 때 별 둘레에
-        // 검은 호가 생기던 아티팩트 제거 (국소적으로 굴절만 포기).
-        bool foreground = dRaw > 0.0001 && dRaw < 0.999 && -getViewZ(dRaw) < bhDist + uRs * 2.0;
-        vec3 bg = foreground
-          ? texture2D(inputBuffer, vUv).rgb
-          : texture2D(inputBuffer, bgUv).rgb;
-        // 전경 동반성 페더 — 이진 폴백은 영역 경계에서 배경(은하 띠) 상이 어긋나 얇은
-        // 원호 이음선이 드러난다. 동반성 실루엣 주변(0.9~1.9R)을 직진 배경으로 넓게
-        // 섞어 경계선을 공간적으로 녹인다 (동반성이 BH보다 앞일 때만 — 뒤면 진짜 렌즈 상).
-        if (uFgStarActive > 0.5) {
-          vec3 toStar = uFgStarPos - uCameraPos;
-          float alongStar = max(dot(toStar, escapeDir), 0.0);
-          float perpDist = length(toStar - escapeDir * alongStar);
-          float feather = smoothstep(uFgStarRadius * 1.9, uFgStarRadius * 0.9, perpDist);
-          bg = mix(bg, texture2D(inputBuffer, vUv).rgb, feather);
-        }
-        color += bg * (1.0 - alpha);
-      }
+      vec3 sky = uEnvReady > 0.5
+        ? texture(uEnvMap, escapeDir).rgb
+        : starField(escapeDir); // 베이크 전 첫 프레임들 폴백
+      color += sky * (1.0 - alpha);
     }
     return color;
   }
@@ -458,14 +448,12 @@ const FRAGMENT = /* glsl */ `
     float screenDist = length(dScreen);
     if (screenDist > uScreenRadius) return;
 
-    // 전경 오클루전 — 이 픽셀의 씬 조각이 "명확히 BH 뒤"가 아니면(앞·옆을 지나는 동반성 등)
-    // 렌즈를 적용하지 않고 씬을 그대로 둔다. 구 기준(×0.85 상대 비율)은 BH와 비슷한 깊이로
-    // 도는 동반성을 전경으로 인정하지 못해 렌즈 출력이 별을 반토막 냈다 (exotic-codex 쌍성 BH
-    // 도입으로 드러난 버그). 절대 마진(+2rs)으로 바꿔 사건지평선 뒤 2rs 이상 멀어진 것만 렌징한다
-    // — 옆/앞의 별은 깨끗이 통과, 뒤로 넘어간 별은 여전히 휘어 보인다.
+    // 전경 오클루전 — 렌즈 적분 도메인(ESCAPE_R=28rs)보다 명확히 앞에 있는 씬 조각(우주선
+    // 등)만 통과시킨다. 도메인 안의 천체(동반성·원반·스트림)는 마처가 직접 그리므로
+    // (해석적 구·평면 히트) 씬 픽셀 기준의 깊이 우회가 더 이상 필요 없다 (렌즈 리팩터).
     float depthRaw = readDepth(vUv);
     float bhDistance = length(uBhPos - uCameraPos);
-    if (depthRaw > 0.0001 && depthRaw < 0.9999 && -getViewZ(depthRaw) < bhDistance + uRs * 2.0) return;
+    if (depthRaw > 0.0001 && depthRaw < 0.9999 && -getViewZ(depthRaw) < bhDistance - uRs * 30.0) return;
 
     // 슈퍼샘플링 — high만 2x2(자글거림 제거, 비용 4배). med·low는 단일 샘플(uSupersample=0).
     // MSAA는 포스트 패스에 안 먹으므로 필터 내부에서 직접 슈퍼샘플한다. (texelSize = 1/resolution)
@@ -497,7 +485,7 @@ class BlackHoleRayMarchImpl extends Effect {
     super("BlackHoleRayMarch", FRAGMENT, {
       blendFunction: BlendFunction.NORMAL,
       attributes: EffectAttribute.CONVOLUTION | EffectAttribute.DEPTH,
-      uniforms: new Map<string, Uniform<number | Vector2 | Vector3 | Matrix4>>([
+      uniforms: new Map<string, Uniform<number | Vector2 | Vector3 | Matrix4 | Color | Texture | null>>([
         ["uActive", new Uniform(0)],
         ["uCameraPos", new Uniform(new Vector3())],
         ["uInvViewProj", new Uniform(new Matrix4())],
@@ -509,9 +497,12 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uDiskEnabled", new Uniform(0)],
         ["uDiskGain", new Uniform(1)],
         ["uDiskTilt", new Uniform(0)],
-        ["uFgStarActive", new Uniform(0)],
-        ["uFgStarPos", new Uniform(new Vector3())],
-        ["uFgStarRadius", new Uniform(1)],
+        ["uEnvMap", new Uniform(null)],
+        ["uEnvReady", new Uniform(0)],
+        ["uCompanionActive", new Uniform(0)],
+        ["uCompanionPos", new Uniform(new Vector3())],
+        ["uCompanionRadius", new Uniform(1)],
+        ["uCompanionColor", new Uniform(new Color("#ffffff"))],
         ["uStreamEnabled", new Uniform(0)],
         ["uStreamAngle", new Uniform(0)],
         ["uStreamStartR", new Uniform(20)],
@@ -533,7 +524,7 @@ class BlackHoleRayMarchImpl extends Effect {
   ): void {
     const u = this.uniforms as Map<
       string,
-      Uniform<number | Vector2 | Vector3 | Matrix4>
+      Uniform<number | Vector2 | Vector3 | Matrix4 | Color | Texture | null>
     >;
     const set = (name: string, value: number): void => {
       const uniform = u.get(name);
@@ -555,9 +546,13 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uDiskEnabled", blackHoleLens.diskEnabled ? 1 : 0);
     set("uDiskGain", blackHoleLens.diskGain);
     set("uDiskTilt", blackHoleLens.diskTilt);
-    set("uFgStarActive", blackHoleLens.fgStarActive ? 1 : 0);
-    copy("uFgStarPos", blackHoleLens.fgStarPos);
-    set("uFgStarRadius", blackHoleLens.fgStarRadius);
+    const envUniform = u.get("uEnvMap");
+    if (envUniform != null) envUniform.value = lensEnv.texture as never;
+    set("uEnvReady", lensEnv.ready && lensEnv.texture != null ? 1 : 0);
+    set("uCompanionActive", blackHoleLens.companionActive ? 1 : 0);
+    copy("uCompanionPos", blackHoleLens.companionPos);
+    set("uCompanionRadius", blackHoleLens.companionRadius);
+    copy("uCompanionColor", blackHoleLens.companionColor as never);
     set("uStreamEnabled", blackHoleLens.streamEnabled ? 1 : 0);
     set("uStreamAngle", blackHoleLens.streamAngle);
     set("uStreamStartR", blackHoleLens.streamStartR);
