@@ -263,10 +263,13 @@ const FRAGMENT = /* glsl */ `
     // 깔때기(baseFlare)가 없으면 물질이 허공에서 "띡" 생겨나는 것처럼 보인다 (사용자 피드백).
     float expected = uStreamAngle + STREAM_SWEEP * t;
     float d = angleDiff(angle, expected);
-    // 깔때기는 반성의 조석 티어드롭(StarSurface uTidal — L1 팁)에서 이어받는 좁은 노즐로
-    // 절제한다 — 실제 L1 유출은 별 반경 대비 가늘다 (티어드롭 도입 전엔 2.6으로 과장했었다).
+    // 폭 프로파일 — 세 구간이 한 흐름으로 이어진다:
+    //  ① 시작(별 안쪽 0.75R부터 겹침): 티어드롭 팁 단면과 같은 폭(≈1rs)에서 이어받고
+    //  ② 중간: 가는 노즐 스트림 (실제 L1 유출은 별 반경 대비 가늘다)
+    //  ③ 합류(t>0.85): 부챗살로 퍼지며 원반 림에 스며든다 (충돌 스플래시).
     float baseFlare = exp(-t * 6.0);
-    float halfW = (mix(0.32, 0.78, t) + 1.3 * baseFlare) * uRs / max(r, 1e-3);
+    float rimFan = 1.0 + 2.5 * smoothstep(0.85, 1.0, t);
+    float halfW = (mix(0.32, 0.78, t) + 0.7 * baseFlare) * rimFan * uRs / max(r, 1e-3);
     float across = exp(-(d * d) / max(halfW * halfW, 1e-8));
 
     // BH 쪽(+t)으로 흘러가는 덩어리들 — 유입 물질이 "빨려드는" 독법의 핵심.
@@ -274,9 +277,10 @@ const FRAGMENT = /* glsl */ `
     float clump = 0.7 + 0.3 * sin(t * 57.0 - uTime * 5.2);
     // 덩어리는 유출점 글로우 아래에서 스며 나온다 (글로우가 탄생 지점을 덮는다).
     float birth = smoothstep(0.0, 0.06, t);
-    // 유출점(L1) 글로우 — 광구가 뜯겨 나가는 지점의 느린 맥동 발광 (핫스팟의 별 쪽 대응물).
-    float ld = t / 0.24;
-    float l1Glow = exp(-ld * ld) * (0.95 + 0.35 * sin(uTime * 2.3));
+    // 유출점(L1) 글로우 — 티어드롭 팁에 밀착한 은은한 맥동. 팁과 분리된 밝은 덩어리로
+    // 읽히지 않게 창을 좁히고 절제한다 (별 밝기와 연속).
+    float ld = t / 0.14;
+    float l1Glow = exp(-ld * ld) * (0.6 + 0.2 * sin(uTime * 2.3));
     // 합류 핫스팟 — 스트림이 원반 가장자리를 때리는 명멸 광점 (LMXB hot spot).
     float hd = (t - 0.97) / 0.05;
     float hotspot = exp(-hd * hd) * (0.8 + 0.25 * sin(uTime * 7.3));
@@ -286,8 +290,9 @@ const FRAGMENT = /* glsl */ `
     vec3 hotCol = vec3(1.0, 0.92, 0.75);
     vec3 col = mix(coolCol, hotCol, smoothstep(0.3, 1.0, t));
 
-    float a = clamp(across * (flow * clump * birth * 0.9 + l1Glow * 1.1 + hotspot), 0.0, 1.0);
-    return vec4(col * (1.5 + 2.5 * t) * a, a);
+    float a = clamp(across * (flow * clump * birth * 0.9 + l1Glow + hotspot), 0.0, 1.0);
+    // 밝기 램프 — 시작은 별 광구 수준(1.1)에서 이어받아 합류부로 갈수록 가열 상승.
+    return vec4(col * (1.1 + 2.9 * t) * a, a);
   }
 
   vec3 marchRay(vec2 fragUv) {

@@ -570,8 +570,9 @@ export function CurrentSystem() {
         const streamDz = (companionLocal.z - bhLocal.z) * lensScale
         const companionRadius = (bodies[1]?.radius ?? 0) * lensScale
         blackHoleLens.streamAngle = Math.atan2(streamDz, streamDx)
+        // 별 실루엣 깊숙이(0.75R)에서 출발 — 티어드롭 팁과 겹쳐 한 흐름으로 읽힌다.
         blackHoleLens.streamStartR =
-          Math.sqrt(streamDx * streamDx + streamDz * streamDz) - companionRadius * 0.35
+          Math.sqrt(streamDx * streamDx + streamDz * streamDz) - companionRadius * 0.75
         blackHoleLens.streamEnabled = true
       } else {
         blackHoleLens.streamEnabled = false
