@@ -261,8 +261,10 @@ const FRAGMENT = /* glsl */ `
     // 깔때기(baseFlare)가 없으면 물질이 허공에서 "띡" 생겨나는 것처럼 보인다 (사용자 피드백).
     float expected = uStreamAngle + STREAM_SWEEP * t;
     float d = angleDiff(angle, expected);
-    float baseFlare = exp(-t * 9.0);
-    float halfW = (mix(0.32, 0.78, t) + 0.9 * baseFlare) * uRs / max(r, 1e-3);
+    // 스트림이 반성-원반 간극(별 지름보다 짧다)에 끼어 있어 깔때기는 별 반경급으로 커야
+    // 보인다 — 별 실루엣 뒤에서 광구가 원뿔로 뜯겨 나오는 스케일.
+    float baseFlare = exp(-t * 6.0);
+    float halfW = (mix(0.32, 0.78, t) + 2.6 * baseFlare) * uRs / max(r, 1e-3);
     float across = exp(-(d * d) / max(halfW * halfW, 1e-8));
 
     // BH 쪽(+t)으로 흘러가는 덩어리들 — 유입 물질이 "빨려드는" 독법의 핵심.
@@ -271,8 +273,8 @@ const FRAGMENT = /* glsl */ `
     // 덩어리는 유출점 글로우 아래에서 스며 나온다 (글로우가 탄생 지점을 덮는다).
     float birth = smoothstep(0.0, 0.06, t);
     // 유출점(L1) 글로우 — 광구가 뜯겨 나가는 지점의 느린 맥동 발광 (핫스팟의 별 쪽 대응물).
-    float ld = t / 0.14;
-    float l1Glow = exp(-ld * ld) * (0.75 + 0.25 * sin(uTime * 2.3));
+    float ld = t / 0.24;
+    float l1Glow = exp(-ld * ld) * (0.95 + 0.35 * sin(uTime * 2.3));
     // 합류 핫스팟 — 스트림이 원반 가장자리를 때리는 명멸 광점 (LMXB hot spot).
     float hd = (t - 0.97) / 0.05;
     float hotspot = exp(-hd * hd) * (0.8 + 0.25 * sin(uTime * 7.3));
@@ -282,7 +284,7 @@ const FRAGMENT = /* glsl */ `
     vec3 hotCol = vec3(1.0, 0.92, 0.75);
     vec3 col = mix(coolCol, hotCol, smoothstep(0.3, 1.0, t));
 
-    float a = clamp(across * (flow * clump * birth * 0.9 + l1Glow * 0.8 + hotspot), 0.0, 1.0);
+    float a = clamp(across * (flow * clump * birth * 0.9 + l1Glow * 1.1 + hotspot), 0.0, 1.0);
     return vec4(col * (1.5 + 2.5 * t) * a, a);
   }
 
