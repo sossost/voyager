@@ -17,11 +17,11 @@
  *  ④ 반동   게이지 만충 → 목표 반대로 후퇴(wind-up)
  *  ⑤ 돌진   큐빅 가속(뿜) + 스트리크·FOV 서지
  */
-const AIM_MS = 900
-const HOLD_MS = 700
-const CHARGE_MS = 2_000
-const RECOIL_MS = 650
-const RUSH_MS = 2_200
+const AIM_MS = 700
+const HOLD_MS = 450
+const CHARGE_MS = 1_400
+const RECOIL_MS = 550
+const RUSH_MS = 1_900
 
 export const WARP_STAGE_A_MS = AIM_MS + HOLD_MS + CHARGE_MS + RECOIL_MS + RUSH_MS
 export const WARP_FLASH_IN_MS = 350
