@@ -107,6 +107,11 @@ const FRAGMENT = /* glsl */ `
     return vec3(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
   }
 
+  vec2 dirToScreenUv(vec3 dir) {
+    vec4 clip = uViewProj * vec4(uCameraPos + dir * 1e5, 1.0);
+    return (clip.xy / clip.w) * 0.5 + 0.5;
+  }
+
   // 가르강튀아 황금빛 — 외곽 앰버 → 중간 금 → 내부 백금. 빨강·파랑 배제, 전체 금색.
   vec3 blackbody(float tempK) {
     float t = clamp((tempK - 1000.0) / 9000.0, 0.0, 1.0);
@@ -432,11 +437,26 @@ const FRAGMENT = /* glsl */ `
     // 현재 진행 방향으로 탈출한 것으로 근사한다 (검은 해자 방지).
     if (!captured && alpha < 0.99 && impactB >= BCRIT * rs) {
       vec3 escapeDir = toWorldFrame(rayDir, tiltC, tiltS);
-      // 하이브리드 하늘 — 별은 절차 별밭(방향 해시 = 해상도 무한, 렌즈 확대에도 점 유지),
-      // 확산광(은하 글로우·헤이즈·원거리 은하)은 환경맵. 래스터 환경맵에 별까지 구우면
-      // 렌즈 확대율이 텍셀을 이겨 별이 뭉개진 블롭이 된다 (사용자 피드백).
-      vec3 sky = starField(escapeDir);
-      if (uEnvReady > 0.5) sky += texture(uEnvMap, escapeDir).rgb;
+      // 배경 3층 우선순위 — 중력렌즈의 정체성은 "실제 배경이 휘어 보이는 대응 관계"다:
+      //  ① 휜 방향이 화면 안 + 원거리(sky)면 실제 씬 샘플 — 진짜 배경 별이 호로 휘어 보인다.
+      //     (동반성·우주선 등 렌즈 도메인 안/앞 픽셀은 제외 — 동반성은 마처의 해석적 구가 담당)
+      //  ② 화면 밖/전경 차단이면 환경맵 확산광 + 절차 별밭 — 래스터 별의 확대 뭉개짐 없이
+      //     톤 연속(환경맵)과 별 질감(절차, 해상도 무한)을 잇는다.
+      vec3 sky;
+      vec2 bgUv = dirToScreenUv(escapeDir);
+      bool onScreen = bgUv.x >= 0.0 && bgUv.x <= 1.0 && bgUv.y >= 0.0 && bgUv.y <= 1.0;
+      bool farSky = false;
+      if (onScreen) {
+        float dRaw = readDepth(bgUv);
+        float bhDist = length(uBhPos - uCameraPos);
+        farSky = dRaw <= 0.0001 || dRaw >= 0.9999 || -getViewZ(dRaw) > bhDist + uRs * 30.0;
+      }
+      if (onScreen && farSky) {
+        sky = texture2D(inputBuffer, bgUv).rgb;
+      } else {
+        sky = starField(escapeDir);
+        if (uEnvReady > 0.5) sky += texture(uEnvMap, escapeDir).rgb;
+      }
       color += sky * (1.0 - alpha);
     }
     return color;
