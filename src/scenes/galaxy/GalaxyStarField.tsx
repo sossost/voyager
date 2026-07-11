@@ -9,7 +9,6 @@ import { fract } from '@/scenes/shared/fract'
 import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMaterial'
 import { starVariance } from '@/scenes/shared/starVariance'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
-import { enableLensEnvLayer } from '@/scenes/shared/lensEnvironment'
 
 /**
  * 원거리 별 크기 하한 — size 어트리뷰트 1단위당 px. 분광형 크기에 비례하므로
@@ -195,6 +194,5 @@ export function GalaxyStarField({
     setUniform(material, 'uCurrentFade', currentFade)
   })
 
-  // onUpdate: 렌즈 환경맵 레이어 — 블랙홀 렌즈의 탈출 광선이 배경 별밭을 방향 샘플한다.
-  return <points geometry={geometry} material={material} onUpdate={enableLensEnvLayer} />
+  return <points geometry={geometry} material={material} />
 }

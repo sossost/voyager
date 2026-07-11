@@ -92,9 +92,9 @@ const FRAGMENT = /* glsl */ `
   // ── 배경 (절차 별밭 — 화면 밖으로 휜 광선의 폴백 전용) ──
   // 밀도는 씬 별밭과 이질감 없게 레퍼런스(0.003)보다 올린다 — 렌즈 지대는 하늘이 압축돼
   // 들어오는 곳이라 오히려 조밀한 게 고증에 가깝다.
-  const float STAR_DENSITY = 0.018;
+  const float STAR_DENSITY = 0.05;
   const float STAR_SIZE = 2.0;
-  const float STAR_BRIGHT = 0.9;
+  const float STAR_BRIGHT = 1.0;
 
   // 원반 프레임 변환 (Z축 회전) — 마칭·원반 판정은 "원반이 y=0"인 프레임에서 수행하고,
   // 탈출 광선만 월드로 되돌려 배경을 샘플한다. 그림자·렌즈는 회전 불변이라 형태 불변.
@@ -432,9 +432,11 @@ const FRAGMENT = /* glsl */ `
     // 현재 진행 방향으로 탈출한 것으로 근사한다 (검은 해자 방지).
     if (!captured && alpha < 0.99 && impactB >= BCRIT * rs) {
       vec3 escapeDir = toWorldFrame(rayDir, tiltC, tiltS);
-      vec3 sky = uEnvReady > 0.5
-        ? texture(uEnvMap, escapeDir).rgb
-        : starField(escapeDir); // 베이크 전 첫 프레임들 폴백
+      // 하이브리드 하늘 — 별은 절차 별밭(방향 해시 = 해상도 무한, 렌즈 확대에도 점 유지),
+      // 확산광(은하 글로우·헤이즈·원거리 은하)은 환경맵. 래스터 환경맵에 별까지 구우면
+      // 렌즈 확대율이 텍셀을 이겨 별이 뭉개진 블롭이 된다 (사용자 피드백).
+      vec3 sky = starField(escapeDir);
+      if (uEnvReady > 0.5) sky += texture(uEnvMap, escapeDir).rgb;
       color += sky * (1.0 - alpha);
     }
     return color;

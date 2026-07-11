@@ -10,9 +10,10 @@ import { CubeCamera, type Object3D, type Texture, WebGLCubeRenderTarget } from '
  * 를 근본 해소한다: 원거리 배경만 담은 큐브맵을 계 진입 시 1회 베이크하고, 레이마칭의
  * 탈출 광선은 이 환경맵을 방향으로 샘플한다. 배경은 사실상 무한원이라 베이크가 유효하다.
  *
- * 대상 선별은 three.js 레이어(LENS_ENV_LAYER) — 원거리 배경 컴포넌트(별밭·은하 글로우·
- * 장식 천구·원거리 은하)만 이 레이어를 켠다. 근거리(항성계 본체·우주선)는 제외되어
- * 렌즈에 이중 샘플·유령이 생기지 않는다.
+ * 대상 선별은 three.js 레이어(LENS_ENV_LAYER) — **저주파 확산광**(은하 글로우·성운·원거리
+ * 은하)만 굽는다. 점광 별밭은 제외 — 래스터에 구우면 렌즈 확대율이 텍셀을 이겨 뭉개진다.
+ * 별은 셰이더의 절차 별밭(방향 해시 = 해상도 무한)이 담당한다 (하이브리드 하늘).
+ * 근거리(항성계 본체·우주선)도 제외 — 렌즈 이중 샘플·유령 방지.
  */
 
 export const LENS_ENV_LAYER = 2
@@ -28,7 +29,7 @@ export function enableLensEnvLayer(object: Object3D | null): void {
   object?.layers.enable(LENS_ENV_LAYER)
 }
 
-const ENV_SIZE = 512
+const ENV_SIZE = 256
 /** 마운트 직후 씬이 채워질 시간 — 이 프레임 수만큼 기다렸다 베이크한다. */
 const BAKE_DELAY_FRAMES = 6
 
