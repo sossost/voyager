@@ -581,22 +581,6 @@ export function CurrentSystem() {
       } else {
         blackHoleLens.streamEnabled = false
       }
-      // 전경 동반성 고스트 차단 — 동반성이 BH보다 앞(카메라 쪽)일 때만 활성. 뒤로 넘어가면
-      // 진짜 렌즈 상(아인슈타인 호)이 맺혀야 하므로 차단을 푼다.
-      if (star != null && star.companions.length > 0) {
-        const companionLocal = bodyScratch[1] as Vector3
-        toBhScratch.set(
-          worldPosition[0] + companionLocal.x * lensScale,
-          worldPosition[1] + companionLocal.y * lensScale,
-          worldPosition[2] + companionLocal.z * lensScale,
-        )
-        blackHoleLens.fgStarPos.copy(toBhScratch)
-        // 코로나 글로우(CORONA_SIZE_FACTOR 5.6 → 반폭 2.8×반경)까지 덮는 차단 반경.
-        blackHoleLens.fgStarRadius = (bodies[1]?.radius ?? 1) * lensScale * 2.8
-        blackHoleLens.fgStarActive = cam.position.distanceTo(toBhScratch) < dist + rs * 2
-      } else {
-        blackHoleLens.fgStarActive = false
-      }
       ndcScratch.set(bhX, bhY, bhZ).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
       const fov = cam instanceof PerspectiveCamera ? cam.fov : 60
@@ -644,7 +628,15 @@ export function CurrentSystem() {
                     // 입상반 진폭·림 저온색 분광 파생(O-6) — O/B 복사 외피는 매끈, 림은 붉게.
                     granulation={body.granulation}
                     rimColor={body.rimColor}
-                    maxCoronaRadius={coronaMax[index] ?? Infinity}
+                    // 유니크 BH계 동반성은 코로나를 별에 바짝 클램프 — 코로나는 깊이를 안
+                    // 쓰는 가산 글로우라 레이마칭 배경 샘플에 걸려, 동반성이 BH 앞에 있을 때
+                    // 반대편에 반투명 유령 호(비고증 — 전경 광원은 렌즈상 없음)로 맺힌다.
+                    // 글로우를 줄이면 유령이 소멸하고 렌즈·아인슈타인 호(핵)는 그대로다.
+                    maxCoronaRadius={
+                      unique != null && index > 0
+                        ? Math.min(coronaMax[index] ?? Infinity, body.radius * 1.4)
+                        : coronaMax[index] ?? Infinity
+                    }
                     // 카리브디스 반성 — 로슈엽 충만 티어드롭 (L1 팁이 블랙홀을 향해 늘어난다).
                     tidalStretch={
                       bhVariant === 'feeding' && index === 1 ? COMPANION_TIDAL_STRETCH : 0
