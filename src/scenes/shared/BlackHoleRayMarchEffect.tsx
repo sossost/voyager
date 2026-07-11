@@ -36,6 +36,9 @@ const FRAGMENT = /* glsl */ `
   uniform float uDiskInner;
   uniform float uDiskOuter;
   uniform float uDiskEnabled; // 0=암흑(렌즈·그림자만, 절차 BH) / 1=강착원반(유니크계)
+  uniform float uStreamEnabled; // 로슈엽 물질 스트림 (카리브디스 전용)
+  uniform float uStreamAngle;   // 반성 방향 월드 각 — 나선 시작 각
+  uniform float uStreamStartR;  // 스트림 시작 반경(월드, 반성 표면 근방)
   uniform vec3 uDiskNormal;
   uniform vec2 uCenter;
   uniform float uScreenRadius;
@@ -234,6 +237,46 @@ const FRAGMENT = /* glsl */ `
     return vec4(col * DISK_BRIGHT, ringOpacity * edge);
   }
 
+  // ── 로슈엽 물질 스트림 (exotic-codex, 카리브디스) ──
+  // 반성(각 uStreamAngle, r=uStreamStartR)에서 원반 외곽으로 감기는 나선. 감김은 궤도
+  // 진행(+각) 방향 — 각운동량 보존으로 안쪽 물질이 공전보다 빨라져 앞쪽으로 감긴다.
+  const float STREAM_SWEEP = 2.45;
+
+  float angleDiff(float a, float b) {
+    return mod(a - b + 3.14159265, 6.2831853) - 3.14159265;
+  }
+
+  // 원반과 같은 y=0 평면 히트에서 호출 — (r, angle)이 나선 리본 안이면 발광을 돌려준다.
+  vec4 streamSample(float r, float angle) {
+    float endR = uDiskOuter * 0.98;
+    float span = max(uStreamStartR - endR, 1e-3);
+    float t = (uStreamStartR - r) / span;   // 0=반성 표면, 1=원반 합류
+    if (t < 0.0 || t > 1.0) return vec4(0.0);
+
+    // 나선 중심각에서의 각도 편차 → 가우시안 단면 (리본 폭은 rs 비례, 합류부로 갈수록 퍼짐)
+    float expected = uStreamAngle + STREAM_SWEEP * t;
+    float d = angleDiff(angle, expected);
+    float halfW = mix(0.28, 0.75, t) * uRs / max(r, 1e-3);
+    float across = exp(-(d * d) / max(halfW * halfW, 1e-8));
+
+    // BH 쪽(+t)으로 흘러가는 덩어리들 — 유입 물질이 "빨려드는" 독법의 핵심.
+    float flow = 0.55 + 0.45 * sin(t * 24.0 - uTime * 3.0);
+    float clump = 0.7 + 0.3 * sin(t * 57.0 - uTime * 5.2);
+    // 반성 표면에서 스며 나오듯 페이드인.
+    float birth = smoothstep(0.0, 0.10, t);
+    // 합류 핫스팟 — 스트림이 원반 가장자리를 때리는 명멸 광점 (LMXB hot spot).
+    float hd = (t - 0.97) / 0.05;
+    float hotspot = exp(-hd * hd) * (0.8 + 0.25 * sin(uTime * 7.3));
+
+    // 온도 — 반성 광구(주황) → 낙하 마찰 가열(백황). 안쪽일수록 밝다.
+    vec3 coolCol = vec3(1.05, 0.55, 0.28);
+    vec3 hotCol = vec3(1.0, 0.92, 0.75);
+    vec3 col = mix(coolCol, hotCol, smoothstep(0.3, 1.0, t));
+
+    float a = clamp(across * (flow * clump * birth * 0.9 + hotspot), 0.0, 1.0);
+    return vec4(col * (1.5 + 2.5 * t) * a, a);
+  }
+
   vec3 marchRay(vec2 fragUv) {
     float rs = max(uRs, 0.01);
     vec4 farP = uInvViewProj * vec4(fragUv * 2.0 - 1.0, 1.0, 1.0);
@@ -260,10 +303,16 @@ const FRAGMENT = /* glsl */ `
         vec3 dh = pos + rayDir * tDisk;
         float dr3 = length(dh);
         float dr = length(vec2(dh.x, dh.z));
-        if (dr3 > startR && dr > uDiskInner && dr < uDiskOuter) {
-          vec4 ds = diskSample(dr, atan(dh.z, dh.x), rayDir);
-          color += ds.rgb * ds.w;
-          alpha += ds.w;
+        if (dr3 > startR) {
+          if (dr > uDiskInner && dr < uDiskOuter) {
+            vec4 ds = diskSample(dr, atan(dh.z, dh.x), rayDir);
+            color += ds.rgb * ds.w;
+            alpha += ds.w;
+          } else if (uStreamEnabled > 0.5 && dr >= uDiskOuter) {
+            vec4 ss = streamSample(dr, atan(dh.z, dh.x));
+            color += ss.rgb * ss.w;
+            alpha += ss.w;
+          }
         }
       }
     }
@@ -303,6 +352,11 @@ const FRAGMENT = /* glsl */ `
           float rem = 1.0 - alpha;
           color += ds.rgb * ds.w * rem;
           alpha += rem * ds.w;
+        } else if (uStreamEnabled > 0.5 && hr >= uDiskOuter) {
+          vec4 ss = streamSample(hr, atan(hit.z, hit.x));
+          float rem = 1.0 - alpha;
+          color += ss.rgb * ss.w * rem;
+          alpha += rem * ss.w;
         }
       }
     }
@@ -380,6 +434,9 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uDiskInner", new Uniform(2.5)],
         ["uDiskOuter", new Uniform(9)],
         ["uDiskEnabled", new Uniform(0)],
+        ["uStreamEnabled", new Uniform(0)],
+        ["uStreamAngle", new Uniform(0)],
+        ["uStreamStartR", new Uniform(20)],
         ["uDiskNormal", new Uniform(new Vector3(0, 1, 0))],
         ["uCenter", new Uniform(new Vector2(0.5, 0.5))],
         ["uScreenRadius", new Uniform(0.2)],
@@ -418,6 +475,9 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uDiskInner", blackHoleLens.diskInner);
     set("uDiskOuter", blackHoleLens.diskOuter);
     set("uDiskEnabled", blackHoleLens.diskEnabled ? 1 : 0);
+    set("uStreamEnabled", blackHoleLens.streamEnabled ? 1 : 0);
+    set("uStreamAngle", blackHoleLens.streamAngle);
+    set("uStreamStartR", blackHoleLens.streamStartR);
     copy("uDiskNormal", blackHoleLens.diskNormal);
     copy("uCenter", blackHoleLens.center);
     set("uScreenRadius", blackHoleLens.screenRadius);

@@ -529,7 +529,14 @@ export function CurrentSystem() {
       blackHoleLens.cameraPos.copy(cam.position)
       blackHoleLens.invViewProj.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse)
       blackHoleLens.viewProj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)
-      blackHoleLens.bhPos.set(worldPosition[0], worldPosition[1], worldPosition[2])
+      // BH 실제 위치 = 질량중심 + 주성 로컬 오프셋 — 쌍성 BH(유니크계)는 질량중심을 돌므로
+      // 질량중심(worldPosition)만 쓰면 그림자·렌즈가 어긋난다 (단일성은 오프셋 0으로 동일).
+      const lensScale = systemScaleRef.current
+      const bhLocal = bodyScratch[0] as Vector3
+      const bhX = worldPosition[0] + bhLocal.x * lensScale
+      const bhY = worldPosition[1] + bhLocal.y * lensScale
+      const bhZ = worldPosition[2] + bhLocal.z * lensScale
+      blackHoleLens.bhPos.set(bhX, bhY, bhZ)
       const rs = (bodies[0]?.radius ?? STAR_VISUAL_RADIUS) * systemScaleRef.current
       blackHoleLens.rs = rs
       // 디스크 안쪽을 그림자(BCRIT≈4.8 rs)보다 훨씬 안까지 끌어내려 검은 구에 바짝 붙인다(갭 제거).
@@ -539,7 +546,21 @@ export function CurrentSystem() {
       // 절차 BH는 암흑 — 렌즈·그림자만 그리고 원반은 유니크계(아케론·카리브디스) 전용.
       blackHoleLens.diskEnabled = bhVariant !== 'dark'
       blackHoleLens.diskNormal.set(0, 1, 0)
-      ndcScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(cam)
+      // 로슈엽 물질 스트림 (카리브디스) — 씬 파티클은 레이마칭 전담 영역에 덮여 사라지므로
+      // 스트림 파라미터를 게시해 레이마칭이 원반과 같은 평면 히트로 직접 그린다.
+      if (bhVariant === 'feeding' && star != null && star.companions.length > 0) {
+        const companionLocal = bodyScratch[1] as Vector3
+        const streamDx = (companionLocal.x - bhLocal.x) * lensScale
+        const streamDz = (companionLocal.z - bhLocal.z) * lensScale
+        const companionRadius = (bodies[1]?.radius ?? 0) * lensScale
+        blackHoleLens.streamAngle = Math.atan2(streamDz, streamDx)
+        blackHoleLens.streamStartR =
+          Math.sqrt(streamDx * streamDx + streamDz * streamDz) - companionRadius * 0.35
+        blackHoleLens.streamEnabled = true
+      } else {
+        blackHoleLens.streamEnabled = false
+      }
+      ndcScratch.set(bhX, bhY, bhZ).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
       const fov = cam instanceof PerspectiveCamera ? cam.fov : 60
       const halfHeight = dist * Math.tan((fov * Math.PI) / 360)

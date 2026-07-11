@@ -11,7 +11,9 @@ import {
 } from 'three'
 
 import type { Star } from '@/engine'
+import { QUALITY_PRESETS } from '@/quality/presets'
 import { usePrefersReducedMotion } from '@/scenes/shared/useReducedMotion'
+import { useGameStore } from '@/store'
 import { bodyPositions } from '@/scenes/system/multiplicity'
 import { simClock } from '@/scenes/system/simClock'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
@@ -274,6 +276,12 @@ export function MatterStream({
 }: MatterStreamProps) {
   const groupRef = useRef<Group>(null)
   const reducedMotion = usePrefersReducedMotion()
+  // 레이마칭 티어에선 스트림도 포스트 패스가 그린다(BlackHoleRayMarchEffect streamSample) —
+  // 씬 공간 버전은 레이마칭 전담 영역에 덮여 사라지므로 페이크 경로(steps=0)에서만 렌더.
+  // BlackHole 본체와 동일 게이트.
+  const renderFake = useGameStore(
+    (state) => QUALITY_PRESETS[state.qualityTier].blackHoleSteps === 0,
+  )
   const geometry = useMemo(() => buildStreamGeometry(), [])
   const particleGeometry = useMemo(() => buildParticleGeometry(), [])
   const bodyScratch = useMemo(() => [new Vector3(), new Vector3(), new Vector3()], [])
@@ -383,6 +391,8 @@ export function MatterStream({
     const cameraDistance = state.camera.position.distanceTo(group.getWorldPosition(worldScratch))
     sharedUniforms.uOpacity.value = 1 - crossfadeProgress(cameraDistance)
   })
+
+  if (!renderFake) return null
 
   return (
     <group ref={groupRef}>
