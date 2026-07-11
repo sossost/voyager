@@ -715,7 +715,7 @@ export function CurrentSystem() {
             {planets.map((planet, index) => (
               <group key={planet.id}>
                 {/* 다중성계는 실제 적분 궤적 트레일, 단일성계는 정확한 케플러 원(OrbitRing).
-                    표시 여부는 설정 토글(기본 off, misc-ux) — 행성 운동 자체는 영향 없다. */}
+                    표시 여부는 설정 토글(기본 on, misc-ux) — 행성 운동 자체는 영향 없다. */}
                 {isOrbitLinesVisible ? (
                   isGravityMode ? (
                     <OrbitTrail orbitIndex={index} sampleDt={trailSampleDts[index] ?? 0} />

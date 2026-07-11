@@ -323,15 +323,15 @@ describe('시뮬레이션 배속 (setTimeScale)', () => {
 })
 
 describe('궤도선 토글 (misc-ux)', () => {
-  it('기본은 숨김(false)이다 — 취향 타는 오버레이', () => {
-    expect(store.getState().isOrbitLinesVisible).toBe(false)
+  it('기본은 표시(true)다', () => {
+    expect(store.getState().isOrbitLinesVisible).toBe(true)
   })
 
   it('setOrbitLinesVisible로 표시를 켜고 끈다', () => {
-    store.getState().setOrbitLinesVisible(true)
-    expect(store.getState().isOrbitLinesVisible).toBe(true)
     store.getState().setOrbitLinesVisible(false)
     expect(store.getState().isOrbitLinesVisible).toBe(false)
+    store.getState().setOrbitLinesVisible(true)
+    expect(store.getState().isOrbitLinesVisible).toBe(true)
   })
 })
 
@@ -418,7 +418,7 @@ describe('설정 영속화 (misc-ux)', () => {
     expect(restored.getState().timeScale).toBe(1)
     expect(restored.getState().qualityMode).toBe('auto') // 티어가 무효면 manual도 성립 불가
     expect(restored.getState().qualityTier).toBe('medium')
-    expect(restored.getState().isOrbitLinesVisible).toBe(false)
+    expect(restored.getState().isOrbitLinesVisible).toBe(true) // 무효 값 → 기본(표시)
   })
 })
 

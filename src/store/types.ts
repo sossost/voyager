@@ -118,7 +118,7 @@ export interface SettingsSlice {
   readonly qualityMode: QualityMode
   /** 궤도 운동 배속 (simulation-speed) — Profile.settings로 영속화된다 (misc-ux). */
   readonly timeScale: TimeScale
-  /** 행성 궤도선(링·트레일) 표시 여부 — 취향 타는 오버레이라 기본 off (misc-ux). */
+  /** 행성 궤도선(링·트레일) 표시 여부 — 기본 on, 설정에서 끌 수 있다 (misc-ux). */
   readonly isOrbitLinesVisible: boolean
   setQuality(tier: QualityTier, mode: QualityMode): void
   setTimeScale(scale: TimeScale): void

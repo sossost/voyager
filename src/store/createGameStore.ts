@@ -79,7 +79,7 @@ function hydrateSettings(
     timeScale: savedScale == null || savedScale === 0 ? 1 : savedScale,
     qualityMode: isManualQuality ? 'manual' : 'auto',
     qualityTier: isManualQuality ? savedTier : detectedTier,
-    isOrbitLinesVisible: saved?.isOrbitLinesVisible === true,
+    isOrbitLinesVisible: saved?.isOrbitLinesVisible !== false,
   }
 }
 

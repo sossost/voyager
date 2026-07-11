@@ -1,7 +1,7 @@
 import { useGameStore } from '@/store'
 
 /**
- * 행성 궤도선(링·트레일) 표시 토글 (misc-ux) — 취향 타는 오버레이라 기본 숨김.
+ * 행성 궤도선(링·트레일) 표시 토글 (misc-ux) — 기본 표시, 설정에서 끌 수 있다.
  * SpeedSelect·QualitySelect와 같은 셀렉트 문법을 공유해 설정 팝오버의 위계가 일관된다.
  */
 export function OrbitLinesSelect() {
