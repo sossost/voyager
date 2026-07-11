@@ -9,17 +9,17 @@
 > [실제 빌드](https://voyager-ii.vercel.app/)의 그 좌표로 바로 접속해 직접 둘러볼 수 있어요 —
 > 같은 좌표는 누구에게나 같은 모습입니다.
 
-<a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=0:-1:2:3">
-  <img src="docs/images/blackhole.jpg" alt="중력 렌즈 블랙홀 Lyro-509 — 강착원반과 포톤 링" />
+<a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=2:1:2:0">
+  <img src="docs/images/blackhole.jpg" alt="중력 렌즈 블랙홀 Zubulan-383 — 강착원반과 포톤 링" />
 </a>
 
-<sub>🕳 <b>Lyro-509</b> · 블랙홀 — 실시간 셰이더로 그린 강착원반·포톤 링. <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=0:-1:2:3">▶ 이 항성계 접속</a></sub>
+<sub>🕳 <b>Zubulan-383</b> · 블랙홀 — 실시간 셰이더로 그린 강착원반·포톤 링. <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=2:1:2:0">▶ 이 항성계 접속</a></sub>
 
-<a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=-3:1:1:2">
-  <img src="docs/images/pulsar.jpg" alt="펄서 Rigix-669 — 상대론적 제트와 청색 자기권 소용돌이" />
+<a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=3:3:1:0">
+  <img src="docs/images/pulsar.jpg" alt="펄서 쌍성계 Nashiuss-802 — 상대론적 제트와 청색 자기권 소용돌이, A형 동반성" />
 </a>
 
-<sub>✦ <b>Rigix-669</b> · 펄서 — 회전하는 중성자성의 상대론적 쌍제트와 청색 자기권 소용돌이(난류 셰이더). <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=-3:1:1:2">▶ 이 항성계 접속</a></sub>
+<sub>✦ <b>Nashiuss-802</b> · 펄서 쌍성계 — 회전하는 중성자성의 상대론적 쌍제트와 청색 자기권 소용돌이(난류 셰이더), A형 동반성. <a href="https://voyager-ii.vercel.app/?seed=VOYAGER&star=3:3:1:0">▶ 이 항성계 접속</a></sub>
 
 <table>
   <tr>
