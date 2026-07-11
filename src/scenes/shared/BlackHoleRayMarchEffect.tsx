@@ -66,9 +66,10 @@ const FRAGMENT = /* glsl */ `
   const float DOPPLER = 1.0;
   const float EDGE_IN = 0.04;
   const float EDGE_OUT = 0.5;
-  // 양수 = 반시계(CCW) — 쌍성 궤도(bodyPositions, atan2 각 증가)와 순행 정합 (exotic-codex 고증).
-  // 원반은 유니크계(쌍성 BH)에만 있으므로 스트림·반성 공전과 같은 방향으로 돌아야 한다.
-  const float ROT_SPEED = 8.7;
+  // 난류 패턴 각속도 — 패턴의 세계각 이동은 φ(t) = ψ₀ − t·ROT_SPEED·k 라 **음수여야
+  // +각(CCW) 순행**으로 돈다. 쌍성 궤도(bodyPositions, atan2 각 증가)·물질 스트림 감김과
+  // 같은 방향 (exotic-codex 고증 — 원반은 유입 각운동량으로 만들어지므로 궤도와 순행).
+  const float ROT_SPEED = -8.7;
   const float TURB_SCALE = 1.81;
   const float TURB_STRETCH = 0.75;
   const float TURB_SHARP = 7.4;
@@ -209,8 +210,10 @@ const FRAGMENT = /* glsl */ `
     float tempK = mix(DISK_OUTER_TEMP_K, DISK_PEAK_TEMP_K, tempFalloff);
     vec3 col = blackbody(tempK);
 
-    // 도플러 비밍 D^3 — 다가오는 쪽이 밝고 푸르게
-    float rotSign = sign(ROT_SPEED);
+    // 도플러 비밍 D^3 — 다가오는 쪽이 밝고 푸르게. 물질 운동 방향은 패턴 부호와 별개로
+    // 순행(CCW = 궤도·스트림과 동일) 고정 — sign(ROT_SPEED)를 쓰면 패턴 각속도 표기(음수=CCW)와
+    // 얽혀 도플러가 역행으로 계산된다.
+    float rotSign = 1.0;
     vec3 velDir = vec3(-sin(hitAngle) * rotSign, 0.0, cos(hitAngle) * rotSign);
     float velMag = 1.0 / sqrt(max(er / DISK_REF_INNER, 1e-3));
     // beta(궤도 속도/c)를 0.3→0.5로 — 내측 원반은 상대론적이라 다가오는 쪽이 확 밝고 멀어지는
