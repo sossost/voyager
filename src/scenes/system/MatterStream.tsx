@@ -50,10 +50,12 @@ const STREAM_CENTER_GLSL = /* glsl */ `
   uniform float uStartR;   // 반성 표면 근방 반경(월드)
   uniform float uEndR;     // 원반 합류 반경(월드)
 
-  // t∈[0,1]: 반성(각 0, r=uStartR) → 원반(각 -SWEEP, r=uEndR).
+  // t∈[0,1]: 반성(각 0, r=uStartR) → 원반(각 +SWEEP, r=uEndR).
+  // 감김 방향은 궤도 진행(+각, CCW)과 같은 쪽 — 각운동량 보존으로 안쪽 물질이 공전보다
+  // 빨라져 반성 "앞쪽"으로 감긴다 (뒤처짐(-각)은 물리 반대 — 고증 수정 2026-07-11).
   vec2 streamCenter(float t) {
     float r = mix(uStartR, uEndR, t);
-    float angle = -${SWEEP_RAD.toFixed(2)} * t;
+    float angle = ${SWEEP_RAD.toFixed(2)} * t;
     return vec2(cos(angle), sin(angle)) * r;
   }
 `
@@ -279,10 +281,9 @@ export function MatterStream({
 
   // 원반 합류 반경 — 리본·파티클 uEndR과 핫스팟 위치의 단일 소스.
   const endR = bhRadius * diskOuterFactor * 0.8
-  // 핫스팟 = 나선 끝점(t=1): 각 -SWEEP_RAD, 반경 endR (그룹 로컬 — 그룹이 반성 방향으로 회전).
+  // 핫스팟 = 나선 끝점(t=1): 각 +SWEEP_RAD, 반경 endR (그룹 로컬 — 그룹이 반성 방향으로 회전).
   const hotspotPos = useMemo(
-    () =>
-      [Math.cos(-SWEEP_RAD) * endR, 0, Math.sin(-SWEEP_RAD) * endR] as const,
+    () => [Math.cos(SWEEP_RAD) * endR, 0, Math.sin(SWEEP_RAD) * endR] as const,
     [endR],
   )
   const hotspotScale = bhRadius * 2.6

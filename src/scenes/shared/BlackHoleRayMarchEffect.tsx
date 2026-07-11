@@ -63,7 +63,9 @@ const FRAGMENT = /* glsl */ `
   const float DOPPLER = 1.0;
   const float EDGE_IN = 0.04;
   const float EDGE_OUT = 0.5;
-  const float ROT_SPEED = -8.7; // 음수 = 도플러 회전 방향(레퍼런스 diskRotationSpeed)
+  // 양수 = 반시계(CCW) — 쌍성 궤도(bodyPositions, atan2 각 증가)와 순행 정합 (exotic-codex 고증).
+  // 원반은 유니크계(쌍성 BH)에만 있으므로 스트림·반성 공전과 같은 방향으로 돌아야 한다.
+  const float ROT_SPEED = 8.7;
   const float TURB_SCALE = 1.81;
   const float TURB_STRETCH = 0.75;
   const float TURB_SHARP = 7.4;
@@ -312,7 +314,9 @@ const FRAGMENT = /* glsl */ `
       if (bgUv.x >= 0.0 && bgUv.x <= 1.0 && bgUv.y >= 0.0 && bgUv.y <= 1.0) {
         float dRaw = readDepth(bgUv);
         float bhDist = length(uBhPos - uCameraPos);
-        bool foreground = dRaw > 0.0001 && dRaw < 0.999 && -getViewZ(dRaw) < bhDist * 0.85;
+        // mainImage의 전경 판정과 동일 기준(+2rs) — 통과(passthrough)된 별이 휜 배경에
+        // 한 번 더 샘플되어 이중상이 생기는 것을 막는다.
+        bool foreground = dRaw > 0.0001 && dRaw < 0.999 && -getViewZ(dRaw) < bhDist + uRs * 2.0;
         if (!foreground) color += texture2D(inputBuffer, bgUv).rgb * (1.0 - alpha);
       }
     }
@@ -327,11 +331,14 @@ const FRAGMENT = /* glsl */ `
     float screenDist = length(dScreen);
     if (screenDist > uScreenRadius) return;
 
-    // 전경 오클루전 — 이 픽셀의 씬 조각이 블랙홀보다 앞이면(앞을 지나는 동반성 등) 렌즈를
-    // 적용하지 않고 씬을 그대로 둔다. 스크린공간 패스라 전경을 직접 깊이 비교해야 한다.
+    // 전경 오클루전 — 이 픽셀의 씬 조각이 "명확히 BH 뒤"가 아니면(앞·옆을 지나는 동반성 등)
+    // 렌즈를 적용하지 않고 씬을 그대로 둔다. 구 기준(×0.85 상대 비율)은 BH와 비슷한 깊이로
+    // 도는 동반성을 전경으로 인정하지 못해 렌즈 출력이 별을 반토막 냈다 (exotic-codex 쌍성 BH
+    // 도입으로 드러난 버그). 절대 마진(+2rs)으로 바꿔 사건지평선 뒤 2rs 이상 멀어진 것만 렌징한다
+    // — 옆/앞의 별은 깨끗이 통과, 뒤로 넘어간 별은 여전히 휘어 보인다.
     float depthRaw = readDepth(vUv);
     float bhDistance = length(uBhPos - uCameraPos);
-    if (depthRaw > 0.0001 && depthRaw < 0.9999 && -getViewZ(depthRaw) < bhDistance * 0.85) return;
+    if (depthRaw > 0.0001 && depthRaw < 0.9999 && -getViewZ(depthRaw) < bhDistance + uRs * 2.0) return;
 
     // 슈퍼샘플링 — high만 2x2(자글거림 제거, 비용 4배). med·low는 단일 샘플(uSupersample=0).
     // MSAA는 포스트 패스에 안 먹으므로 필터 내부에서 직접 슈퍼샘플한다. (texelSize = 1/resolution)
