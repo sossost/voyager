@@ -418,7 +418,10 @@ const FRAGMENT = /* glsl */ `
         // 어두운 비균일 톤)과 어긋나 회색 무리가 진다. 그 방향 가장자리의 실제 씬 색을
         // 이어받으면 톤·그라디언트가 연속된다. 절차 별밭은 구조(별 줄무늬)만 얹는다.
         vec2 clampedUv = clamp(bgUv, vec2(0.002), vec2(0.998));
-        vec3 edgeSky = texture2D(inputBuffer, clampedUv).rgb;
+        // 밝기 상한 — 가장자리에 별 픽셀이 걸리면 같은 지점을 무는 광선들에 머리카락
+        // 스트릭으로 번진다. 이 샘플의 역할은 은은한 헤이즈 톤 연속뿐이라 상한으로 자른다
+        // (별 구조는 starField가 담당).
+        vec3 edgeSky = min(texture2D(inputBuffer, clampedUv).rgb, vec3(0.055));
         color += (starField(escapeDir) + edgeSky) * (1.0 - alpha);
       } else {
         float dRaw = readDepth(bgUv);
