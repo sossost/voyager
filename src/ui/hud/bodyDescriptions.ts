@@ -20,6 +20,10 @@ export const SPECTRAL_DESCRIPTIONS: Readonly<Record<SpectralClass, string>> = {
   M: '은하 별의 약 4분의 3을 차지하는 가장 흔한 별. 그러나 너무 어두워 맨눈에 보이는 M왜성은 하나도 없다.',
 }
 
+/** 태양 전용 설명 — 시작 항성계의 주인공이라 제너럴한 G형 문구 대신 직접 서술한다. */
+export const SOL_STAR_DESCRIPTION =
+  '46억 년째 타오르고 있는 우리 태양. 지구 생명의 유일한 에너지원이자, 이 항해가 시작된 별이다.'
+
 /** 이색 천체 설명 — 주계열성은 분광형 사전이 담당하므로 제외. */
 export const STAR_KIND_DESCRIPTIONS: Readonly<
   Record<Exclude<StarKind, 'main_sequence'>, string>
