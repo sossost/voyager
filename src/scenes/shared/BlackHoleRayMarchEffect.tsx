@@ -41,6 +41,9 @@ const FRAGMENT = /* glsl */ `
   uniform float uStreamEnabled; // 로슈엽 물질 스트림 (카리브디스 전용)
   uniform float uStreamAngle;   // 반성 방향 월드 각 — 나선 시작 각
   uniform float uStreamStartR;  // 스트림 시작 반경(월드, 반성 표면 근방)
+  uniform float uFgStarActive;  // 전경 동반성 페더 (BH보다 앞일 때만)
+  uniform vec3 uFgStarPos;      // 동반성 월드 좌표
+  uniform float uFgStarRadius;  // 동반성 시각 반경(월드)
   uniform vec3 uDiskNormal;
   uniform vec2 uCenter;
   uniform float uScreenRadius;
@@ -91,13 +94,15 @@ const FRAGMENT = /* glsl */ `
   const float NEB2_DENSITY = 0.5;
   const float NEB2_BRIGHT = 0.15;
 
-  // 원반 프레임 변환 (X축 회전) — 마칭·원반 판정은 "원반이 y=0"인 프레임에서 수행하고,
+  // 원반 프레임 변환 (Z축 회전) — 마칭·원반 판정은 "원반이 y=0"인 프레임에서 수행하고,
   // 탈출 광선만 월드로 되돌려 배경을 샘플한다. 그림자·렌즈는 회전 불변이라 형태 불변.
+  // 축이 Z인 이유: 함교 카메라는 별의 +Z에 정박한다(ShipCameraRig) — 시선축 회전이라
+  // 원반이 카메라 쪽으로 열리지 않고(도넛 X) 화면에서 비스듬한 측면 띠로 기운다 (가르강튀아).
   vec3 toDiskFrame(vec3 v, float c, float s) {
-    return vec3(v.x, c * v.y + s * v.z, -s * v.y + c * v.z);
+    return vec3(c * v.x + s * v.y, -s * v.x + c * v.y, v.z);
   }
   vec3 toWorldFrame(vec3 v, float c, float s) {
-    return vec3(v.x, c * v.y - s * v.z, s * v.y + c * v.z);
+    return vec3(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
   }
 
   vec2 dirToScreenUv(vec3 dir) {
@@ -408,8 +413,21 @@ const FRAGMENT = /* glsl */ `
         // 두지 않고 직진 배경(vUv)으로 폴백한다 — 반성이 렌즈 영역과 겹칠 때 별 둘레에
         // 검은 호가 생기던 아티팩트 제거 (국소적으로 굴절만 포기).
         bool foreground = dRaw > 0.0001 && dRaw < 0.999 && -getViewZ(dRaw) < bhDist + uRs * 2.0;
-        if (!foreground) color += texture2D(inputBuffer, bgUv).rgb * (1.0 - alpha);
-        else color += texture2D(inputBuffer, vUv).rgb * (1.0 - alpha);
+        vec3 bg = foreground
+          ? texture2D(inputBuffer, vUv).rgb
+          : texture2D(inputBuffer, bgUv).rgb;
+        // 전경 동반성 페더 — 이진 폴백은 영역 경계에서 배경(은하 띠) 상이 어긋나 얇은
+        // 원호 이음선이 드러난다. 동반성 실루엣 주변(0.9~1.9R)을 직진 배경으로 넓게
+        // 섞어 경계선을 공간적으로 녹인다 (동반성이 BH보다 앞일 때만 — 뒤면 진짜 렌즈 상).
+        if (uFgStarActive > 0.5) {
+          vec3 worldDir = toWorldFrame(rayDir, tiltC, tiltS);
+          vec3 toStar = uFgStarPos - uCameraPos;
+          float alongStar = max(dot(toStar, worldDir), 0.0);
+          float perpDist = length(toStar - worldDir * alongStar);
+          float feather = smoothstep(uFgStarRadius * 1.9, uFgStarRadius * 0.9, perpDist);
+          bg = mix(bg, texture2D(inputBuffer, vUv).rgb, feather);
+        }
+        color += bg * (1.0 - alpha);
       }
     }
     return color;
@@ -474,6 +492,9 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uDiskEnabled", new Uniform(0)],
         ["uDiskGain", new Uniform(1)],
         ["uDiskTilt", new Uniform(0)],
+        ["uFgStarActive", new Uniform(0)],
+        ["uFgStarPos", new Uniform(new Vector3())],
+        ["uFgStarRadius", new Uniform(1)],
         ["uStreamEnabled", new Uniform(0)],
         ["uStreamAngle", new Uniform(0)],
         ["uStreamStartR", new Uniform(20)],
@@ -517,6 +538,9 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uDiskEnabled", blackHoleLens.diskEnabled ? 1 : 0);
     set("uDiskGain", blackHoleLens.diskGain);
     set("uDiskTilt", blackHoleLens.diskTilt);
+    set("uFgStarActive", blackHoleLens.fgStarActive ? 1 : 0);
+    copy("uFgStarPos", blackHoleLens.fgStarPos);
+    set("uFgStarRadius", blackHoleLens.fgStarRadius);
     set("uStreamEnabled", blackHoleLens.streamEnabled ? 1 : 0);
     set("uStreamAngle", blackHoleLens.streamAngle);
     set("uStreamStartR", blackHoleLens.streamStartR);

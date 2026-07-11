@@ -584,6 +584,20 @@ export function CurrentSystem() {
       } else {
         blackHoleLens.streamEnabled = false
       }
+      // 전경 동반성 페더 게시 — BH보다 앞(카메라 쪽)일 때만. 폴백 경계선(띠) 완화용.
+      if (star != null && star.companions.length > 0) {
+        const companionLocal = bodyScratch[1] as Vector3
+        toBhScratch.set(
+          worldPosition[0] + companionLocal.x * lensScale,
+          worldPosition[1] + companionLocal.y * lensScale,
+          worldPosition[2] + companionLocal.z * lensScale,
+        )
+        blackHoleLens.fgStarPos.copy(toBhScratch)
+        blackHoleLens.fgStarRadius = (bodies[1]?.radius ?? 1) * lensScale
+        blackHoleLens.fgStarActive = cam.position.distanceTo(toBhScratch) < dist + rs * 2
+      } else {
+        blackHoleLens.fgStarActive = false
+      }
       ndcScratch.set(bhX, bhY, bhZ).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
       const fov = cam instanceof PerspectiveCamera ? cam.fov : 60

@@ -46,6 +46,14 @@ export const blackHoleLens = {
    * 림 합류 기하가 깨지면 안 된다.
    */
   diskTilt: 0,
+  /**
+   * 전경 동반성 페더 — 동반성이 BH보다 앞일 때, 휜 광선이 동반성 실루엣에 걸리는 영역
+   * 주변(0.9~1.9R)을 직진 배경으로 부드럽게 섞어 폴백 경계선(얇은 원호 띠)을 없앤다.
+   * 뒤로 넘어가면 비활성 — 진짜 아인슈타인 상은 그대로 맺힌다.
+   */
+  fgStarActive: false,
+  fgStarPos: new Vector3(),
+  fgStarRadius: 1,
   /** 반성 방향 월드 각(atan2(z,x)) — 스트림 나선의 시작 각. */
   streamAngle: 0,
   /** 스트림 시작 반경(월드) — 반성 표면 근방. */
