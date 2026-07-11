@@ -153,6 +153,9 @@ const DARK_BLACK_HOLE_LIGHT_COLOR = '#4a4a5e'
 /** 강착원반 안/바깥 반경 배수 (rs 기준) — 레이마칭 lens 게시·궤도 클리어런스 공용. */
 const BH_DISK_INNER_FACTOR = 2.5
 const BH_DISK_OUTER_FACTOR = 18.0
+/** 항성풍 포획 원반(아케론) — 오버플로 원반보다 작고 어둡다 (유입 각운동량 부족, Cyg X-1형). */
+const WIND_DISK_OUTER_FACTOR = 11.0
+const WIND_DISK_GAIN = 0.55
 /** 카리브디스 반성의 조석 티어드롭 강도 — L1 쪽 최대 반경 +42% (로슈엽 충만 별). */
 const COMPANION_TIDAL_STRETCH = 0.42
 
@@ -207,11 +210,9 @@ export function CurrentSystem() {
   const bhVariant: BlackHoleVariant =
     unique?.id === 'feeding_bh' ? 'feeding' : unique?.id === 'disk_bh' ? 'disk' : 'dark'
   // 블랙홀은 행성을 숨긴다 — 강착원반이 내행성 궤도와 겹치고 천문학적으로도 이례적이다
-  // (펄서·왜성·거성은 행성 유지). 예외: 아케론(disk_bh)은 원거리 쌍성이라 행성이 유지되고,
-  // 안정 하한(stellarClearanceRadius가 디스크 외곽 포함)이 궤도를 디스크 밖으로 민다.
-  // planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
-  const showPlanets =
-    scene.kind === 'galaxy' && (star?.kind !== 'black_hole' || unique?.id === 'disk_bh')
+  // (펄서·왜성·거성은 행성 유지). 유니크계도 동일 — 엔진이 행성을 아예 안 만든다(planetsOf,
+  // 초신성이 행성계를 파괴). planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
+  const showPlanets = scene.kind === 'galaxy' && star?.kind !== 'black_hole'
   const worldPosition = useMemo(
     () => starWorldPosition(seed, starId) ?? ([0, 0, 0] as const),
     [seed, starId],
@@ -558,7 +559,10 @@ export function CurrentSystem() {
       // 디스크 안쪽을 그림자(BCRIT≈4.8 rs)보다 훨씬 안까지 끌어내려 검은 구에 바짝 붙인다(갭 제거).
       // 전체 크기는 rs(kindRadiusFactor)로 조절.
       blackHoleLens.diskInner = rs * BH_DISK_INNER_FACTOR
-      blackHoleLens.diskOuter = rs * BH_DISK_OUTER_FACTOR
+      // 항성풍 포획 원반(disk)은 오버플로 원반(feeding)보다 작고 어둡다 — Cyg X-1형 고증.
+      blackHoleLens.diskOuter =
+        rs * (bhVariant === 'disk' ? WIND_DISK_OUTER_FACTOR : BH_DISK_OUTER_FACTOR)
+      blackHoleLens.diskGain = bhVariant === 'disk' ? WIND_DISK_GAIN : 1
       // 절차 BH는 암흑 — 렌즈·그림자만 그리고 원반은 유니크계(아케론·카리브디스) 전용.
       blackHoleLens.diskEnabled = bhVariant !== 'dark'
       blackHoleLens.diskNormal.set(0, 1, 0)

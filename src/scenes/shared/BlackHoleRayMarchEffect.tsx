@@ -36,6 +36,7 @@ const FRAGMENT = /* glsl */ `
   uniform float uDiskInner;
   uniform float uDiskOuter;
   uniform float uDiskEnabled; // 0=암흑(렌즈·그림자만, 절차 BH) / 1=강착원반(유니크계)
+  uniform float uDiskGain;    // 원반 밝기 배율 — 항성풍 포획(0.55) vs 오버플로(1)
   uniform float uStreamEnabled; // 로슈엽 물질 스트림 (카리브디스 전용)
   uniform float uStreamAngle;   // 반성 방향 월드 각 — 나선 시작 각
   uniform float uStreamStartR;  // 스트림 시작 반경(월드, 반성 표면 근방)
@@ -237,7 +238,7 @@ const FRAGMENT = /* glsl */ `
     float turb = mix(vfbm(nc2, TURB_LAC, TURB_PERS), vfbm(nc1, TURB_LAC, TURB_PERS), blend);
     float ringOpacity = pow(clamp(turb, 0.0, 1.0), TURB_SHARP);
 
-    return vec4(col * DISK_BRIGHT, ringOpacity * edge);
+    return vec4(col * DISK_BRIGHT * uDiskGain, ringOpacity * edge);
   }
 
   // ── 로슈엽 물질 스트림 (exotic-codex, 카리브디스) ──
@@ -456,6 +457,7 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uDiskInner", new Uniform(2.5)],
         ["uDiskOuter", new Uniform(9)],
         ["uDiskEnabled", new Uniform(0)],
+        ["uDiskGain", new Uniform(1)],
         ["uStreamEnabled", new Uniform(0)],
         ["uStreamAngle", new Uniform(0)],
         ["uStreamStartR", new Uniform(20)],
@@ -497,6 +499,7 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uDiskInner", blackHoleLens.diskInner);
     set("uDiskOuter", blackHoleLens.diskOuter);
     set("uDiskEnabled", blackHoleLens.diskEnabled ? 1 : 0);
+    set("uDiskGain", blackHoleLens.diskGain);
     set("uStreamEnabled", blackHoleLens.streamEnabled ? 1 : 0);
     set("uStreamAngle", blackHoleLens.streamAngle);
     set("uStreamStartR", blackHoleLens.streamStartR);

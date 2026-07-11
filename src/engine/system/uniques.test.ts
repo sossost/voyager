@@ -68,12 +68,9 @@ describe('유니크계 핀 (GEN_VERSION 12)', () => {
     expect(FEEDING_BH_STAR.companions[0]?.eccentricity).toBe(0)
   })
 
-  it.each(SEEDS)('시드 %s에서 카리브디스는 행성이 없다 (질량 이전 환경)', (raw) => {
+  it.each(SEEDS)('시드 %s에서 유니크계는 행성이 없다 (질량 이전·초신성 파괴)', (raw) => {
     expect(planetsOf(seedOf(raw), FEEDING_BH_STAR_ID)).toHaveLength(0)
-  })
-
-  it('아케론은 행성을 유지한다 (원거리 쌍성 — 안정 여지)', () => {
-    expect(planetsOf(seedOf('ANDROMEDA'), DISK_BH_STAR_ID).length).toBeGreaterThan(0)
+    expect(planetsOf(seedOf(raw), DISK_BH_STAR_ID)).toHaveLength(0)
   })
 
   it('기존 능동 스캔이 유니크계를 자동 감지한다 (kind=black_hole)', () => {
