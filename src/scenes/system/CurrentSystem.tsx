@@ -581,6 +581,22 @@ export function CurrentSystem() {
       } else {
         blackHoleLens.streamEnabled = false
       }
+      // 전경 동반성 고스트 차단 — 동반성이 BH보다 앞(카메라 쪽)일 때만 활성. 뒤로 넘어가면
+      // 진짜 렌즈 상(아인슈타인 호)이 맺혀야 하므로 차단을 푼다.
+      if (star != null && star.companions.length > 0) {
+        const companionLocal = bodyScratch[1] as Vector3
+        toBhScratch.set(
+          worldPosition[0] + companionLocal.x * lensScale,
+          worldPosition[1] + companionLocal.y * lensScale,
+          worldPosition[2] + companionLocal.z * lensScale,
+        )
+        blackHoleLens.fgStarPos.copy(toBhScratch)
+        // 코로나 글로우(CORONA_SIZE_FACTOR 5.6 → 반폭 2.8×반경)까지 덮는 차단 반경.
+        blackHoleLens.fgStarRadius = (bodies[1]?.radius ?? 1) * lensScale * 2.8
+        blackHoleLens.fgStarActive = cam.position.distanceTo(toBhScratch) < dist + rs * 2
+      } else {
+        blackHoleLens.fgStarActive = false
+      }
       ndcScratch.set(bhX, bhY, bhZ).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
       const fov = cam instanceof PerspectiveCamera ? cam.fov : 60

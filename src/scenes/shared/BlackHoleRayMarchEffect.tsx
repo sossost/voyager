@@ -40,6 +40,9 @@ const FRAGMENT = /* glsl */ `
   uniform float uStreamEnabled; // 로슈엽 물질 스트림 (카리브디스 전용)
   uniform float uStreamAngle;   // 반성 방향 월드 각 — 나선 시작 각
   uniform float uStreamStartR;  // 스트림 시작 반경(월드, 반성 표면 근방)
+  uniform float uFgStarActive;  // 전경 동반성 고스트 차단 (blackHoleLens.fgStar*)
+  uniform vec3 uFgStarPos;
+  uniform float uFgStarRadius;
   uniform vec3 uDiskNormal;
   uniform vec2 uCenter;
   uniform float uScreenRadius;
@@ -384,6 +387,18 @@ const FRAGMENT = /* glsl */ `
     // 배경은 *진짜 탈출한* 광선만 샘플 — 스텝 소진(미탈출)은 빨려든 셈이라 검정(그림자).
     // 광자구 안(b<BCRIT·rs)도 그림자(검정). 밖+탈출이면 휜 방향으로 실제 씬 샘플.
     if (escaped && alpha < 0.99 && impactB >= BCRIT * rs) {
+      // 전경 동반성 고스트 차단 — 탈출 광선이 전경(카메라 쪽) 동반성·코로나를 향하면
+      // 렌징하지 않는다. 앞에 있는 광원의 빛은 BH를 돌아 나올 수 없다 (고증). 코로나는
+      // 깊이를 안 쓰는 가산 글로우라 아래 깊이 검사로는 못 거른다 — 기하로 직접 판정.
+      if (uFgStarActive > 0.5) {
+        vec3 toStar = uFgStarPos - uCameraPos;
+        float alongStar = dot(toStar, rayDir);
+        vec3 perp = toStar - rayDir * alongStar;
+        if (alongStar > 0.0 && dot(perp, perp) < uFgStarRadius * uFgStarRadius) {
+          color += texture2D(inputBuffer, vUv).rgb * (1.0 - alpha);
+          return color;
+        }
+      }
       vec2 bgUv = dirToScreenUv(rayDir);
       if (bgUv.x >= 0.0 && bgUv.x <= 1.0 && bgUv.y >= 0.0 && bgUv.y <= 1.0) {
         float dRaw = readDepth(bgUv);
@@ -461,6 +476,9 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uStreamEnabled", new Uniform(0)],
         ["uStreamAngle", new Uniform(0)],
         ["uStreamStartR", new Uniform(20)],
+        ["uFgStarActive", new Uniform(0)],
+        ["uFgStarPos", new Uniform(new Vector3())],
+        ["uFgStarRadius", new Uniform(1)],
         ["uDiskNormal", new Uniform(new Vector3(0, 1, 0))],
         ["uCenter", new Uniform(new Vector2(0.5, 0.5))],
         ["uScreenRadius", new Uniform(0.2)],
@@ -503,6 +521,9 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uStreamEnabled", blackHoleLens.streamEnabled ? 1 : 0);
     set("uStreamAngle", blackHoleLens.streamAngle);
     set("uStreamStartR", blackHoleLens.streamStartR);
+    set("uFgStarActive", blackHoleLens.fgStarActive ? 1 : 0);
+    copy("uFgStarPos", blackHoleLens.fgStarPos);
+    set("uFgStarRadius", blackHoleLens.fgStarRadius);
     copy("uDiskNormal", blackHoleLens.diskNormal);
     copy("uCenter", blackHoleLens.center);
     set("uScreenRadius", blackHoleLens.screenRadius);
