@@ -2,7 +2,7 @@ import { Vector3 } from 'three'
 
 import type { Companion, SpectralClass, Star, StarKind } from '@/engine'
 import { uniqueSystemOf } from '@/engine'
-import { kindRadiusFactor } from '@/scenes/system/exotic'
+import { kindRadiusFactor, PULSAR_DISK_OUTER_FACTOR } from '@/scenes/system/exotic'
 import { G_RENDER } from '@/scenes/system/orbitIntegrator'
 
 /**
@@ -88,9 +88,12 @@ const WIND_BH_DISK_FACTOR = 11
 /**
  * 주성의 충돌·궤도 회피 유효 반경 — 블랙홀은 강착원반 외곽까지. 아케론(disk_bh)은 원반이
  * 작아(rs×11) 반성이 더 가까이 돌 수 있다 — 원반 크기와 클리어런스의 단일 정합.
+ * 펄서는 자기권 소용돌이 외곽(PULSAR_DISK_OUTER_FACTOR)까지 — 본체 반경만 쓰면 근접
+ * 동반성이 소용돌이 난류 안에 박혀 보인다 (README 펄서 스샷 피드백 2026-07-11).
  */
 function primaryClearance(star: Star): number {
   const visual = renderedRadius(star.spectral, true, star.kind)
+  if (star.kind === 'pulsar') return visual * PULSAR_DISK_OUTER_FACTOR
   if (star.kind !== 'black_hole') return visual
   const diskFactor =
     uniqueSystemOf(star.id)?.id === 'disk_bh' ? WIND_BH_DISK_FACTOR : BLACK_HOLE_DISK_FACTOR
