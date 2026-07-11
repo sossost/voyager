@@ -1,8 +1,14 @@
 import { useMemo } from 'react'
 
+import { SOL_STAR_ID } from '@/engine'
 import { starById } from '@/engine/galaxy/position'
 import { MULTIPLICITY_LABELS, SPECTRAL_LABELS, STAR_KIND_LABELS } from '@/scenes/galaxy/spectral'
 import { useGameStore } from '@/store'
+import {
+  SOL_STAR_DESCRIPTION,
+  SPECTRAL_DESCRIPTIONS,
+  STAR_KIND_DESCRIPTIONS,
+} from '@/ui/hud/bodyDescriptions'
 
 export function StarInfoPanel() {
   const seed = useGameStore((state) => state.seed)
@@ -37,6 +43,14 @@ export function StarInfoPanel() {
   const selectedCompanion = bodyIndex === 0 ? null : star.companions[bodyIndex - 1] ?? null
   const bodySpectral = selectedCompanion == null ? star.spectral : selectedCompanion.spectral
   const bodyName = isMultiple ? `${star.name} ${String.fromCharCode(65 + bodyIndex)}` : star.name
+  // 짧은 설명 (misc-ux) — 태양은 전용 문구, 이색 천체(주성 선택)는 종류 사전,
+  // 그 외(주계열·동반성)는 분광형 사전.
+  const bodyDescription =
+    selectedStarId === SOL_STAR_ID
+      ? SOL_STAR_DESCRIPTION
+      : selectedCompanion == null && star.kind !== 'main_sequence'
+        ? STAR_KIND_DESCRIPTIONS[star.kind]
+        : SPECTRAL_DESCRIPTIONS[bodySpectral]
   const roleLabel =
     !isMultiple || selectedCompanion == null
       ? isMultiple
@@ -109,6 +123,8 @@ export function StarInfoPanel() {
             </dd>
           </div>
         </dl>
+
+        <p className="hud-panel-desc">{bodyDescription}</p>
 
         {isCurrentStar ? (
           // 퍼스펙티브 뷰에서만 함교 복귀 버튼 표시 — 이미 우주선 뷰라면 버튼 없음 (백로그 H-1)

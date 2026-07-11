@@ -19,12 +19,13 @@ import type {
   HintKey,
   PhenomenonDiscovery,
   Profile,
+  SettingsSnapshot,
   StorageDriver,
   UniqueDiscovery,
   VisitRecord,
 } from '@/persistence/types'
 import { SAVE_VERSION } from '@/persistence/types'
-import type { GameStore, QualityMode, QualityTier, SceneState } from '@/store/types'
+import type { GameStore, QualityTier, SceneState, TimeScale } from '@/store/types'
 
 /** 부트 시 driver.loadAll()이 돌려준 영속 기록 — 스토어의 O(1) 캐시로 변환된다. */
 export interface HydrationRecords {
@@ -49,11 +50,37 @@ export interface CreateGameStoreOptions {
   readonly initialDiscoveredPhenomena?: readonly PhenomenonDiscovery[]
   /** 이미 발견한 유니크 항성계 — 없으면 빈 배열 (특이계 도감 하이드레이션). */
   readonly initialDiscoveredUniques?: readonly UniqueDiscovery[]
+  /** 저장된 UI 설정 — 없으면 기본값 (misc-ux 설정 하이드레이션). 값 검증은 여기서 한다. */
+  readonly initialSettings?: SettingsSnapshot
   /**
    * 공유 우주 둘러보기 세션 (백로그 L-1 게스트 모드) — 진실이면 모든 저장 쓰기를 건너뛴다.
    * 다른 시드의 딥링크를 연 기존 플레이어가 자기 우주 기록을 잃지 않고 둘러볼 수 있게 한다.
    */
   readonly guestMode?: boolean
+}
+
+const VALID_TIME_SCALES: readonly TimeScale[] = [0, 1, 2, 4, 8, 16]
+const VALID_QUALITY_TIERS: readonly QualityTier[] = ['high', 'medium', 'low']
+
+/**
+ * 저장된 설정의 하이드레이션 검증 (misc-ux) — 저장 데이터는 신뢰 경계 밖(구버전 프로필·수동 편집)
+ * 이므로 화이트리스트로 걸러 기본값으로 폴백한다.
+ * - timeScale 0(일시정지)은 1로 복원한다 — 재접속 화면이 이유 없이 얼어 보이는 혼란 방지.
+ * - qualityTier는 mode가 manual일 때만 의미 — auto면 이번 부트의 감지 티어를 쓴다.
+ */
+function hydrateSettings(
+  saved: SettingsSnapshot | undefined,
+  detectedTier: QualityTier,
+): Pick<GameStore, 'timeScale' | 'qualityMode' | 'qualityTier' | 'isOrbitLinesVisible'> {
+  const savedScale = VALID_TIME_SCALES.find((scale) => scale === saved?.timeScale)
+  const savedTier = VALID_QUALITY_TIERS.find((tier) => tier === saved?.qualityTier)
+  const isManualQuality = saved?.qualityMode === 'manual' && savedTier != null
+  return {
+    timeScale: savedScale == null || savedScale === 0 ? 1 : savedScale,
+    qualityMode: isManualQuality ? 'manual' : 'auto',
+    qualityTier: isManualQuality ? savedTier : detectedTier,
+    isOrbitLinesVisible: saved?.isOrbitLinesVisible !== false,
+  }
 }
 
 function buildSpeciesCounts(collection: readonly CollectionEntry[]): Map<string, number> {
@@ -85,6 +112,11 @@ export function createGameStore(options: CreateGameStoreOptions) {
   const initialVisited = new Set<StarId>(chronologicalVisits.map((visit) => visit.starId))
   initialVisited.add(options.startStarId)
 
+  const initialSettings = hydrateSettings(
+    options.initialSettings,
+    options.initialQualityTier ?? 'high',
+  )
+
   return create<GameStore>()((set, get) => {
     const buildProfile = (): Profile => ({
       id: 1,
@@ -96,6 +128,12 @@ export function createGameStore(options: CreateGameStoreOptions) {
       seenHints: [...get().seenHints],
       discoveredPhenomena: [...get().discoveredPhenomena],
       discoveredUniques: [...get().discoveredUniques],
+      settings: {
+        timeScale: get().timeScale,
+        qualityMode: get().qualityMode,
+        qualityTier: get().qualityTier,
+        isOrbitLinesVisible: get().isOrbitLinesVisible,
+      },
     })
 
     const reportPersistFailure = () => {
@@ -387,16 +425,32 @@ export function createGameStore(options: CreateGameStoreOptions) {
     },
 
     // ── settingsSlice ───────────────────────────────────────
-    qualityTier: options.initialQualityTier ?? ('high' satisfies QualityTier),
-    qualityMode: 'auto' satisfies QualityMode,
-    timeScale: 1,
+    // 초기값은 저장 프로필의 settings 스냅샷에서 복원한다 (misc-ux, hydrateSettings 검증 경유).
+    // 변이 액션은 다른 슬라이스와 같은 write-through — set() 후 saveProfile 커밋 (결정 20).
+    qualityTier: initialSettings.qualityTier,
+    qualityMode: initialSettings.qualityMode,
+    timeScale: initialSettings.timeScale,
+    isOrbitLinesVisible: initialSettings.isOrbitLinesVisible,
 
     setQuality(tier, mode) {
       set({ qualityTier: tier, qualityMode: mode })
+      void commit(async () => {
+        await driver.saveProfile(buildProfile())
+      }, reportPersistFailure)
     },
 
     setTimeScale(scale) {
       set({ timeScale: scale })
+      void commit(async () => {
+        await driver.saveProfile(buildProfile())
+      }, reportPersistFailure)
+    },
+
+    setOrbitLinesVisible(isVisible) {
+      set({ isOrbitLinesVisible: isVisible })
+      void commit(async () => {
+        await driver.saveProfile(buildProfile())
+      }, reportPersistFailure)
     },
     }
   })

@@ -350,6 +350,32 @@ body {
   min-width: 11rem;
 }
 
+/* 전체화면 관찰 모드 해제 키 (misc-ux) — 우상단 저존재감 상주, 호버/포커스 시 또렷하게. */
+.fullscreen-exit-key {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  opacity: 0.35;
+  pointer-events: auto;
+  transition: opacity 150ms ease;
+}
+
+.fullscreen-exit-key:hover,
+.fullscreen-exit-key:focus-visible {
+  opacity: 1;
+}
+
+/* 팝오버 내 컨트롤 — 셀렉트·버튼 종류와 무관하게 전부 컨테이너 너비를 꽉 채워 통일. */
+.system-fob-popover .quality-select-label {
+  display: block;
+  width: 100%;
+}
+
+.system-fob-popover .quality-select,
+.system-fob-popover .hud-button {
+  width: 100%;
+}
+
 /* 우주 초기화 (파괴적) — 앰버 코션 문법으로 일반 홀로 크롬과 구분, 위에 가는 구분선. */
 .universe-reset-key {
   width: 100%;
@@ -547,6 +573,16 @@ body {
   font-family: var(--font-console);
   font-size: 0.86rem;
   color: color-mix(in srgb, var(--color-holo-strong) 45%, var(--color-text));
+}
+
+/* 천체 짧은 설명 (misc-ux) — 팩트 목록 아래의 낮은 위계 플레이버 텍스트 */
+.hud-panel-desc {
+  margin: 0 0 1rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-holo) 18%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--color-text-dim);
 }
 
 .badge {

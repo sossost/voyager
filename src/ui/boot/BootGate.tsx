@@ -73,6 +73,7 @@ function startGame(
     initialSeenHints: profile.seenHints,
     initialDiscoveredPhenomena: profile.discoveredPhenomena,
     initialDiscoveredUniques: profile.discoveredUniques,
+    initialSettings: profile.settings,
   })
 }
 
@@ -87,6 +88,7 @@ function startGuestSession(
   guestSeed: Seed,
   guestStarId: StarId | null,
   seenHints: Profile['seenHints'],
+  settings: Profile['settings'],
 ): void {
   const startStarId = resolveDeepLinkStar(guestSeed, originStar(guestSeed), {
     seed: guestSeed,
@@ -99,6 +101,9 @@ function startGuestSession(
     hydration: { visits: [], explorations: [], collection: [] },
     initialQualityTier: tier,
     initialSeenHints: seenHints,
+    // 내 우주의 설정을 그대로 들고 간다 — 취향 설정은 우주가 아니라 플레이어의 것.
+    // guestMode가 커밋을 no-op으로 만들므로 둘러보기 중 변경은 저장되지 않는다.
+    initialSettings: settings,
     guestMode: true,
   })
 }
@@ -259,7 +264,7 @@ export function BootGate() {
           seed={guestSeed}
           systemName={systemName}
           onEnterGuest={() => {
-            startGuestSession(driver, tier, guestSeed, guestStarId, profile.seenHints)
+            startGuestSession(driver, tier, guestSeed, guestStarId, profile.seenHints, profile.settings)
             setBootState({ status: 'ready' })
           }}
           onKeepOwn={() => {

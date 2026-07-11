@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 
-import { planetById } from '@/engine'
+import { hasHabitableZone, planetById, SOL_STAR_ID, starById } from '@/engine'
+import { normalizedOrbit } from '@/scenes/system/habitableZone'
 import { useGameStore } from '@/store'
+import { planetDescriptionOf } from '@/ui/hud/bodyDescriptions'
 
 const PLANET_KIND_LABELS = {
   rocky: '암석형',
@@ -30,6 +32,19 @@ export function PlanetPanel() {
     () => (selectedPlanetId == null ? null : planetById(seed, selectedPlanetId)),
     [seed, selectedPlanetId],
   )
+
+  // 짧은 설명 (misc-ux) — 렌더(CurrentSystem hzSpectral)와 같은 게이팅·정규화 궤도로
+  // 온도대를 갈라 화면의 표면 모습과 설명이 일치한다. 태양계는 전용 사전(온도 모델 우회).
+  const description = useMemo(() => {
+    if (planet == null) return null
+    const star = starById(seed, planet.starId)
+    const hzSpectral =
+      star != null && planet.starId !== SOL_STAR_ID && hasHabitableZone(star)
+        ? star.spectral
+        : null
+    const hzOrbit = hzSpectral == null ? null : normalizedOrbit(planet.orbitAu, hzSpectral)
+    return planetDescriptionOf(planet, hzOrbit)
+  }, [seed, planet])
 
   if (!isShipView || planet == null) return null
 
@@ -82,6 +97,8 @@ export function PlanetPanel() {
             </div>
           ) : null}
         </dl>
+
+        {description != null ? <p className="hud-panel-desc">{description}</p> : null}
 
         {planet.hasLife ? (
           <button

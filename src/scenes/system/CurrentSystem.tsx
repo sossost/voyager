@@ -39,9 +39,7 @@ import {
   coronaMaxRadii,
   isCircumbinary,
   massOf,
-  planetClearanceOffset,
   STAR_VISUAL_RADIUS,
-  stableOrbitFloor,
   stellarClearanceRadius,
 } from '@/scenes/system/multiplicity'
 import {
@@ -56,13 +54,8 @@ import {
 } from '@/scenes/system/orbitIntegrator'
 import { OrbitRing } from '@/scenes/system/OrbitRing'
 import { OrbitTrail } from '@/scenes/system/OrbitTrail'
-import {
-  auToOrbitRadius,
-  orbitDisplayOf,
-  orbitInitialPhase,
-  orbitRadiusOf,
-  Planet,
-} from '@/scenes/system/Planet'
+import { orbitDisplayOf, orbitInitialPhase, orbitRadiusOf, Planet } from '@/scenes/system/Planet'
+import { systemOrbitOffset } from '@/scenes/system/systemExtent'
 import { Pulsar } from '@/scenes/system/Pulsar'
 import { PlanetCalloutProjector } from '@/scenes/system/PlanetCalloutProjector'
 import { simClock } from '@/scenes/system/simClock'
@@ -113,11 +106,6 @@ const MOON_NEIGHBOR_SAFE_FRACTION = 0.45
 
 /** 다중성계 최대 별 수 (주성 + 동반성 2) — ref·스크래치 슬롯 사전 할당. */
 const MAX_BODIES = 3
-/**
- * 다중성계 중력 모드에서 최내곽 행성이 성단 반경의 이 배수 밖을 돌게 한다 — circumbinary
- * P-type 안정 궤도(Holman-Wiegert 근사). 이 아래는 이심률 펌핑 지대라 궤도가 다이브·별 관통한다.
- */
-const SAFE_ORBIT_FACTOR = 2
 /** 하드 플로어 = 성단 반경 + 별 반경 + 이 여유 — 병리적 섭동에도 관통 막는 안전망 마진. */
 const PLANET_FLOOR_MARGIN = 2
 
@@ -188,6 +176,7 @@ export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
   const currentStarId = useGameStore((state) => state.currentStarId)
   const scene = useGameStore((state) => state.scene)
+  const isOrbitLinesVisible = useGameStore((state) => state.isOrbitLinesVisible)
   const isPerspective = scene.kind === 'galaxy' && scene.view === 'perspective'
   const isWarping = scene.kind === 'warping'
   // 워프 중엔 FROM 별을 기준으로 렌더 — currentStarId는 이미 목적지이지만
@@ -256,24 +245,11 @@ export function CurrentSystem() {
   const isGravityMode = star != null && showPlanets && star.multiplicity !== 'single'
   // 궤도 표시 정규화 (사실성 v2 O-1·N-3) — 엔진 물리 AU를 v10과 같은 시각 간격으로 되돌린다.
   const orbitDisplay = useMemo(() => orbitDisplayOf(star), [star])
-  // 행성 궤도를 별 군집 밖으로 미는 양 (별/행성 관통 방지). 단일성계는 planetClearanceOffset 그대로.
-  // 중력 모드는 최내곽 행성을 성단 반경의 SAFE_ORBIT_FACTOR배 밖으로 추가로 민다 — 엔진이 이미
-  // 안정 오프셋(N-3)을 orbitAu에 넣지만 표시 정규화가 그것을 빼므로, 렌더 좌표계의 군집 회피는
-  // 이 안전망이 계속 맡는다. 행성 간 간격은 균일 오프셋이라 보존된다.
-  const orbitOffset = useMemo(() => {
-    if (star == null) return 0
-    const base = planetClearanceOffset(star)
-    if (!isGravityMode || planets.length === 0) return base
-    const innermostAu = planets.reduce((min, planet) => Math.min(min, planet.orbitAu), Infinity)
-    // Holman–Wiegert P-type 안정 하한(stableOrbitFloor)이 시각 회피(2×성단반경)보다 바깥이면
-    // 그쪽을 쓴다 — 케플러 정합(P-1) 후 임계 안쪽 행성은 실제로 카오스 킥·클램프 꺾임이 발생.
-    const requiredInner = Math.max(
-      SAFE_ORBIT_FACTOR * stellarClearanceRadius(star),
-      stableOrbitFloor(star),
-    )
-    const currentInner = auToOrbitRadius(innermostAu, base, orbitDisplay)
-    return base + Math.max(0, requiredInner - currentInner)
-  }, [star, isGravityMode, planets, orbitDisplay])
+  // 행성 궤도를 별 군집 밖으로 미는 양 — 도착 카메라 프레이밍과 단일 소스 (systemExtent.ts).
+  const orbitOffset = useMemo(
+    () => systemOrbitOffset(star, planets, orbitDisplay, isGravityMode),
+    [star, isGravityMode, planets, orbitDisplay],
+  )
   // 중력원(별) — position은 simBodyScratch 슬롯을 가리키는 *라이브 별칭*이다. 적분 루프가 매
   // substep bodyPositions로 simBodyScratch를 갱신하면 attractor 위치가 자동으로 따라온다
   // (좌표를 복사해 캐시하면 안 됨 — 이 별칭 계약이 fps 독립 적분의 핵심).
@@ -738,12 +714,15 @@ export function CurrentSystem() {
             ))}
             {planets.map((planet, index) => (
               <group key={planet.id}>
-                {/* 다중성계는 실제 적분 궤적 트레일, 단일성계는 정확한 케플러 원(OrbitRing). */}
-                {isGravityMode ? (
-                  <OrbitTrail orbitIndex={index} sampleDt={trailSampleDts[index] ?? 0} />
-                ) : (
-                  <OrbitRing radius={orbitRadiusOf(planet, orbitOffset, orbitDisplay)} />
-                )}
+                {/* 다중성계는 실제 적분 궤적 트레일, 단일성계는 정확한 케플러 원(OrbitRing).
+                    표시 여부는 설정 토글(기본 on, misc-ux) — 행성 운동 자체는 영향 없다. */}
+                {isOrbitLinesVisible ? (
+                  isGravityMode ? (
+                    <OrbitTrail orbitIndex={index} sampleDt={trailSampleDts[index] ?? 0} />
+                  ) : (
+                    <OrbitRing radius={orbitRadiusOf(planet, orbitOffset, orbitDisplay)} />
+                  )
+                ) : null}
                 <Planet
                   planet={planet}
                   orbitOffset={orbitOffset}

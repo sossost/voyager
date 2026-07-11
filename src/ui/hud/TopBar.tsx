@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useGameStore } from '@/store'
+import { FullscreenButton } from '@/ui/hud/FullscreenButton'
+import { OrbitLinesSelect } from '@/ui/hud/OrbitLinesSelect'
 import { QualitySelect } from '@/ui/hud/QualitySelect'
 import { SpeedSelect } from '@/ui/hud/SpeedSelect'
 import { UniverseResetDialog } from '@/ui/hud/UniverseResetDialog'
@@ -85,6 +87,7 @@ function SystemFob({ canResetUniverse, onRequestReset }: SystemFobProps) {
         <div id="system-fob-popover" className="system-fob-popover">
           <SpeedSelect />
           <QualitySelect />
+          <OrbitLinesSelect />
           {canResetUniverse ? (
             <button
               type="button"
@@ -131,6 +134,8 @@ export function TopBar() {
             일지
           </button>
         </div>
+        {/* 전체화면 — 관찰 모드 진입이라 설정 팝오버가 아닌 상단 바에 상주 (misc-ux) */}
+        <FullscreenButton />
         <SystemFob
           canResetUniverse={isGuestMode === false}
           onRequestReset={() => setIsResetDialogOpen(true)}
