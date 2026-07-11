@@ -269,11 +269,12 @@ const FRAGMENT = /* glsl */ `
     //  ③ 합류(t>0.85): 부챗살로 퍼지며 원반 림에 스며든다 (충돌 스플래시).
     float baseFlare = exp(-t * 6.0);
     float rimFan = 1.0 + 2.5 * smoothstep(0.85, 1.0, t);
-    float halfW = (mix(0.32, 0.78, t) + 0.7 * baseFlare) * rimFan * uRs / max(r, 1e-3);
+    // 중간부 폭 0.5~0.9rs — 수직 뷰에서도 간극을 잇는 띠로 보이는 최소 폭 (0.32는 실끈).
+    float halfW = (mix(0.5, 0.9, t) + 0.7 * baseFlare) * rimFan * uRs / max(r, 1e-3);
     float across = exp(-(d * d) / max(halfW * halfW, 1e-8));
 
     // BH 쪽(+t)으로 흘러가는 덩어리들 — 유입 물질이 "빨려드는" 독법의 핵심.
-    float flow = 0.55 + 0.45 * sin(t * 24.0 - uTime * 3.0);
+    float flow = 0.65 + 0.35 * sin(t * 24.0 - uTime * 3.0);
     float clump = 0.7 + 0.3 * sin(t * 57.0 - uTime * 5.2);
     // 덩어리는 유출점 글로우 아래에서 스며 나온다 (글로우가 탄생 지점을 덮는다).
     float birth = smoothstep(0.0, 0.06, t);
@@ -387,9 +388,12 @@ const FRAGMENT = /* glsl */ `
         float dRaw = readDepth(bgUv);
         float bhDist = length(uBhPos - uCameraPos);
         // mainImage의 전경 판정과 동일 기준(+2rs) — 통과(passthrough)된 별이 휜 배경에
-        // 한 번 더 샘플되어 이중상이 생기는 것을 막는다.
+        // 한 번 더 샘플되어 이중상이 생기는 것을 막는다. 전경으로 거부된 광선은 검정으로
+        // 두지 않고 직진 배경(vUv)으로 폴백한다 — 반성이 렌즈 영역과 겹칠 때 별 둘레에
+        // 검은 호가 생기던 아티팩트 제거 (국소적으로 굴절만 포기).
         bool foreground = dRaw > 0.0001 && dRaw < 0.999 && -getViewZ(dRaw) < bhDist + uRs * 2.0;
         if (!foreground) color += texture2D(inputBuffer, bgUv).rgb * (1.0 - alpha);
+        else color += texture2D(inputBuffer, vUv).rgb * (1.0 - alpha);
       }
     }
     return color;
