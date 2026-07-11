@@ -69,11 +69,13 @@ const VERTICAL_EXIT_SECTORS = GALAXY_HALF_THICKNESS_SECTORS + 0.1
 
 /**
  * 자동 노출 — 파노라마마다 자기 최대 적분값으로 정규화한다. 적분 스케일은 정박에
- * 따라 ~9(중간 반경·면 밖)에서 ~30(외곽 림)까지 변하므로, 고정 기준으로는 어떤
- * 정박에서는 띠가 묻히고 어떤 정박에서는 포화된다. 바닥값은 최대가 작은 하늘에서
- * 노이즈·잔광을 만점까지 끌어올리지 않는 하한이다.
+ * 따라 변하므로, 고정 기준으로는 어떤 정박에서는 띠가 묻히고 어떤 정박에서는
+ * 포화된다. 바닥값은 최대가 작은 하늘에서 노이즈·잔광을 만점까지 끌어올리지 않는
+ * 하한 — 소광 적분(O-20) 도입으로 원시 적분값이 전반적으로 낮아져(투과 손실)
+ * 구 12는 전 정박에서 띠를 묻어버렸다. 장노출 사진의 문법대로 노출을 올려
+ * "밝은 띠 + 검은 대균열" 대비로 재캘리브레이션 (galaxy-realism-pass).
  */
-const MIN_EXPOSURE_INTEGRAL = 12
+const MIN_EXPOSURE_INTEGRAL = 3
 /**
  * 실린더 상·하단 가장자리 페이드 시작점 (|v| 기준) — 벌지 내부 정박(시작 별)에서는
  * 전 고도가 밝아 텍스처 끝이 하드 엣지로 보인다. 외곽 정박의 벌지 돔(|v|≈0.71)은
@@ -89,12 +91,23 @@ const COLOR_BLEND_RADIUS_SECTORS = 10
 const WARMTH_GAIN = 1.6
 
 /**
- * 적도 암흑대 — 은하수 대균열처럼 원반면(y=0)을 따라 광량을 깎는 먼지 실루엣.
- * 깊이는 국소 밝기에 비례(어두운 방향에선 안 보임) + 방위각 노이즈로 패치형으로 끊긴다.
+ * 성간 먼지 소광 (O-20, galaxy-realism-pass) — 광선 적분에 Beer–Lambert exp(−τ)를 넣어
+ * 원거리 광이 앞의 먼지에 흡수된다. 실제 은하수 사진의 대균열·패치형 먼지 구름이
+ * 별도 코스메틱 감산 없이 **구조적으로** 발생한다 (구 RIFT_* 상수 대체).
+ *
+ * 먼지 밀도 = 별 밀도 × 얇은 수직 집중 — 실제 먼지 원반 스케일 하이트는 항성 원반의
+ * ~절반 이하 (은하수: 먼지 ~100pc vs 항성 박원반 ~300pc, Li & Draine 2001 계열).
+ * 원반면을 따라 보는 광선만 τ가 크게 쌓여 대균열이 되고, 조금만 고도가 올라가면
+ * 투과되어 띠의 상하부는 밝게 남는다.
  */
-const RIFT_HALF_HEIGHT_WORLD = 190
-const RIFT_MAX_DEPTH = 0.45
-const RIFT_NOISE_FLOOR = 0.35
+const DUST_HALF_THICKNESS_SECTORS = 0.9
+/**
+ * 먼지 불투명도 계수 (τ / 밀도·섹터) — 원반면 관통 광선의 τ ~1.5-2 수준.
+ * 0.14는 중간 반경 정박에서 벌지 방향 광까지 삼켜 하늘이 통째로 죽었다 (실측 기각)
+ * — 대균열은 원반면 ±1섹터 띠에서만 또렷하고 그 위 벌지 돔은 살아야 사진처럼 읽힌다.
+ */
+const DUST_KAPPA = 0.08
+
 /** 방위각 패치 변조 — 실구조(클럼프 적분)가 있으므로 약하게만 보탠다. */
 const PATCH_BASE = 0.92
 const PATCH_SPAN = 0.16
@@ -230,7 +243,7 @@ function bakeColumns(
         rayEnd = Math.min(rayEnd, (-VERTICAL_EXIT_SECTORS - originSy) / directionY)
       }
 
-      // 표면 밝기는 거리와 무관 — 거리 가중 없는 순수 선적분
+      // 표면 밝기는 거리와 무관 — 거리 가중 없는 선적분에 먼지 소광 exp(−τ)만 곱한다 (O-20).
       let integral = 0
       let localIntegral = 0
       let warmthIntegral = 0
@@ -238,6 +251,7 @@ function bakeColumns(
       let tintTeal = 0
       let tintWeight = 0
       let sampleIndex = 0
+      let opticalDepth = 0
       for (let distance = stepSectors * 0.5; distance <= rayEnd; distance += stepSectors) {
         const sx = originSx + directionX * distance
         const sy = originSy + directionY * distance
@@ -245,7 +259,13 @@ function bakeColumns(
         const density = sectorDensity({ sx, sy, sz })
         if (density === 0) continue
 
-        const weighted = density * stepSectors
+        // 이 지점에서 출발한 빛이 관측자까지 오며 겪는 소광 — 앞 구간의 누적 τ.
+        // 먼지는 원반면에 얇게 집중 — 별 밀도에 가우시안 수직 프로파일을 곱한다.
+        const transmission = Math.exp(-opticalDepth)
+        const dustVertical = Math.exp(-((sy / DUST_HALF_THICKNESS_SECTORS) ** 2))
+        opticalDepth += DUST_KAPPA * density * dustVertical * stepSectors
+
+        const weighted = density * stepSectors * transmission
         integral += weighted
         localIntegral +=
           weighted *
@@ -306,7 +326,6 @@ function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
   for (let column = 0; column < grid.columns; column++) {
     const theta = (column / grid.columns) * Math.PI * 2
     const patch = PATCH_BASE + PATCH_SPAN * azimuthNoise(theta, 0)
-    const riftNoise = RIFT_NOISE_FLOOR + (1 - RIFT_NOISE_FLOOR) * azimuthNoise(theta, 2.3)
 
     for (let row = 0; row < grid.rows; row++) {
       const offset = row * grid.columns + column
@@ -314,11 +333,9 @@ function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
       const warmth = clamp01((grid.warmths[offset] ?? 0) * WARMTH_GAIN)
 
       const verticalRatio = 1 - (row / (grid.rows - 1)) * 2
-      const yWorld = verticalRatio * BAND_HALF_HEIGHT
-      const riftDip = (yWorld / RIFT_HALF_HEIGHT_WORLD) ** 2
-      const rift = 1 - RIFT_MAX_DEPTH * riftNoise * brightness * Math.exp(-riftDip)
+      // 대균열은 적분 소광(O-20)이 구조적으로 만든다 — 구 코스메틱 rift 감산 제거.
       const edgeFade = 1 - smoothstep(EDGE_FADE_START, 1, Math.abs(verticalRatio))
-      const level = brightness * patch * rift * edgeFade
+      const level = brightness * patch * edgeFade
 
       // 성운 색조 — 띠의 빛 자체가 로즈/청록으로 물든다 (더해지는 광원 없음, 결정 40 2차)
       const roseShift =

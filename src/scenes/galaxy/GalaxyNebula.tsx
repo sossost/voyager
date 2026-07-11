@@ -9,7 +9,8 @@ import {
   type Vector3,
 } from 'three'
 
-import { GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
+import { armRidgeAt, GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
+import { valueNoise3 } from '@/engine/noise/valueNoise'
 import {
   NEBULA_ROSE_RGB,
   NEBULA_TEAL_RGB,
@@ -53,6 +54,32 @@ const COLOR_BLEND_RADIUS_SECTORS = 10
 const CORE_GLOW_RADIUS_SECTORS = 14
 const CORE_GLOW_ALPHA = 0.85
 
+/**
+ * 나선팔 먼지 레인 (galaxy-realism-pass) — 실제 나선은하 사진에서 팔의 **안쪽 가장자리**를
+ * 따라 도는 어두운 먼지 띠 (밀도파 이론: 가스가 팔 중력 우물로 낙하하며 안쪽에 충격 압축).
+ * 위상 오프셋 +는 같은 반경에서 능선보다 안쪽 위상을 가리킨다 (armRidgeAt 계약).
+ */
+const DUST_LANE_PHASE_OFFSET = 0.62
+const DUST_LANE_DEPTH = 0.55
+/** 레인은 원반 팔 구간에만 — 벌지(≤6섹터) 안은 무정형이라 제외. */
+const DUST_LANE_RADIUS_START = 5
+const DUST_LANE_RADIUS_FULL = 9
+/** 레인 패치 노이즈 — 균일한 검은 줄은 인공적, 사진처럼 끊기고 뭉친다. */
+const DUST_PATCH_FREQUENCY = 0.3
+const DUST_PATCH_SALT = 14
+const DUST_PATCH_FLOOR = 0.35
+
+/**
+ * HII 영역 매듭 (galaxy-realism-pass) — 팔을 따라 박힌 별 형성 영역의 H-알파 분홍 점.
+ * 고주파 노이즈의 상위 꼬리만 매듭으로 맺혀 "군데군데" 배치된다 (결정론, 시드 무관).
+ */
+const HII_RGB = [255, 118, 150] as const
+const HII_NOISE_FREQUENCY = 0.55
+const HII_SALT = 13
+const HII_THRESHOLD_LOW = 0.76
+const HII_THRESHOLD_HIGH = 0.92
+const HII_GAIN = 0.85
+
 
 function clamp01(value: number): number {
   if (value < 0) return 0
@@ -83,7 +110,24 @@ function buildNebulaTexture(): CanvasTexture {
       const radius = Math.sqrt(sx * sx + sz * sz)
       const warmth = clamp01(1 - radius / COLOR_BLEND_RADIUS_SECTORS)
       // 어두운 영역을 더 어둡게 — 팔 사이 공간이 비어 보여야 나선이 산다
-      const brightness = Math.pow(density, 1.2)
+      let brightness = Math.pow(density, 1.2)
+
+      // 먼지 레인 — 팔 안쪽 가장자리를 따라 헤이즈를 깎는다 (벌지 밖 원반 구간만, 패치형).
+      const laneWeight = smoothstep(DUST_LANE_RADIUS_START, DUST_LANE_RADIUS_FULL, radius)
+      const lanePatch =
+        DUST_PATCH_FLOOR +
+        (1 - DUST_PATCH_FLOOR) *
+          valueNoise3(sx * DUST_PATCH_FREQUENCY, 0, sz * DUST_PATCH_FREQUENCY, DUST_PATCH_SALT)
+      const dustLane = armRidgeAt(sx, sz, DUST_LANE_PHASE_OFFSET) * laneWeight * lanePatch
+      brightness *= 1 - DUST_LANE_DEPTH * dustLane
+
+      // HII 매듭 — 팔 능선 위 고주파 노이즈 상위 꼬리만 분홍 점으로 (별 형성 영역).
+      const hiiNoise = valueNoise3(sx * HII_NOISE_FREQUENCY, 0, sz * HII_NOISE_FREQUENCY, HII_SALT)
+      const hiiKnot =
+        smoothstep(HII_THRESHOLD_LOW, HII_THRESHOLD_HIGH, hiiNoise) *
+        armRidgeAt(sx, sz) *
+        laneWeight *
+        HII_GAIN
 
       // 성운 색조 — 우주선 뷰 파노라마와 같은 필드 (galaxyNebulae, 우주 일관성)
       const tint = nebulaTintAt(sx, 0, sz)
@@ -101,9 +145,9 @@ function buildNebulaTexture(): CanvasTexture {
       blue += (NEBULA_TEAL_RGB[2] - blue) * tealShift
 
       const offset = (texelZ * BASE_TEXELS + texelX) * 4
-      image.data[offset] = red * brightness
-      image.data[offset + 1] = green * brightness
-      image.data[offset + 2] = blue * brightness
+      image.data[offset] = red * brightness + HII_RGB[0] * hiiKnot
+      image.data[offset + 1] = green * brightness + HII_RGB[1] * hiiKnot
+      image.data[offset + 2] = blue * brightness + HII_RGB[2] * hiiKnot
       image.data[offset + 3] = 255 // 가산 블렌딩 — 검정 = 투명
     }
   }

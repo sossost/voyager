@@ -14,6 +14,7 @@ export type { Rng, RngNamespace, WeightedEntry } from './rng/streams'
 export { rngFor } from './rng/streams'
 
 export {
+  armRidgeAt,
   GALAXY_HALF_THICKNESS_SECTORS,
   GALAXY_RADIUS_SECTORS,
   SECTOR_SIZE,

@@ -20,6 +20,7 @@ const VERTEX_SHADER = /* glsl */ `
   attribute float size;
   attribute vec3 starColor;
   attribute float aCurrent;
+  attribute float aFaint;
   uniform float uPixelRatio;
   uniform float uMaxPointSize;
   uniform float uMinPointSizePerUnit;
@@ -27,13 +28,17 @@ const VERTEX_SHADER = /* glsl */ `
   uniform float uSoftFar;
   uniform float uCurrentFade;
   uniform float uExtinction;
+  uniform float uFaintMix;
   varying vec3 vColor;
   varying float vSoftness;
   varying float vCurrentScale;
   varying float vExtinction;
 
   void main() {
-    vColor = starColor;
+    // 광도 멱법칙 (O-19) — aFaint(다수 어두움·소수 1)를 uFaintMix만큼 반영한다.
+    // 함교(감상) 뷰만 1, 항법(도구) 뷰는 0 — 지도의 발견성·클릭 가시성은 불변.
+    float faint = mix(1.0, aFaint, uFaintMix);
+    vColor = starColor * faint;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float distanceToCamera = max(-mvPosition.z, 1.0);
 
@@ -46,9 +51,11 @@ const VERTEX_SHADER = /* glsl */ `
       ? smoothstep(uSoftNear, uSoftFar, distanceToCamera) * ${SOFT_MAX_BLEND.toFixed(2)}
       : 0.0;
 
-    float pointSize = size * uPixelRatio * (${PERSPECTIVE_SCALE.toFixed(1)} / distanceToCamera);
+    // 어두운 별은 살짝 작게 — 사진의 "밝기 = 겉보기 크기" 문법 (하한 0.7, 완전 소실 방지)
+    float faintSize = size * (0.7 + 0.3 * faint);
+    float pointSize = faintSize * uPixelRatio * (${PERSPECTIVE_SCALE.toFixed(1)} / distanceToCamera);
     // 하한이 size에 비례 — 원거리에서도 거성/왜성의 크기 격차가 유지된다
-    float minSize = uMinPointSizePerUnit * size * uPixelRatio;
+    float minSize = uMinPointSizePerUnit * faintSize * uPixelRatio;
     float clamped = clamp(pointSize, minSize, uMaxPointSize * uPixelRatio);
     // 현재 별(aCurrent=1)만 카메라가 가까우면 사라진다 — 구체로 핸드오프 (결정 41-c).
     // 나머지 별(aCurrent=0)은 mix(1, fade, 0)=1로 무영향.
@@ -122,6 +129,9 @@ export function createStarGlowMaterial({
       uCurrentFade: { value: 1 },
       // 성간 소광 τ/유닛 — 0이면 비활성. GalaxyStarField가 뷰에 따라 설정한다.
       uExtinction: { value: 0 },
+      // 광도 멱법칙 혼합 (O-19) — 0이면 비활성. aFaint 미설정 지오메트리(장식 별밭 등)는
+      // 어트리뷰트가 0으로 읽히므로 반드시 0이어야 무영향이다.
+      uFaintMix: { value: 0 },
     },
     transparent: true,
     depthWrite: false,

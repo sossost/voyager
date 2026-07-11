@@ -65,6 +65,17 @@ function starBaseAttributes(star: Star, color: Color): StarBaseAttributes {
   }
 }
 
+/**
+ * 별의 멱법칙 감쇠 계수 [FAINT_FLOOR, 1] — 좌표 파생 결정론 (모든 플레이어 동일).
+ * 이색 천체는 제외(1) — 희소 등대(펄서 청백 점 등)의 발견성은 함교에서도 유지한다.
+ */
+function faintOf(star: Star): number {
+  if (star.kind !== 'main_sequence') return 1
+  const variance = fract(star.localPos[0] * 0.731 + star.localPos[1] * 0.269 + star.localPos[2] * 0.457)
+  const skewed = variance * variance * variance
+  return FAINT_FLOOR + (1 - FAINT_FLOOR) * skewed
+}
+
 function buildGeometry(stars: readonly Star[]): BufferGeometry {
   const count = stars.length
   const positions = new Float32Array(count * 3)
@@ -72,6 +83,7 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
   const sizes = new Float32Array(count)
   // 현재 별 플래그 — 1인 포인트만 uCurrentFade를 받는다 (크로스페이드, 결정 41-c). 기본 0.
   const current = new Float32Array(count)
+  const faints = new Float32Array(count)
   const color = new Color()
 
   stars.forEach((star, index) => {
@@ -84,6 +96,7 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
     colors[index * 3 + 1] = base.g
     colors[index * 3 + 2] = base.b
     sizes[index] = base.size
+    faints[index] = faintOf(star)
   })
 
   const geometry = new BufferGeometry()
@@ -91,6 +104,7 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
   geometry.setAttribute('starColor', new Float32BufferAttribute(colors, 3))
   geometry.setAttribute('size', new Float32BufferAttribute(sizes, 1))
   geometry.setAttribute('aCurrent', new Float32BufferAttribute(current, 1))
+  geometry.setAttribute('aFaint', new Float32BufferAttribute(faints, 1))
   return geometry
 }
 
@@ -111,6 +125,15 @@ const SHIP_VIEW_EXTINCTION_PER_UNIT = 1 / 1_500
  * 항법 조망 뷰는 발견성이 우선이라 품질 프리셋 상한(8~12px)을 그대로 쓴다.
  */
 const SHIP_VIEW_MAX_POINT_SIZE = 6
+
+/**
+ * 광도 멱법칙 (O-19) — 실제 광도함수는 어두운 별이 압도적(멱법칙)이라 하늘 질감이
+ * "다수의 희미한 별 + 소수의 등대"로 갈린다. 변주 세제곱이 근사 — 균일 v에 대해
+ * v³은 하위 80%가 절반 이하 밝기로 깔린다 (DecorativeStarfield 제곱 치우침의 강화판).
+ * 함교(감상) 뷰 전용(uFaintMix) — 항법(도구) 뷰의 발견성·클릭 가시성은 불변.
+ * 바닥값은 완전 소실 방지 — 소광(uExtinction)과 곱해지므로 0이면 별이 사라진다.
+ */
+const FAINT_FLOOR = 0.18
 
 interface GalaxyStarFieldProps {
   readonly stars: readonly Star[]
@@ -198,8 +221,9 @@ export function GalaxyStarField({
 
   useFrame((state) => {
     setUniform(material, 'uPixelRatio', state.gl.getPixelRatio())
-    // 성간 소광·점 크기 상한 — 원반 내부 시점에서만. 뷰 전환이 즉시 컷(리그 교체)이라 페이드 불필요.
+    // 성간 소광·점 크기 상한·광도 멱법칙 — 원반 내부 시점에서만. 뷰 전환이 즉시 컷이라 페이드 불필요.
     setUniform(material, 'uExtinction', isInsideDisk ? SHIP_VIEW_EXTINCTION_PER_UNIT : 0)
+    setUniform(material, 'uFaintMix', isInsideDisk ? 1 : 0)
     setUniform(
       material,
       'uMaxPointSize',

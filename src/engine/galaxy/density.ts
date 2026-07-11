@@ -55,6 +55,23 @@ function clamp01(value: number): number {
 }
 
 /**
+ * 나선팔 능선 강도 [0, 1] — 팔 능선에서 1, 팔 사이에서 0 (세제곱으로 능선을 좁힌다).
+ * sectorDensity의 팔 변조와 동일 수식·연산 순서 (단일 소스 — 추출 리팩토링이라 골든 불변).
+ * 렌더 계층(먼지 레인·HII 매듭 배치)이 phaseOffset으로 능선 안/바깥쪽을 샘플할 수 있게
+ * 공개한다 — 위상 +는 같은 반경에서 능선보다 안쪽(더 작은 r의 능선 위상)을 가리킨다.
+ */
+export function armRidgeAt(sx: number, sz: number, phaseOffset = 0): number {
+  const radialDistance = Math.sqrt(sx * sx + sz * sz)
+  const angle = atan2Approx(sz, sx)
+  const armPhase =
+    ARM_COUNT * angle +
+    ARM_LOG_WINDING * lnApprox(Math.max(radialDistance, 1) / ARM_R0_SECTORS) +
+    phaseOffset
+  const armWave = 0.5 + 0.5 * cosApprox(armPhase)
+  return armWave * armWave * armWave
+}
+
+/**
  * 섹터의 별 밀도 [0, 1] — 원반 감쇠 × 수직 감쇠(렌즈형) × 나선팔 변조 × 덩어리 질감 + 중앙 벌지.
  *
  * +, -, *, /, Math.sqrt, Math.abs와 그것만으로 만든 유리 근사(trig.ts·log.ts)만 사용한다
@@ -77,14 +94,9 @@ export function sectorDensity(sector: SectorCoords): number {
   const verticalFalloff = clamp01(1 - Math.abs(sector.sy) / halfThickness)
   if (verticalFalloff === 0) return 0
 
-  // 나선팔: 팔 능선에서 1, 팔 사이에서 ARM_FLOOR — 세제곱으로 능선을 좁힌다.
+  // 나선팔: 팔 능선에서 1, 팔 사이에서 ARM_FLOOR (armRidgeAt — 렌더와 공유하는 단일 소스).
   // 위상은 로그 나선(∝ ln r, O-10) — 반경 1 미만은 클램프해 ln 발산을 막는다(벌지가 지배하는 구간).
-  const angle = atan2Approx(sector.sz, sector.sx)
-  const armPhase =
-    ARM_COUNT * angle +
-    ARM_LOG_WINDING * lnApprox(Math.max(radialDistance, 1) / ARM_R0_SECTORS)
-  const armWave = 0.5 + 0.5 * cosApprox(armPhase)
-  const armRidge = armWave * armWave * armWave
+  const armRidge = armRidgeAt(sector.sx, sector.sz)
   const arm = ARM_FLOOR + (1 - ARM_FLOOR) * armRidge
 
   // 벌지 안에서는 팔 변조를 무정형으로 풀어준다 (중심부는 팔이 아니라 구형 핵)
