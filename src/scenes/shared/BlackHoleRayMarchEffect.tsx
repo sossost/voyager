@@ -403,9 +403,11 @@ const FRAGMENT = /* glsl */ `
       }
     }
 
-    // 배경은 *진짜 탈출한* 광선만 샘플 — 스텝 소진(미탈출)은 빨려든 셈이라 검정(그림자).
-    // 광자구 안(b<BCRIT·rs)도 그림자(검정). 밖+탈출이면 휜 방향으로 실제 씬 샘플.
-    if (escaped && alpha < 0.99 && impactB >= BCRIT * rs) {
+    // 배경 샘플 — 포획(r<captureR)·광자구 안(b<BCRIT·rs)만 진짜 그림자(검정)로 남긴다.
+    // 스텝 소진(미탈출·미포획)은 "빨려든 셈"이 아니라 예산 부족 — 검정 처리하면 원반
+    // 바깥에 비고증 검은 해자가 생긴다(강굴절 광선일수록 경로가 길어 소진되기 쉬움).
+    // 현재 진행 방향으로 탈출한 것으로 근사해 배경을 잇는다.
+    if (!captured && alpha < 0.99 && impactB >= BCRIT * rs) {
       vec3 escapeDir = toWorldFrame(rayDir, tiltC, tiltS);
       vec2 bgUv = dirToScreenUv(escapeDir);
       // 화면 밖으로 휜 광선 — 샘플할 씬 버퍼가 없다. 검정으로 두면 렌즈 주위에 비고증
