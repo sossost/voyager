@@ -51,6 +51,10 @@ export const DISK_BH_STAR: Star = {
 /**
  * 별 흡수 블랙홀 — 근접 K형 반성이 로슈엽을 초과해 물질을 빼앗기는 중.
  * separation 1.2는 BINARY 하한 근방, e=0은 근접 쌍성의 조석 원궤도화(P-1과 같은 논리).
+ *
+ * ⚠️ 백업 상태 (2026-07-11) — 레지스트리(UNIQUE_SYSTEMS)에서 제외되어 은하에 생성되지
+ * 않는다. 비주얼 퀄리티(스트림·티어드롭·연출)를 더 다듬은 뒤 재투입 예정 — 상수·렌더
+ * 경로(MatterStream·streamSample·조석 변형)는 전부 보존. 재투입 = 레지스트리에 한 줄 추가.
  */
 export const FEEDING_BH_STAR: Star = {
   id: FEEDING_BH_STAR_ID,
@@ -67,7 +71,7 @@ export const FEEDING_BH_STAR: Star = {
 
 export const UNIQUE_SYSTEMS: readonly UniqueSystem[] = [
   { id: 'disk_bh', star: DISK_BH_STAR },
-  { id: 'feeding_bh', star: FEEDING_BH_STAR },
+  // { id: 'feeding_bh', star: FEEDING_BH_STAR }, — 백업 (위 FEEDING_BH_STAR 주석 참조)
 ]
 
 const UNIQUE_BY_STAR_ID: ReadonlyMap<StarId, UniqueSystem> = new Map(

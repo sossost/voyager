@@ -26,7 +26,14 @@ const SEEDS = ['ANDROMEDA', 'SOL1969', 'ZETA42', 'LIFE1'] as const
 describe('uniqueSystemOf', () => {
   it('유니크 StarId를 레지스트리 항목으로 해석한다', () => {
     expect(uniqueSystemOf(DISK_BH_STAR_ID)?.id).toBe('disk_bh')
-    expect(uniqueSystemOf(FEEDING_BH_STAR_ID)?.id).toBe('feeding_bh')
+  })
+
+  it('카리브디스는 백업 상태 — 레지스트리에 없다 (재투입 시 이 테스트를 갱신할 것)', () => {
+    expect(uniqueSystemOf(FEEDING_BH_STAR_ID)).toBeNull()
+    expect(UNIQUE_SYSTEMS.some((u) => u.id === 'feeding_bh')).toBe(false)
+    // 백업 상수는 보존된다 — 렌더 경로(MatterStream·streamSample·조석 변형) 재사용 전제.
+    expect(FEEDING_BH_STAR.kind).toBe('black_hole')
+    expect(FEEDING_BH_STAR.companions[0]?.eccentricity).toBe(0)
   })
 
   it('일반 별은 null이다', () => {
@@ -38,7 +45,7 @@ describe('uniqueSystemOf', () => {
 })
 
 describe('유니크계 핀 (GEN_VERSION 12)', () => {
-  it.each(SEEDS)('시드 %s에서 두 유니크계가 고정 좌표 인덱스 0에 존재한다', (raw) => {
+  it.each(SEEDS)('시드 %s에서 레지스트리의 유니크계가 고정 좌표 인덱스 0에 존재한다', (raw) => {
     const seed = seedOf(raw)
     for (const unique of UNIQUE_SYSTEMS) {
       const stars = starsInSector(seed, unique.star.sector)
@@ -47,29 +54,29 @@ describe('유니크계 핀 (GEN_VERSION 12)', () => {
     }
   })
 
+  it('백업(카리브디스) 섹터는 절차 생성 그대로다 — 핀 없음', () => {
+    const seed = seedOf('ANDROMEDA')
+    const stars = starsInSector(seed, FEEDING_BH_STAR.sector)
+    // 핀이 없으므로 index 0이 존재한다면 절차 별이다 (상수 객체가 아니어야 한다).
+    for (const star of stars) expect(star).not.toBe(FEEDING_BH_STAR)
+  })
+
   it('핀이 같은 섹터의 절차 별(인덱스 1+)을 바꾸지 않는다 — 스트림 격리', () => {
     const seedA = seedOf('ANDROMEDA')
     const rest = starsInSector(seedA, DISK_BH_STAR.sector).slice(1)
     for (const star of rest) {
       expect(star.id).not.toBe(DISK_BH_STAR_ID)
-      // 절차 별은 자기 스트림에서 뽑힌다 — 핀과 무관하게 결정론적으로 재현.
       expect(starsInSector(seedA, DISK_BH_STAR.sector).slice(1)).toEqual(rest)
     }
   })
 
-  it('아케론 = 원거리 반성 쌍성(항성풍 강착), 카리브디스 = 근접 조석 원궤도 쌍성', () => {
+  it('아케론 = 원거리 반성 쌍성 (항성풍 강착)', () => {
     expect(DISK_BH_STAR.kind).toBe('black_hole')
     expect(DISK_BH_STAR.multiplicity).toBe('binary')
     expect(DISK_BH_STAR.companions[0]?.separation).toBeGreaterThan(5)
-
-    expect(FEEDING_BH_STAR.kind).toBe('black_hole')
-    expect(FEEDING_BH_STAR.multiplicity).toBe('binary')
-    expect(FEEDING_BH_STAR.companions[0]?.separation).toBeLessThan(2)
-    expect(FEEDING_BH_STAR.companions[0]?.eccentricity).toBe(0)
   })
 
-  it.each(SEEDS)('시드 %s에서 유니크계는 행성이 없다 (질량 이전·초신성 파괴)', (raw) => {
-    expect(planetsOf(seedOf(raw), FEEDING_BH_STAR_ID)).toHaveLength(0)
+  it.each(SEEDS)('시드 %s에서 아케론은 행성이 없다 (초신성 파괴)', (raw) => {
     expect(planetsOf(seedOf(raw), DISK_BH_STAR_ID)).toHaveLength(0)
   })
 

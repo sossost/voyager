@@ -1,13 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { PlanetId, Seed, Star, StarId, StarKind } from '@/engine'
-import {
-  DISK_BH_STAR_ID,
-  FEEDING_BH_STAR_ID,
-  originStar,
-  parseSeed,
-  starsInSector,
-} from '@/engine'
+import { DISK_BH_STAR_ID, originStar, parseSeed, starsInSector } from '@/engine'
 import { MemoryDriver } from '@/persistence/memoryDriver'
 import type { GameStoreApi } from './createGameStore'
 import { createGameStore } from './createGameStore'
@@ -435,11 +429,11 @@ describe('특이계 발견 (exotic-codex)', () => {
   })
 
   it('유니크계 재방문은 중복 등록하지 않는다 (멱등)', () => {
-    store.getState().warpTo(FEEDING_BH_STAR_ID)
+    store.getState().warpTo(DISK_BH_STAR_ID)
     store.getState().onWarpComplete()
     store.getState().warpTo(mainStar.id)
     store.getState().onWarpComplete()
-    store.getState().warpTo(FEEDING_BH_STAR_ID)
+    store.getState().warpTo(DISK_BH_STAR_ID)
 
     expect(store.getState().discoveredUniques).toHaveLength(1)
     expect(

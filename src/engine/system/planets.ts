@@ -6,7 +6,7 @@ import { planetName } from '../naming/names'
 import type { WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './sol'
-import { DISK_BH_STAR_ID, FEEDING_BH_STAR_ID } from './uniques'
+import { uniqueSystemOf } from './uniques'
 
 export type PlanetKind = 'rocky' | 'gas'
 
@@ -244,10 +244,10 @@ const NO_PLANETS: readonly Planet[] = []
 
 export function planetsOf(seed: Seed, starId: StarId): readonly Planet[] {
   if (starId === SOL_STAR_ID) return SOLAR_SYSTEM_PLANETS
-  // 유니크 블랙홀계 — 행성 없음. 카리브디스: 근접 쌍성 질량 이전 환경은 행성 궤도가
-  // 유지되지 않는다(로슈엽 스트림 + 강한 섭동). 아케론: 대질량 O(현 BH)+B 쌍성은 행성
-  // 형성이 드물고 초신성 폭발이 행성계를 파괴한다. 핀 상수 분기라 RNG 스트림 미소비 (v12).
-  if (starId === FEEDING_BH_STAR_ID || starId === DISK_BH_STAR_ID) return NO_PLANETS
+  // 유니크 블랙홀계 — 행성 없음 (아케론: 대질량 O(현 BH)+B 쌍성은 행성 형성이 드물고
+  // 초신성이 행성계를 파괴 / 카리브디스(백업): 질량 이전 환경). 레지스트리 파생이라
+  // 백업/재투입 시 자동 정합 — 핀이 아닌 좌표는 절차 별 그대로다. RNG 스트림 미소비 (v12).
+  if (uniqueSystemOf(starId) != null) return NO_PLANETS
 
   // 생명은 거주가능구역(HZ) 기반으로 결정한다 (getLifeProbability — M-2·M-3, 고증). O/B·죽은
   // 별은 확률 0이고, hasLife를 끄면 외계 조우·생명 렌더·통신 파동·힌트가 단일 소스(planet.hasLife)로
