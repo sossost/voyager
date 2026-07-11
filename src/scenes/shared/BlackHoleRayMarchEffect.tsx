@@ -414,7 +414,10 @@ const FRAGMENT = /* glsl */ `
       // 암흑 고리가 생긴다(실제로는 강한 렌즈 지대에 화면 밖 하늘이 압축돼 들어온다).
       // 절차 별밭(starField, 방향 해시 기반 결정론)으로 폴백해 하늘 연속성을 근사한다.
       if (bgUv.x < 0.0 || bgUv.x > 1.0 || bgUv.y < 0.0 || bgUv.y > 1.0) {
-        color += starField(escapeDir) * (1.0 - alpha);
+        // 별밭만으론 별 사이가 순흑이라 주변 씬 하늘(은하 글로우·헤이즈)보다 어둡게 튄다 —
+        // 씬의 심우주 톤에 맞춘 확산광 바닥을 깔아 밝기 연속성을 맞춘다.
+        vec3 skyFloor = vec3(0.011, 0.013, 0.021);
+        color += (starField(escapeDir) + skyFloor) * (1.0 - alpha);
       } else {
         float dRaw = readDepth(bgUv);
         float bhDist = length(uBhPos - uCameraPos);
