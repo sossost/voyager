@@ -70,11 +70,18 @@ interface ShipCameraRigProps {
   readonly anchor: readonly [number, number, number];
   /** 시선 고도(도) — 정박 시 별을 내려다보는 각도. 블랙홀계는 낮게(옆에서). */
   readonly elevationDeg?: number;
+  /**
+   * 초기 정박 줌 배율 — 블랙홀계는 행성이 없어 넓게 볼 필요가 없으므로 더 당겨(<1)
+   * 렌즈·원반이 화면을 채우게 한다. 사용자는 휠로 [MIN, 1] 범위를 그대로 오갈 수 있고
+   * 복귀 버튼은 이 값으로 돌아온다.
+   */
+  readonly initialZoom?: number;
 }
 
 export function ShipCameraRig({
   anchor,
   elevationDeg = DEFAULT_ELEVATION_DEG,
+  initialZoom = SHIP_ZOOM_DEFAULT,
 }: ShipCameraRigProps) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -90,8 +97,8 @@ export function ShipCameraRig({
   const currentYaw = useRef(0);
   const currentPitch = useRef(initialPitch);
   const dragPointer = useRef<{ id: number; x: number; y: number } | null>(null);
-  const targetZoom = useRef(SHIP_ZOOM_DEFAULT);
-  const currentZoom = useRef(SHIP_ZOOM_DEFAULT);
+  const targetZoom = useRef(initialZoom);
+  const currentZoom = useRef(initialZoom);
 
   // 복귀 버튼 — 시선·거리를 정박 포즈로 즉시 리셋한다. 줌 버튼은 거리를 좁은 범위로 조절.
   useEffect(() => {
@@ -101,7 +108,7 @@ export function ShipCameraRig({
     cameraActions.reset = () => {
       targetYaw.current = 0;
       targetPitch.current = initialPitch;
-      setZoom(SHIP_ZOOM_DEFAULT);
+      setZoom(initialZoom);
     };
     cameraActions.zoomIn = () =>
       setZoom(targetZoom.current - SHIP_ZOOM_BUTTON_STEP);
@@ -112,7 +119,7 @@ export function ShipCameraRig({
       cameraActions.zoomIn = null;
       cameraActions.zoomOut = null;
     };
-  }, [initialPitch]);
+  }, [initialPitch, initialZoom]);
 
   // 도착 확대 — 마운트가 워프 도착이면(pendingArrival) 줌인을 시작하고 플래그를 소비한다.
   // 뷰 토글로 마운트했으면 작동하지 않는다 (pendingArrival=false → 즉시 정박).

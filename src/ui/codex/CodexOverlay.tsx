@@ -236,6 +236,7 @@ function PhenomenaTab() {
   )
 }
 
+// 특이계 탭(유니크 항성계 도감)은 유니크계와 함께 백업 — 재투입 시 git 이력(ccbc038) 복원.
 const CODEX_TABS = [
   { id: 'species', label: '외계생명체' },
   { id: 'phenomena', label: '현상' },

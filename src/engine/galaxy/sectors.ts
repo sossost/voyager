@@ -5,6 +5,7 @@ import type { Rng, WeightedEntry } from '../rng/streams'
 import { rngFor } from '../rng/streams'
 import { SECTOR_SIZE, sectorDensity } from './density'
 import { SOL_STAR_ID, SOL_LOCAL_POS, SOL_SECTOR } from '../system/sol'
+import { UNIQUE_SYSTEMS } from '../system/uniques'
 
 export const MAX_STARS_PER_SECTOR = 5
 
@@ -278,30 +279,44 @@ function drawCompanions(
 }
 
 /**
+ * 섹터의 핀 별 — Sol + 유니크계 (GEN_VERSION 12). 핀 별은 항상 인덱스 0을 대체하고
+ * draw를 소비하지 않으므로 같은 섹터의 다른 별·RNG 스트림에 영향이 없다 (SOL 선례).
+ */
+function pinnedStarForSector(sector: SectorCoords): Star | null {
+  if (sector.sx === SOL_SECTOR.sx && sector.sy === SOL_SECTOR.sy && sector.sz === SOL_SECTOR.sz) {
+    return SOL_STAR
+  }
+  for (const unique of UNIQUE_SYSTEMS) {
+    const pin = unique.star.sector
+    if (sector.sx === pin.sx && sector.sy === pin.sy && sector.sz === pin.sz) return unique.star
+  }
+  return null
+}
+
+/**
  * 섹터 → 별 목록. 순수 함수 — 같은 (seed, sector)는 항상 같은 별을 만든다.
  *
  * 별 개수는 섹터 스트림에서, 각 별의 속성은 별 자신의 독립 스트림에서 뽑는다
  * (스트림 격리 — 별 속성 추가가 이웃 별을 절대 바꾸지 않는다).
- * Sol 섹터(26,0,10) 인덱스 0은 항상 SOL_STAR — 밀도와 무관하게 count ≥ 1 보장.
+ * 핀 섹터(Sol·유니크계) 인덱스 0은 항상 핀 상수 — 밀도와 무관하게 count ≥ 1 보장.
  */
 export function starsInSector(seed: Seed, sector: SectorCoords): readonly Star[] {
-  const isSolSector =
-    sector.sx === SOL_SECTOR.sx && sector.sy === SOL_SECTOR.sy && sector.sz === SOL_SECTOR.sz
+  const pinned = pinnedStarForSector(sector)
   const density = sectorDensity(sector)
-  if (density === 0 && !isSolSector) return []
+  if (density === 0 && pinned == null) return []
 
   const sectorRng = rngFor(seed, 'sector', sector.sx, sector.sy, sector.sz)
   const expected = density * MAX_STARS_PER_SECTOR
   const base = Math.floor(expected)
   const fraction = expected - base
   const rawCount = base + (sectorRng.next() < fraction ? 1 : 0)
-  const count = isSolSector ? Math.max(rawCount, 1) : rawCount
+  const count = pinned != null ? Math.max(rawCount, 1) : rawCount
 
   const stars: Star[] = []
   for (let index = 0; index < count; index++) {
     const id = makeStarId(sector, index)
-    if (id === SOL_STAR_ID) {
-      stars.push(SOL_STAR)
+    if (pinned != null && id === pinned.id) {
+      stars.push(pinned)
       continue
     }
     const starRng = rngFor(seed, 'star', id)

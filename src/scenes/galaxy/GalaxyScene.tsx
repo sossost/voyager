@@ -18,6 +18,7 @@ import { useStarPicking } from "@/scenes/galaxy/useStarPicking";
 import { CameraRig } from "@/scenes/shared/CameraRig";
 import { DecorativeStarfield } from "@/scenes/shared/DecorativeStarfield";
 import { DistantGalaxies } from "@/scenes/shared/DistantGalaxies";
+import { LensEnvironmentBaker } from "@/scenes/shared/lensEnvironment";
 import { CurrentSystem } from "@/scenes/system/CurrentSystem";
 import { useGameStore } from "@/store";
 
@@ -47,6 +48,8 @@ const GALAXY_MAX_ZOOM_OUT = 6_000;
 const SHIP_SKY_RADIUS = 12_000;
 /** 함교 뷰 기본 시선 고도(도) — 항성계 궤도면을 내려다보는 각도. 블랙홀계만 낮게(옆에서) 본다. */
 const SHIP_SYSTEM_ELEVATION_DEG = 28;
+/** 블랙홀계 초기 정박 줌 — 행성이 없어 넓게 볼 필요가 없으니 당겨서 렌즈가 화면을 채우게. */
+const BLACK_HOLE_SHIP_ZOOM = 0.62;
 
 export function GalaxyScene() {
   const seed = useGameStore((state) => state.seed);
@@ -96,6 +99,7 @@ export function GalaxyScene() {
         <ShipCameraRig
           anchor={shipFocus}
           elevationDeg={currentIsBlackHole ? 3 : SHIP_SYSTEM_ELEVATION_DEG}
+          initialZoom={currentIsBlackHole ? BLACK_HOLE_SHIP_ZOOM : undefined}
         />
       ) : null}
       {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는
@@ -122,6 +126,13 @@ export function GalaxyScene() {
           렌더한다. 크로스페이드가 거리에 따라 포인트↔구체를 핸드오프하므로 퍼스펙티브에서
           줌아웃하면 자연히 점으로 돌아간다. 행성은 워프 중엔 베이크하지 않는다 (결정 41) */}
       <CurrentSystem />
+      {/* 블랙홀 렌즈 환경맵 — 원거리 배경(레이어 태그된 별밭·글로우·천구)만 큐브맵으로
+          베이크해 레이마칭 탈출 광선이 방향 샘플한다 (스크린공간 배경 샘플의 구조적 한계 해소). */}
+      <LensEnvironmentBaker
+        anchor={shipFocus}
+        active={currentIsBlackHole}
+        bakeKey={`${anchorStarId}|${scene.kind === "galaxy" ? scene.view : "warp"}`}
+      />
       {/* 퍼스펙티브 = 항성계 곁에 떠 있는 내 우주선을 3인칭으로 본다 (결정 41-e).
           블랙홀 주차 시엔 숨긴다 — 측지선 렌즈가 우주선을 사건지평선 안으로 끌어들이기 때문. */}
       {isPerspectiveView && !currentIsBlackHole ? <SpaceshipModel /> : null}

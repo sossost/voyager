@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { AdditiveBlending, Color, type Group, type Mesh, ShaderMaterial, Vector3 } from 'three'
 
 import { setUniform } from '@/scenes/shared/starGlowMaterial'
+import { companionTide } from '@/scenes/system/companionTide'
 import { crossfadeProgress } from '@/scenes/system/starCrossfade'
 
 /**
@@ -21,13 +22,22 @@ const SPHERE_SEGMENTS = 48
 const CORONA_SIZE_FACTOR = 5.6
 
 const SURFACE_VERTEX_SHADER = /* glsl */ `
+  uniform float uTidal;
+  uniform vec3 uTidalDir;
   varying vec3 vUnit;
   varying vec3 vNormal;
   varying vec3 vViewDir;
+  varying float vToward;
 
   void main() {
     vUnit = normalize(position);
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    // 조석 티어드롭 변형 (exotic-codex) — 로슈엽을 채운 반성은 L1(블랙홀 방향)로 뾰족하게
+    // 늘어나고 반대편도 완만히 부푼다 (로슈 등퍼텐셜 근사). uTidal=0이면 항등 — 기존 렌더 불변.
+    vToward = dot(vUnit, uTidalDir);
+    float nearLobe = pow(max(vToward, 0.0), 3.0);
+    float farLobe = pow(max(-vToward, 0.0), 2.0) * 0.35;
+    vec3 displaced = position * (1.0 + uTidal * (nearLobe + farLobe));
+    vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
     vNormal = normalize(normalMatrix * normal);
     vViewDir = normalize(-mvPosition.xyz);
     gl_Position = projectionMatrix * mvPosition;
@@ -41,9 +51,11 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
   uniform float uOpacity;
   uniform float uEmissiveBoost;
   uniform float uGranulation;
+  uniform float uTidal;
   varying vec3 vUnit;
   varying vec3 vNormal;
   varying vec3 vViewDir;
+  varying float vToward;
 
   float hash(vec3 p) {
     p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419));
@@ -92,6 +104,12 @@ const SURFACE_FRAGMENT_SHADER = /* glsl */ `
     float limbProfile = pow(facing, 0.55);
     float darkening = 0.42 + 0.58 * limbProfile;
     vec3 photosphere = mix(uRimColor, uColor, limbProfile);
+
+    // 조석 중력감광 (von Zeipel) — 늘어난 L1 팁은 표면중력이 낮아 식는다: 저온층 색으로
+    // 물들고 살짝 어두워진다. uTidal=0이면 0 — 기존 렌더 불변.
+    float tipCool = uTidal > 0.001 ? smoothstep(0.55, 0.95, vToward) * 0.55 : 0.0;
+    photosphere = mix(photosphere, uRimColor, tipCool);
+    darkening *= 1.0 - tipCool * 0.25;
 
     vec3 surface = photosphere * (0.68 + 0.55 * granulation) * darkening;
 
@@ -153,6 +171,11 @@ interface StarSurfaceProps {
    * 초승달 위상 착시를 만들지 않게 클램프. 기본 Infinity = 단일성·기존 렌더 불변.
    */
   readonly maxCoronaRadius?: number
+  /**
+   * 조석 티어드롭 변형 강도 (exotic-codex, 카리브디스 반성 전용) — L1 쪽 최대 반경 증가율.
+   * 방향은 companionTide 공유 상태에서 매 프레임 읽는다. 기본 0 = 기존 렌더 불변.
+   */
+  readonly tidalStretch?: number
 }
 
 export function StarSurface({
@@ -163,6 +186,7 @@ export function StarSurface({
   granulation = 1,
   rimColor,
   maxCoronaRadius = Infinity,
+  tidalStretch = 0,
 }: StarSurfaceProps) {
   const coronaRef = useRef<Group>(null)
   const surfaceRef = useRef<Mesh>(null)
@@ -180,11 +204,13 @@ export function StarSurface({
           uOpacity: { value: 1 },
           uEmissiveBoost: { value: emissiveBoost },
           uGranulation: { value: granulation },
+          uTidal: { value: tidalStretch },
+          uTidalDir: { value: new Vector3(1, 0, 0) },
         },
         // 워프 도착 크로스페이드 동안 반투명으로 차오른다 — 정박(근거리)에선 불투명 (결정 41-c)
         transparent: true,
       }),
-    [color, emissiveBoost, granulation, rimColor],
+    [color, emissiveBoost, granulation, rimColor, tidalStretch],
   )
 
   const coronaMaterial = useMemo(
@@ -212,6 +238,11 @@ export function StarSurface({
     const elapsed = state.clock.elapsedTime
     setUniform(surfaceMaterial, 'uTime', elapsed)
     setUniform(coronaMaterial, 'uTime', elapsed)
+    // 조석 변형 방향 — CurrentSystem이 게시한 반성→BH 방향(시스템 로컬)을 따라간다.
+    if (tidalStretch > 0) {
+      const dir = surfaceMaterial.uniforms.uTidalDir?.value as Vector3 | undefined
+      dir?.set(companionTide.dirX, 0, companionTide.dirZ)
+    }
     // 코로나 빌보드 — 항상 카메라를 향한다 (구는 회전 불필요)
     coronaRef.current?.quaternion.copy(state.camera.quaternion)
 

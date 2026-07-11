@@ -42,6 +42,13 @@ export { moonsOf } from './system/moons'
 export type { Belt, BeltKind } from './system/belts'
 export { beltsOf } from './system/belts'
 export { SOL_STAR_ID, SOLAR_SYSTEM_PLANETS } from './system/sol'
+export type { UniqueSystem, UniqueSystemId } from './system/uniques'
+export {
+  DISK_BH_STAR_ID,
+  FEEDING_BH_STAR_ID,
+  UNIQUE_SYSTEMS,
+  uniqueSystemOf,
+} from './system/uniques'
 
 export type { Rarity } from './alien/rarity'
 export { RARITIES, RARITY_WEIGHTS } from './alien/rarity'

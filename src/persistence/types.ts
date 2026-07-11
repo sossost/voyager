@@ -1,4 +1,4 @@
-import type { IndividualId, PlanetId, Rarity, Seed, StarId, StarKind } from '@/engine'
+import type { IndividualId, PlanetId, Rarity, Seed, StarId, StarKind, UniqueSystemId } from '@/engine'
 
 /** 저장 스키마 버전 — Dexie 마이그레이션 축. 생성 로직 버전(genVersion)과 별개다. */
 export const SAVE_VERSION = 1
@@ -18,6 +18,15 @@ export interface PhenomenonDiscovery {
   readonly discoveredAt: number
 }
 
+/**
+ * 유니크 항성계 발견 기록 (exotic-codex) — 식별자만 저장, 이름·로어·힌트는 읽을 때
+ * uniques 카탈로그에서 재생성한다 (철칙 4). Profile 내장 배열 (discoveredPhenomena 패턴).
+ */
+export interface UniqueDiscovery {
+  readonly uniqueId: UniqueSystemId
+  readonly discoveredAt: number
+}
+
 export interface Profile {
   readonly id: 1
   readonly seed: Seed
@@ -29,6 +38,8 @@ export interface Profile {
   readonly seenHints?: readonly HintKey[]
   /** 발견한 이색 천체 — 없으면 빈 배열로 취급 (기존 프로필 하위 호환, seenHints 선례). */
   readonly discoveredPhenomena?: readonly PhenomenonDiscovery[]
+  /** 발견한 유니크 항성계 — 없으면 빈 배열로 취급 (기존 프로필 하위 호환, 위와 동일 패턴). */
+  readonly discoveredUniques?: readonly UniqueDiscovery[]
 }
 
 export interface VisitRecord {

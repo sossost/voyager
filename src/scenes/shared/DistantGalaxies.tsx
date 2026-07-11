@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { AdditiveBlending, CanvasTexture, type Group, MeshBasicMaterial } from 'three'
 
 import { ditherCanvas } from '@/scenes/shared/canvasDither'
+import { enableLensEnvLayer } from '@/scenes/shared/lensEnvironment'
 
 /**
  * 원거리 배경 은하 — 우리 은하 바깥의 빈 검정을 채우는 장식 레이어 (백로그 E-1, 결정 24).
@@ -141,6 +142,7 @@ export function DistantGalaxies() {
             material={materials[index]}
             rotation={[0, 0, config.spin]}
             scale={[config.size, config.size * config.aspect, 1]}
+            onUpdate={enableLensEnvLayer}
           >
             <planeGeometry args={[1, 1]} />
           </mesh>

@@ -72,6 +72,7 @@ function startGame(
     createdAt: profile.createdAt,
     initialSeenHints: profile.seenHints,
     initialDiscoveredPhenomena: profile.discoveredPhenomena,
+    initialDiscoveredUniques: profile.discoveredUniques,
   })
 }
 

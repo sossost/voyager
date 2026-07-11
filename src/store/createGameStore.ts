@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { PHENOMENA_BY_KIND } from '@/data/phenomena/phenomena'
+import { UNIQUES_BY_ID } from '@/data/uniques/uniques'
 import type { IndividualId, PlanetId, Seed, StarId } from '@/engine'
 import {
   alienAt,
@@ -9,6 +10,7 @@ import {
   rareExoticBodiesNear,
   SCAN_RADIUS_SECTORS,
   starById,
+  uniqueSystemOf,
 } from '@/engine'
 import { persist } from '@/persistence/persist'
 import type {
@@ -18,6 +20,7 @@ import type {
   PhenomenonDiscovery,
   Profile,
   StorageDriver,
+  UniqueDiscovery,
   VisitRecord,
 } from '@/persistence/types'
 import { SAVE_VERSION } from '@/persistence/types'
@@ -44,6 +47,8 @@ export interface CreateGameStoreOptions {
   readonly initialSeenHints?: readonly HintKey[]
   /** 이미 발견한 이색 천체 — 없으면 빈 배열 (현상 도감 하이드레이션). */
   readonly initialDiscoveredPhenomena?: readonly PhenomenonDiscovery[]
+  /** 이미 발견한 유니크 항성계 — 없으면 빈 배열 (특이계 도감 하이드레이션). */
+  readonly initialDiscoveredUniques?: readonly UniqueDiscovery[]
   /**
    * 공유 우주 둘러보기 세션 (백로그 L-1 게스트 모드) — 진실이면 모든 저장 쓰기를 건너뛴다.
    * 다른 시드의 딥링크를 연 기존 플레이어가 자기 우주 기록을 잃지 않고 둘러볼 수 있게 한다.
@@ -90,6 +95,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
       createdAt,
       seenHints: [...get().seenHints],
       discoveredPhenomena: [...get().discoveredPhenomena],
+      discoveredUniques: [...get().discoveredUniques],
     })
 
     const reportPersistFailure = () => {
@@ -138,7 +144,8 @@ export function createGameStore(options: CreateGameStoreOptions) {
     },
 
     warpTo(target) {
-      const { scene, currentStarId, visitedStars, discoveredPhenomena, seed } = get()
+      const { scene, currentStarId, visitedStars, discoveredPhenomena, discoveredUniques, seed } =
+        get()
       if (scene.kind !== 'galaxy') return
       if (target === currentStarId) return
 
@@ -159,12 +166,21 @@ export function createGameStore(options: CreateGameStoreOptions) {
         ? [...discoveredPhenomena, { starId: target, kind: exoticKind, discoveredAt: visitedAt }]
         : discoveredPhenomena
 
+      // 유니크계면 특이계 도감에 발견 기록 — 같은 커밋 시점·같은 패턴 (uniqueId 기준 멱등).
+      const unique = uniqueSystemOf(target)
+      const isNewUnique =
+        unique != null && !discoveredUniques.some((d) => d.uniqueId === unique.id)
+      const nextUniques: readonly UniqueDiscovery[] = isNewUnique
+        ? [...discoveredUniques, { uniqueId: unique.id, discoveredAt: visitedAt }]
+        : discoveredUniques
+
       set({
         scene: { kind: 'warping', from: currentStarId, to: target },
         selectedStarId: null,
         currentStarId: target,
         visitedStars: nextVisited,
         discoveredPhenomena: nextPhenomena,
+        discoveredUniques: nextUniques,
         // 이동하면 이전 위치의 스캔 마커를 비운다 — 마커는 현재 위치 전용 (맵 난잡 방지).
         scannedStars: new Set<StarId>(),
       })
@@ -173,6 +189,11 @@ export function createGameStore(options: CreateGameStoreOptions) {
       if (isFirstOfKind && exoticKind != null) {
         const label = PHENOMENA_BY_KIND.get(exoticKind)?.label ?? '이색 천체'
         get().pushToast(`✨ 최초 발견 — ${label}`)
+      }
+      // 유니크계 발견 — 특이계 도감 등록 토스트
+      if (isNewUnique && unique != null) {
+        const label = UNIQUES_BY_ID.get(unique.id)?.label ?? '특이 항성계'
+        get().pushToast(`🕳️ 특이계 발견 — ${label} (도감 등록)`)
       }
 
       // write-through: 캐시 갱신과 영속화를 같은 액션에서 (결정 20).
@@ -218,6 +239,7 @@ export function createGameStore(options: CreateGameStoreOptions) {
     discoveredSpecies: buildSpeciesCounts(hydration.collection),
     collectionEntries: [...hydration.collection],
     discoveredPhenomena: [...(options.initialDiscoveredPhenomena ?? [])],
+    discoveredUniques: [...(options.initialDiscoveredUniques ?? [])],
 
     explore(planetId) {
       const state = get()

@@ -1752,6 +1752,15 @@ body {
   color: var(--color-text-dim);
 }
 
+/* 특이계 미발견 힌트 — 잠긴 슬롯 안의 서사형 단서. 슬롯 잠금 투명도와 별개로 읽히게 조금 밝힌다. */
+.unique-slot-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--color-text-dim);
+  font-style: italic;
+}
+
 .codex-individual-list {
   list-style: none;
   margin: 0;

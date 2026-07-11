@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { PlanetId, Seed, Star, StarId, StarKind } from '@/engine'
-import { originStar, parseSeed, starsInSector } from '@/engine'
+import { DISK_BH_STAR_ID, originStar, parseSeed, starsInSector } from '@/engine'
 import { MemoryDriver } from '@/persistence/memoryDriver'
 import type { GameStoreApi } from './createGameStore'
 import { createGameStore } from './createGameStore'
@@ -407,6 +407,27 @@ describe('현상 발견 (exotic-bodies)', () => {
       const profile = await driver.loadProfile()
       expect(profile?.discoveredPhenomena?.map((d) => d.starId)).toContain(exoticStarA.id)
     })
+  })
+})
+
+describe('특이계 발견 — 백업 상태 (렌즈 업그레이드 재범위)', () => {
+  it('유니크 레지스트리가 비어 있어 워프해도 특이계가 기록되지 않는다', () => {
+    store.getState().warpTo(DISK_BH_STAR_ID)
+    expect(store.getState().discoveredUniques).toHaveLength(0)
+  })
+
+  it('initialDiscoveredUniques 하이드레이션은 유지된다 (저장 스키마 보존)', () => {
+    const hydrated = createGameStore({
+      seed,
+      startStarId,
+      driver,
+      now: () => 12_345,
+      createdAt: 1_000,
+      initialDiscoveredUniques: [{ uniqueId: 'feeding_bh', discoveredAt: 7 }],
+    })
+    expect(hydrated.getState().discoveredUniques).toEqual([
+      { uniqueId: 'feeding_bh', discoveredAt: 7 },
+    ])
   })
 })
 

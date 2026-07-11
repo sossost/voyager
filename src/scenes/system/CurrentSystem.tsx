@@ -1,10 +1,17 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { Group, PointLight } from 'three'
-import { PerspectiveCamera, Vector3 } from 'three'
+import { Color, PerspectiveCamera, Vector3 } from 'three'
 
 import type { Star, StarKind } from '@/engine'
-import { beltsOf, hasHabitableZone, planetsOf, SOL_STAR_ID, starById } from '@/engine'
+import {
+  beltsOf,
+  hasHabitableZone,
+  planetsOf,
+  SOL_STAR_ID,
+  starById,
+  uniqueSystemOf,
+} from '@/engine'
 import { starWorldPosition } from '@/engine/galaxy/position'
 import { AsteroidBelt } from '@/scenes/system/AsteroidBelt'
 import {
@@ -13,8 +20,10 @@ import {
   SPECTRAL_RENDER,
   SPECTRAL_SURFACE,
 } from '@/scenes/galaxy/spectral'
-import { BlackHole } from '@/scenes/system/BlackHole'
+import { BlackHole, type BlackHoleVariant } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
+import { MatterStream } from '@/scenes/system/MatterStream'
+import { companionTide } from '@/scenes/system/companionTide'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
 import {
   clearCurrentPlanetOrbits,
@@ -139,6 +148,41 @@ interface BodyVisual {
 
 /** 블랙홀 강착원반 발광색 — 검은 본체 대신 이 따뜻한 빛이 행성·동반성을 비춘다. */
 const BLACK_HOLE_LIGHT_COLOR = '#ffcaa0'
+// 암흑 블랙홀 광원색(#4a4a5e — 원반 없는 고립 BH의 냉광)은 dark variant와 함께 백업.
+/** 강착원반 안/바깥 반경 배수 (rs 기준) — 레이마칭 lens 게시·궤도 클리어런스 공용. */
+const BH_DISK_INNER_FACTOR = 2.5
+const BH_DISK_OUTER_FACTOR = 18.0
+/** 항성풍 포획 원반(아케론, 백업) — 오버플로 원반보다 작고 어둡다 (Cyg X-1형). */
+const WIND_DISK_OUTER_FACTOR = 11.0
+const WIND_DISK_GAIN = 0.55
+/**
+ * BH별 결정론 변주 (렌즈 업그레이드) — starId 해시 파생, 렌더 전용(GEN_VERSION 무관).
+ * 랜덤이 정당한 요소만 변주한다:
+ *  - 기울기: BH 스핀축은 강착 역사의 산물이라 궤도면과 무관한 방향 (Bardeen–Petterson) —
+ *    ±5°~29°, Z축(함교 시선축) 회전이라 측면 프로필이 비스듬히 기운다.
+ *  - 폭·밝기·온도(색): 강착률·질량 차이의 발현. 색은 흑체 궤적 위에서만(앰버-적↔금↔청백).
+ * 원반 "유무"는 변주하지 않는다 — 그건 환경(동반성) 파생이어야 하는 요소로 유니크계
+ * 재투입 PR의 몫 (N-2 관통 원칙: 상태는 랜덤 롤이 아니라 환경에서).
+ */
+const BH_TILT_MIN = 0.09
+const BH_TILT_SPAN = 0.42
+const BH_DISK_OUTER_MIN = 14.0
+const BH_DISK_OUTER_SPAN = 7.0
+const BH_GAIN_MIN = 0.75
+const BH_GAIN_SPAN = 0.45
+const BH_TEMP_MIN = 0.55
+const BH_TEMP_SPAN = 1.1
+
+/** 문자열 → [0,1) 결정론 해시 — 렌더 전용 변주 시드 (엔진 rng와 무관, 전역 난수 아님). */
+function hash01(input: string, salt: number): number {
+  let h = 2166136261 ^ salt
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(h ^ input.charCodeAt(i), 16777619)
+  }
+  return ((h >>> 0) % 100_000) / 100_000
+}
+/** 카리브디스 반성의 조석 티어드롭 강도 — L1 쪽 최대 반경 +42% (로슈엽 충만 별). */
+const COMPANION_TIDAL_STRETCH = 0.42
 
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
@@ -186,8 +230,14 @@ export function CurrentSystem() {
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
   // 소행성대 — 궤도 갭(암석대)·최외곽 행성 바깥(카이퍼대). 행성과 같은 중심(궤도 그룹) 기준.
   const belts = useMemo(() => beltsOf(seed, starId), [seed, starId])
+  // 블랙홀 상태 — 렌즈 업그레이드 PR 재범위로 절차 BH 암흑화는 백업: 기본값을 'disk'
+  // (기존 룩: 모든 BH가 원반)로 되돌린다. 'dark'(고립 BH 렌즈만)·'feeding'(스트림)은
+  // 유니크계 재투입 PR에서 레지스트리 파생으로 복원 (variant 배관은 전부 보존).
+  const unique = uniqueSystemOf(starId)
+  const bhVariant: BlackHoleVariant = unique?.id === 'feeding_bh' ? 'feeding' : 'disk'
   // 블랙홀은 행성을 숨긴다 — 강착원반이 내행성 궤도와 겹치고 천문학적으로도 이례적이다
-  // (펄서·왜성·거성은 행성 유지). planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
+  // (펄서·왜성·거성은 행성 유지). 유니크계도 동일 — 엔진이 행성을 아예 안 만든다(planetsOf,
+  // 초신성이 행성계를 파괴). planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
   const showPlanets = scene.kind === 'galaxy' && star?.kind !== 'black_hole'
   const worldPosition = useMemo(
     () => starWorldPosition(seed, starId) ?? ([0, 0, 0] as const),
@@ -300,6 +350,8 @@ export function CurrentSystem() {
       // 주계열성은 분광형 광도 로그 압축(O-4, G=1.0 불변). 이색 천체는 kindSurface가 담당.
       lightFactor: star.kind === 'main_sequence' ? SPECTRAL_LIGHT_FACTOR[star.spectral] : 1,
       kind: star.kind,
+      // 암흑(dark) variant는 백업 — 현행 BH는 전부 원반 발광색. 재투입 시 dark 분기 복원
+      // (DARK_BLACK_HOLE_LIGHT_COLOR — 원반 없는 고립 BH의 냉광).
       lightColor: star.kind === 'black_hole' ? BLACK_HOLE_LIGHT_COLOR : primaryColor,
       // 입상반 진폭·림 저온색은 주계열성만 분광 파생(O-6) — 이색 천체는 사용자 튜닝된
       // 기존 표면(진폭 1, 림 무채)을 유지한다.
@@ -321,6 +373,23 @@ export function CurrentSystem() {
     }))
     return [primary, ...companions]
   }, [star])
+
+  // BH별 결정론 변주 — starId 해시 파생 (위 상수 주석 참조). 유니크계는 명시 파라미터 우선.
+  const bhVariation = useMemo(() => {
+    const tiltSign = hash01(starId, 11) < 0.5 ? -1 : 1
+    return {
+      tilt: tiltSign * (BH_TILT_MIN + hash01(starId, 7) * BH_TILT_SPAN),
+      diskOuterFactor: BH_DISK_OUTER_MIN + hash01(starId, 13) * BH_DISK_OUTER_SPAN,
+      diskGain: BH_GAIN_MIN + hash01(starId, 17) * BH_GAIN_SPAN,
+      diskTemp: BH_TEMP_MIN + hash01(starId, 23) * BH_TEMP_SPAN,
+    }
+  }, [starId])
+
+  // 동반성 렌즈 색 — 렌즈 셰이더의 해석적 구가 쓸 분광색 (매 프레임 문자열 파싱 방지 캐시).
+  const companionLensColor = useMemo(
+    () => new Color(bodies[1]?.color ?? '#ffffff'),
+    [bodies],
+  )
 
   // 코로나 글로우 반폭 상한 — 가산 코로나가 이웃 별 원반을 덮으면 뒤쪽 별에 초승달 위상
   // 착시가 생긴다(별에는 밤면이 없다). 이웃 근점 거리 기준 클램프, 단일성은 Infinity(불변).
@@ -394,6 +463,19 @@ export function CurrentSystem() {
       }
       currentBodies.starId = currentStarId
       currentBodies.count = bodyCount
+      // 조석 변형 방향 게시 (카리브디스) — 반성 StarSurface가 uTidalDir로 읽어 L1 팁을
+      // 블랙홀 쪽으로 늘인다. BH·반성 모두 질량중심을 돌므로 매 프레임 갱신.
+      if (bhVariant === 'feeding' && bodyCount > 1) {
+        const bhLocal = bodyScratch[0] as Vector3
+        const companionLocal = bodyScratch[1] as Vector3
+        const tideDx = bhLocal.x - companionLocal.x
+        const tideDz = bhLocal.z - companionLocal.z
+        const tideLen = Math.sqrt(tideDx * tideDx + tideDz * tideDz)
+        if (tideLen > 1e-6) {
+          companionTide.dirX = tideDx / tideLen
+          companionTide.dirZ = tideDz / tideLen
+        }
+      }
       // 행성 궤도 중심 — 항상 질량중심(원점) 공전 (circumbinary, 결정 8 개정).
       const center = planetCenterRef.current
       if (center != null) {
@@ -503,15 +585,59 @@ export function CurrentSystem() {
       blackHoleLens.cameraPos.copy(cam.position)
       blackHoleLens.invViewProj.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse)
       blackHoleLens.viewProj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)
-      blackHoleLens.bhPos.set(worldPosition[0], worldPosition[1], worldPosition[2])
+      // BH 실제 위치 = 질량중심 + 주성 로컬 오프셋 — 쌍성 BH(유니크계)는 질량중심을 돌므로
+      // 질량중심(worldPosition)만 쓰면 그림자·렌즈가 어긋난다 (단일성은 오프셋 0으로 동일).
+      const lensScale = systemScaleRef.current
+      const bhLocal = bodyScratch[0] as Vector3
+      const bhX = worldPosition[0] + bhLocal.x * lensScale
+      const bhY = worldPosition[1] + bhLocal.y * lensScale
+      const bhZ = worldPosition[2] + bhLocal.z * lensScale
+      blackHoleLens.bhPos.set(bhX, bhY, bhZ)
       const rs = (bodies[0]?.radius ?? STAR_VISUAL_RADIUS) * systemScaleRef.current
       blackHoleLens.rs = rs
       // 디스크 안쪽을 그림자(BCRIT≈4.8 rs)보다 훨씬 안까지 끌어내려 검은 구에 바짝 붙인다(갭 제거).
       // 전체 크기는 rs(kindRadiusFactor)로 조절.
-      blackHoleLens.diskInner = rs * 2.5
-      blackHoleLens.diskOuter = rs * 18.0
+      blackHoleLens.diskInner = rs * BH_DISK_INNER_FACTOR
+      // 원반 파라미터 — 절차 BH는 해시 변주(bhVariation), 유니크 아케론(백업)은 명시값.
+      blackHoleLens.diskOuter =
+        rs * (unique?.id === 'disk_bh' ? WIND_DISK_OUTER_FACTOR : bhVariation.diskOuterFactor)
+      blackHoleLens.diskGain = unique?.id === 'disk_bh' ? WIND_DISK_GAIN : bhVariation.diskGain
+      blackHoleLens.diskTilt = bhVariation.tilt
+      blackHoleLens.diskTemp = unique != null ? 1 : bhVariation.diskTemp
+      // 암흑화(dark = 원반 없는 고립 BH)는 백업 — 현행은 전 BH 원반 (uDiskEnabled 배관 보존).
+      blackHoleLens.diskEnabled = true
       blackHoleLens.diskNormal.set(0, 1, 0)
-      ndcScratch.set(worldPosition[0], worldPosition[1], worldPosition[2]).project(cam)
+      // 로슈엽 물질 스트림 (카리브디스) — 씬 파티클은 레이마칭 전담 영역에 덮여 사라지므로
+      // 스트림 파라미터를 게시해 레이마칭이 원반과 같은 평면 히트로 직접 그린다.
+      if (bhVariant === 'feeding' && star != null && star.companions.length > 0) {
+        const companionLocal = bodyScratch[1] as Vector3
+        const streamDx = (companionLocal.x - bhLocal.x) * lensScale
+        const streamDz = (companionLocal.z - bhLocal.z) * lensScale
+        const companionRadius = (bodies[1]?.radius ?? 0) * lensScale
+        blackHoleLens.streamAngle = Math.atan2(streamDz, streamDx)
+        // 별 실루엣 깊숙이(0.75R)에서 출발 — 티어드롭 팁과 겹쳐 한 흐름으로 읽힌다.
+        blackHoleLens.streamStartR =
+          Math.sqrt(streamDx * streamDx + streamDz * streamDz) - companionRadius * 0.75
+        blackHoleLens.streamEnabled = true
+      } else {
+        blackHoleLens.streamEnabled = false
+      }
+      // 동반성 해석적 구 게시 (렌즈 리팩터) — 마처가 원반처럼 직접 그린다. 앞/뒤 판정
+      // 불필요: 광선-구 교차가 가림·아인슈타인 상을 물리대로 처리한다.
+      if (star != null && star.companions.length > 0) {
+        const companionLocal = bodyScratch[1] as Vector3
+        blackHoleLens.companionPos.set(
+          worldPosition[0] + companionLocal.x * lensScale,
+          worldPosition[1] + companionLocal.y * lensScale,
+          worldPosition[2] + companionLocal.z * lensScale,
+        )
+        blackHoleLens.companionRadius = (bodies[1]?.radius ?? 1) * lensScale
+        blackHoleLens.companionColor.copy(companionLensColor)
+        blackHoleLens.companionActive = true
+      } else {
+        blackHoleLens.companionActive = false
+      }
+      ndcScratch.set(bhX, bhY, bhZ).project(cam)
       blackHoleLens.center.set(ndcScratch.x * 0.5 + 0.5, ndcScratch.y * 0.5 + 0.5)
       const fov = cam instanceof PerspectiveCamera ? cam.fov : 60
       const halfHeight = dist * Math.tan((fov * Math.PI) / 360)
@@ -543,7 +669,7 @@ export function CurrentSystem() {
               >
                 {/* 이색 천체는 전용 컴포넌트로, 주계열성은 StarSurface로 렌더 — 주성만 가능 (결정 7·14). */}
                 {body.kind === 'black_hole' ? (
-                  <BlackHole radius={body.radius} />
+                  <BlackHole radius={body.radius} variant={bhVariant} />
                 ) : body.kind === 'pulsar' ? (
                   <Pulsar radius={body.radius} color={body.color} />
                 ) : (
@@ -558,7 +684,21 @@ export function CurrentSystem() {
                     // 입상반 진폭·림 저온색 분광 파생(O-6) — O/B 복사 외피는 매끈, 림은 붉게.
                     granulation={body.granulation}
                     rimColor={body.rimColor}
-                    maxCoronaRadius={coronaMax[index] ?? Infinity}
+                    // 유니크 BH계 동반성은 코로나를 별에 바짝 클램프 — 코로나는 깊이를 안
+                    // 쓰는 가산 글로우라 레이마칭 배경 샘플에 걸려, 동반성이 BH 앞에 있을 때
+                    // 반대편에 반투명 유령 호(비고증 — 전경 광원은 렌즈상 없음)로 맺힌다.
+                    // 글로우를 줄이면 유령이 소멸하고 렌즈·아인슈타인 호(핵)는 그대로다.
+                    // 1.0R = 글로우가 별 원반 뒤에 숨는다 — 1.4R 잔여 고리가 동반성이 BH
+                    // 정면에 올 때 렌즈 주변 색 띠(글로우 고리의 아인슈타인 링)로 맺혔다.
+                    maxCoronaRadius={
+                      unique != null && index > 0
+                        ? Math.min(coronaMax[index] ?? Infinity, body.radius)
+                        : coronaMax[index] ?? Infinity
+                    }
+                    // 카리브디스 반성 — 로슈엽 충만 티어드롭 (L1 팁이 블랙홀을 향해 늘어난다).
+                    tidalStretch={
+                      bhVariant === 'feeding' && index === 1 ? COMPANION_TIDAL_STRETCH : 0
+                    }
                   />
                 )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
@@ -574,6 +714,17 @@ export function CurrentSystem() {
               </group>
             ))
           : null}
+
+        {/* 로슈엽 물질 스트림 — 카리브디스(feeding) 전용. 자체 useFrame이 BH·반성 위치를
+            bodyPositions(동일 수식·simClock)로 계산해 별 위치와 항상 정합한다. */}
+        {!isWarping && star != null && bhVariant === 'feeding' && bodies.length > 1 ? (
+          <MatterStream
+            star={star}
+            bhRadius={(bodies[0] as BodyVisual).radius}
+            companionRadius={(bodies[1] as BodyVisual).radius}
+            diskOuterFactor={BH_DISK_OUTER_FACTOR}
+          />
+        ) : null}
 
         {showPlanets ? (
           <group ref={planetCenterRef}>
