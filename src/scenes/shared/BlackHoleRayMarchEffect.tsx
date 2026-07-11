@@ -83,10 +83,12 @@ const FRAGMENT = /* glsl */ `
   const float TURB_PERS = 0.8;
   const float DISK_BRIGHT = 5.0;
 
-  // ── 배경 ──
-  const float STAR_DENSITY = 0.003;
+  // ── 배경 (절차 별밭 — 화면 밖으로 휜 광선의 폴백 전용) ──
+  // 밀도는 씬 별밭과 이질감 없게 레퍼런스(0.003)보다 올린다 — 렌즈 지대는 하늘이 압축돼
+  // 들어오는 곳이라 오히려 조밀한 게 고증에 가깝다.
+  const float STAR_DENSITY = 0.018;
   const float STAR_SIZE = 2.0;
-  const float STAR_BRIGHT = 1.0;
+  const float STAR_BRIGHT = 0.9;
   const float NEB1_SCALE = 2.0;
   const float NEB1_DENSITY = 0.5;
   const float NEB1_BRIGHT = 0.15;
@@ -404,8 +406,14 @@ const FRAGMENT = /* glsl */ `
     // 배경은 *진짜 탈출한* 광선만 샘플 — 스텝 소진(미탈출)은 빨려든 셈이라 검정(그림자).
     // 광자구 안(b<BCRIT·rs)도 그림자(검정). 밖+탈출이면 휜 방향으로 실제 씬 샘플.
     if (escaped && alpha < 0.99 && impactB >= BCRIT * rs) {
-      vec2 bgUv = dirToScreenUv(toWorldFrame(rayDir, tiltC, tiltS));
-      if (bgUv.x >= 0.0 && bgUv.x <= 1.0 && bgUv.y >= 0.0 && bgUv.y <= 1.0) {
+      vec3 escapeDir = toWorldFrame(rayDir, tiltC, tiltS);
+      vec2 bgUv = dirToScreenUv(escapeDir);
+      // 화면 밖으로 휜 광선 — 샘플할 씬 버퍼가 없다. 검정으로 두면 렌즈 주위에 비고증
+      // 암흑 고리가 생긴다(실제로는 강한 렌즈 지대에 화면 밖 하늘이 압축돼 들어온다).
+      // 절차 별밭(starField, 방향 해시 기반 결정론)으로 폴백해 하늘 연속성을 근사한다.
+      if (bgUv.x < 0.0 || bgUv.x > 1.0 || bgUv.y < 0.0 || bgUv.y > 1.0) {
+        color += starField(escapeDir) * (1.0 - alpha);
+      } else {
         float dRaw = readDepth(bgUv);
         float bhDist = length(uBhPos - uCameraPos);
         // mainImage의 전경 판정과 동일 기준(+2rs) — 통과(passthrough)된 별이 휜 배경에
@@ -420,10 +428,9 @@ const FRAGMENT = /* glsl */ `
         // 원호 이음선이 드러난다. 동반성 실루엣 주변(0.9~1.9R)을 직진 배경으로 넓게
         // 섞어 경계선을 공간적으로 녹인다 (동반성이 BH보다 앞일 때만 — 뒤면 진짜 렌즈 상).
         if (uFgStarActive > 0.5) {
-          vec3 worldDir = toWorldFrame(rayDir, tiltC, tiltS);
           vec3 toStar = uFgStarPos - uCameraPos;
-          float alongStar = max(dot(toStar, worldDir), 0.0);
-          float perpDist = length(toStar - worldDir * alongStar);
+          float alongStar = max(dot(toStar, escapeDir), 0.0);
+          float perpDist = length(toStar - escapeDir * alongStar);
           float feather = smoothstep(uFgStarRadius * 1.9, uFgStarRadius * 0.9, perpDist);
           bg = mix(bg, texture2D(inputBuffer, vUv).rgb, feather);
         }
