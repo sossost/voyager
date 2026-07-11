@@ -94,11 +94,31 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
   return geometry
 }
 
+/**
+ * 함교(원반 내부) 뷰 성간 소광 τ/유닛 — e-folding ≈1,500유닛 (misc-ux 함교 중심부 난잡 완화).
+ *
+ * 실측은 은하면 평균 A_V ≈ 1.7 mag/kpc (Gontcharov 2016) — 게임 스케일(은하 반경 4,800유닛
+ * ↔ 원반 반경 ~15 kpc, 1 kpc ≈ 320유닛)로 환산하면 τ ≈ 0.005/유닛이라 600유닛 밖이 전부
+ * 소멸해 항행 정보가 죽는다. 의도적으로 ~1/8로 완화한 값 (M-6 분광 분포 평탄화와 같은
+ * 게임성 완화) — 근거리(≤400유닛) 이웃은 거의 그대로, 중심부 원거리 스펙클(2,000유닛+
+ * ×수천 개 가산 블렌딩)만 은하수 띠(ShipViewGalaxyGlow)에 흡수되도록 감광한다.
+ */
+const SHIP_VIEW_EXTINCTION_PER_UNIT = 1 / 1_500
+
+/**
+ * 함교 뷰 점 크기 상한(px) — 이웃 별도 실제로는 수 광년 거리의 점광원이라 행성 원반과
+ * 크기가 경합하면 안 된다 (은하 중심부 밀집 지역에서 근접 별이 행성만 하게 보이는 문제).
+ * 항법 조망 뷰는 발견성이 우선이라 품질 프리셋 상한(8~12px)을 그대로 쓴다.
+ */
+const SHIP_VIEW_MAX_POINT_SIZE = 6
+
 interface GalaxyStarFieldProps {
   readonly stars: readonly Star[]
   readonly maxPointSize: number
   readonly visitedStars: ReadonlySet<StarId>
   readonly currentStarId: StarId
+  /** 원반 내부 시점(함교·워프) 여부 — 참이면 성간 소광을 적용한다. 조망(항법) 뷰는 거짓. */
+  readonly isInsideDisk: boolean
 }
 
 /**
@@ -111,6 +131,7 @@ export function GalaxyStarField({
   maxPointSize,
   visitedStars,
   currentStarId,
+  isInsideDisk,
 }: GalaxyStarFieldProps) {
   const geometry = useMemo(() => buildGeometry(stars), [stars])
   const currentStarScratch = useMemo(() => new Vector3(), [])
@@ -177,6 +198,13 @@ export function GalaxyStarField({
 
   useFrame((state) => {
     setUniform(material, 'uPixelRatio', state.gl.getPixelRatio())
+    // 성간 소광·점 크기 상한 — 원반 내부 시점에서만. 뷰 전환이 즉시 컷(리그 교체)이라 페이드 불필요.
+    setUniform(material, 'uExtinction', isInsideDisk ? SHIP_VIEW_EXTINCTION_PER_UNIT : 0)
+    setUniform(
+      material,
+      'uMaxPointSize',
+      isInsideDisk ? Math.min(maxPointSize, SHIP_VIEW_MAX_POINT_SIZE) : maxPointSize,
+    )
 
     // 현재 별 포인트 크로스페이드 — 구체(StarSurface)는 항상 렌더되므로 카메라 거리로
     // 항상 핸드오프한다. 가까우면 구체, 멀면(퍼스펙티브 줌아웃) 포인트로 (결정 41-c).

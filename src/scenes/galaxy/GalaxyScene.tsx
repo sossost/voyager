@@ -129,6 +129,7 @@ export function GalaxyScene() {
         maxPointSize={preset.maxPointSize}
         visitedStars={visitedStars}
         currentStarId={anchorStarId}
+        isInsideDisk={!isPerspectiveView}
       />
       {/* 블랙홀 findability — 함교 "탐색"으로 스캔한 블랙홀을 항법뷰에서만 홀로 마커로 표시한다
           (exotic-scan, 제거된 주황 링 대체). 함교 1인칭엔 지도 마커를 띄우지 않는다 (결정 4). */}

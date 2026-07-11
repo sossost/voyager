@@ -26,14 +26,20 @@ const VERTEX_SHADER = /* glsl */ `
   uniform float uSoftNear;
   uniform float uSoftFar;
   uniform float uCurrentFade;
+  uniform float uExtinction;
   varying vec3 vColor;
   varying float vSoftness;
   varying float vCurrentScale;
+  varying float vExtinction;
 
   void main() {
     vColor = starColor;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float distanceToCamera = max(-mvPosition.z, 1.0);
+
+    // 성간 소광 (Beer–Lambert e^-τd) — 원반 내부 시점(함교)에서 원거리 별을 감광한다.
+    // uExtinction=0이면 무영향 (항법 조망 뷰).
+    vExtinction = exp(-uExtinction * distanceToCamera);
 
     // 0 = 근거리(샤프) ~ SOFT_MAX_BLEND = 원거리(소프트 글로우)
     vSoftness = uSoftFar > 0.0
@@ -60,6 +66,7 @@ const FRAGMENT_SHADER = /* glsl */ `
   varying vec3 vColor;
   varying float vSoftness;
   varying float vCurrentScale;
+  varying float vExtinction;
 
   void main() {
     // 현재 별이 구체로 완전히 핸드오프된 상태 — 1px 클램프 잔상을 명시적으로 제거 (결정 41-c)
@@ -80,7 +87,7 @@ const FRAGMENT_SHADER = /* glsl */ `
 
     float alpha = mix(sharpAlpha, glow, vSoftness);
     vec3 shaded = vColor * mix(0.8 + 0.2 * core, 0.45 + 0.55 * glow, vSoftness);
-    gl_FragColor = vec4(shaded, alpha * uOpacity);
+    gl_FragColor = vec4(shaded, alpha * uOpacity * vExtinction);
   }
 `
 
@@ -113,6 +120,8 @@ export function createStarGlowMaterial({
       uSoftFar: { value: softFar },
       // 현재 별 포인트 페이드 (1 = 보임). aCurrent 어트리뷰트가 없는 지오메트리는 무영향.
       uCurrentFade: { value: 1 },
+      // 성간 소광 τ/유닛 — 0이면 비활성. GalaxyStarField가 뷰에 따라 설정한다.
+      uExtinction: { value: 0 },
     },
     transparent: true,
     depthWrite: false,
