@@ -27,6 +27,18 @@ export interface UniqueDiscovery {
   readonly discoveredAt: number
 }
 
+/**
+ * UI 설정 스냅샷 (misc-ux) — Profile 내장 (seenHints 패턴, 별도 테이블 없음).
+ * 저장 경계 계약이라 스토어 타입(TimeScale 등)을 임포트하지 않고 느슨한 원시 타입으로 두며,
+ * 값 검증·클램프는 하이드레이션 시 스토어(createGameStore)가 담당한다.
+ */
+export interface SettingsSnapshot {
+  readonly timeScale: number
+  readonly qualityMode: 'auto' | 'manual'
+  readonly qualityTier: 'high' | 'medium' | 'low'
+  readonly isOrbitLinesVisible: boolean
+}
+
 export interface Profile {
   readonly id: 1
   readonly seed: Seed
@@ -40,6 +52,8 @@ export interface Profile {
   readonly discoveredPhenomena?: readonly PhenomenonDiscovery[]
   /** 발견한 유니크 항성계 — 없으면 빈 배열로 취급 (기존 프로필 하위 호환, 위와 동일 패턴). */
   readonly discoveredUniques?: readonly UniqueDiscovery[]
+  /** UI 설정 — 없으면 기본값으로 취급 (기존 프로필 하위 호환, 위와 동일 패턴). */
+  readonly settings?: SettingsSnapshot
 }
 
 export interface VisitRecord {

@@ -116,10 +116,13 @@ export interface UiSlice {
 export interface SettingsSlice {
   readonly qualityTier: QualityTier
   readonly qualityMode: QualityMode
-  /** 궤도 운동 배속 (simulation-speed) — 렌더 파생 표시 상태이므로 영속화하지 않는다. */
+  /** 궤도 운동 배속 (simulation-speed) — Profile.settings로 영속화된다 (misc-ux). */
   readonly timeScale: TimeScale
+  /** 행성 궤도선(링·트레일) 표시 여부 — 취향 타는 오버레이라 기본 off (misc-ux). */
+  readonly isOrbitLinesVisible: boolean
   setQuality(tier: QualityTier, mode: QualityMode): void
   setTimeScale(scale: TimeScale): void
+  setOrbitLinesVisible(isVisible: boolean): void
 }
 
 export interface GameStore extends SceneSlice, PlayerSlice, UiSlice, SettingsSlice {

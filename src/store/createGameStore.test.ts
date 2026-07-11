@@ -322,6 +322,106 @@ describe('시뮬레이션 배속 (setTimeScale)', () => {
   })
 })
 
+describe('궤도선 토글 (misc-ux)', () => {
+  it('기본은 숨김(false)이다 — 취향 타는 오버레이', () => {
+    expect(store.getState().isOrbitLinesVisible).toBe(false)
+  })
+
+  it('setOrbitLinesVisible로 표시를 켜고 끈다', () => {
+    store.getState().setOrbitLinesVisible(true)
+    expect(store.getState().isOrbitLinesVisible).toBe(true)
+    store.getState().setOrbitLinesVisible(false)
+    expect(store.getState().isOrbitLinesVisible).toBe(false)
+  })
+})
+
+describe('설정 영속화 (misc-ux)', () => {
+  it('설정 변경은 Profile.settings로 저장된다 (write-through)', async () => {
+    store.getState().setTimeScale(8)
+    store.getState().setQuality('low', 'manual')
+    store.getState().setOrbitLinesVisible(true)
+    await vi.waitFor(async () => {
+      const profile = await driver.loadProfile()
+      expect(profile?.settings).toEqual({
+        timeScale: 8,
+        qualityMode: 'manual',
+        qualityTier: 'low',
+        isOrbitLinesVisible: true,
+      })
+    })
+  })
+
+  it('저장된 설정이 하이드레이션으로 복원된다', () => {
+    const restored = createGameStore({
+      seed,
+      startStarId,
+      driver,
+      initialQualityTier: 'high',
+      initialSettings: {
+        timeScale: 4,
+        qualityMode: 'manual',
+        qualityTier: 'medium',
+        isOrbitLinesVisible: true,
+      },
+    })
+    expect(restored.getState().timeScale).toBe(4)
+    expect(restored.getState().qualityMode).toBe('manual')
+    expect(restored.getState().qualityTier).toBe('medium')
+    expect(restored.getState().isOrbitLinesVisible).toBe(true)
+  })
+
+  it('일시정지(0)로 저장된 배속은 1로 복원된다 — 얼어 보이는 재접속 화면 방지', () => {
+    const restored = createGameStore({
+      seed,
+      startStarId,
+      driver,
+      initialSettings: {
+        timeScale: 0,
+        qualityMode: 'auto',
+        qualityTier: 'high',
+        isOrbitLinesVisible: false,
+      },
+    })
+    expect(restored.getState().timeScale).toBe(1)
+  })
+
+  it('auto 품질 모드는 저장 티어를 무시하고 이번 부트의 감지 티어를 쓴다', () => {
+    const restored = createGameStore({
+      seed,
+      startStarId,
+      driver,
+      initialQualityTier: 'low',
+      initialSettings: {
+        timeScale: 1,
+        qualityMode: 'auto',
+        qualityTier: 'high',
+        isOrbitLinesVisible: false,
+      },
+    })
+    expect(restored.getState().qualityMode).toBe('auto')
+    expect(restored.getState().qualityTier).toBe('low')
+  })
+
+  it('구버전·손상 값은 화이트리스트로 걸러 기본값으로 폴백한다', () => {
+    const restored = createGameStore({
+      seed,
+      startStarId,
+      driver,
+      initialQualityTier: 'medium',
+      initialSettings: {
+        timeScale: 999,
+        qualityMode: 'manual',
+        qualityTier: 'ultra' as never,
+        isOrbitLinesVisible: 'yes' as never,
+      },
+    })
+    expect(restored.getState().timeScale).toBe(1)
+    expect(restored.getState().qualityMode).toBe('auto') // 티어가 무효면 manual도 성립 불가
+    expect(restored.getState().qualityTier).toBe('medium')
+    expect(restored.getState().isOrbitLinesVisible).toBe(false)
+  })
+})
+
 describe('영속화 실패 처리', () => {
   it('재시도 소진 후 토스트로 알리고 게임은 계속된다', async () => {
     vi.useFakeTimers()

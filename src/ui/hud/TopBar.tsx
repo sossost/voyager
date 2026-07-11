@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useGameStore } from '@/store'
+import { FullscreenButton } from '@/ui/hud/FullscreenButton'
+import { OrbitLinesSelect } from '@/ui/hud/OrbitLinesSelect'
 import { QualitySelect } from '@/ui/hud/QualitySelect'
 import { SpeedSelect } from '@/ui/hud/SpeedSelect'
 import { UniverseResetDialog } from '@/ui/hud/UniverseResetDialog'
@@ -85,6 +87,8 @@ function SystemFob({ canResetUniverse, onRequestReset }: SystemFobProps) {
         <div id="system-fob-popover" className="system-fob-popover">
           <SpeedSelect />
           <QualitySelect />
+          <OrbitLinesSelect />
+          <FullscreenButton />
           {canResetUniverse ? (
             <button
               type="button"
