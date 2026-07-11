@@ -20,6 +20,7 @@ import { DecorativeStarfield } from "@/scenes/shared/DecorativeStarfield";
 import { DistantGalaxies } from "@/scenes/shared/DistantGalaxies";
 import { LensEnvironmentBaker } from "@/scenes/shared/lensEnvironment";
 import { CurrentSystem } from "@/scenes/system/CurrentSystem";
+import { arrivalFramingOf } from "@/scenes/system/systemExtent";
 import { useGameStore } from "@/store";
 
 const GALAXY_CENTER: readonly [number, number, number] = [0, 0, 0];
@@ -41,13 +42,15 @@ const PERSPECTIVE_OFFSET_Y = 5;
 const PERSPECTIVE_OFFSET_Z = 15;
 /** 은하 전체(지름 9,600 유닛)가 화면에 들어오는 줌아웃 한계 — 나선 형상 조망용. */
 const GALAXY_MAX_ZOOM_OUT = 6_000;
+/*
+ * 함교 정박 프레이밍 — 고정 거리(항성계 최대 크기 기준) 대신 계의 실제 외곽 반경에 맞춰
+ * 줌·고도를 동적으로 정한다 (misc-ux). 계산은 systemExtent.ts (렌더 배치와 단일 소스).
+ */
 /**
  * 우주선 뷰 하늘 천구 반경 — 정박 별에서 가장 먼 은하 별(≤9,600)보다 바깥이라
  * 장식이 항상 배경으로 읽히고, 정박 오프셋(≤4,800)을 더해도 far(30,000) 안이다.
  */
 const SHIP_SKY_RADIUS = 12_000;
-/** 함교 뷰 기본 시선 고도(도) — 항성계 궤도면을 내려다보는 각도. 블랙홀계만 낮게(옆에서) 본다. */
-const SHIP_SYSTEM_ELEVATION_DEG = 28;
 /** 블랙홀계 초기 정박 줌 — 행성이 없어 넓게 볼 필요가 없으니 당겨서 렌즈가 화면을 채우게. */
 const BLACK_HOLE_SHIP_ZOOM = 0.62;
 
@@ -79,6 +82,12 @@ export function GalaxyScene() {
     [seed, currentStarId]
   );
 
+  // 정박 별 기준(워프 중엔 출발 별이 아닌 도착 별로 미리 계산해도 무방 — ship 뷰에서만 쓰인다).
+  const arrivalFraming = useMemo(
+    () => arrivalFramingOf(seed, currentStarId),
+    [seed, currentStarId]
+  );
+
   const stars = useGalaxyStars();
   useStarPicking(stars);
 
@@ -98,8 +107,10 @@ export function GalaxyScene() {
       {isShipView ? (
         <ShipCameraRig
           anchor={shipFocus}
-          elevationDeg={currentIsBlackHole ? 3 : SHIP_SYSTEM_ELEVATION_DEG}
-          initialZoom={currentIsBlackHole ? BLACK_HOLE_SHIP_ZOOM : undefined}
+          elevationDeg={currentIsBlackHole ? 3 : arrivalFraming.elevationDeg}
+          initialZoom={
+            currentIsBlackHole ? BLACK_HOLE_SHIP_ZOOM : arrivalFraming.zoom
+          }
         />
       ) : null}
       {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는

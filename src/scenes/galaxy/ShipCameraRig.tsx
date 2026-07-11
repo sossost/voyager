@@ -39,7 +39,9 @@ const LOOK_DAMPING = 9;
  * 함교 거리 줌 — 정박 오프셋에 곱하는 배율. 1.0 = 정박(가장 멀리, 항성계 전체),
  * 아래로 갈수록 별/행성에 가까이. "좀만 확대" 의도라 범위를 좁게 둔다.
  */
-const SHIP_ZOOM_MIN = 0.55;
+// 동적 도착 프레이밍(systemExtent FIT_ZOOM_MIN 0.45)보다 살짝 아래 — 초기값이 곧 하한이면
+// 소형 계에서 휠 줌인 여지가 사라지므로 수동 범위를 조금 더 연다.
+const SHIP_ZOOM_MIN = 0.4;
 const SHIP_ZOOM_DEFAULT = 1.0;
 /** 휠 한 틱(deltaY≈100)당 배율 변화. */
 const SHIP_ZOOM_WHEEL_STEP = 0.0009;
