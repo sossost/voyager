@@ -350,6 +350,21 @@ body {
   min-width: 11rem;
 }
 
+/* 전체화면 관찰 모드 해제 키 (misc-ux) — 우상단 저존재감 상주, 호버/포커스 시 또렷하게. */
+.fullscreen-exit-key {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  opacity: 0.35;
+  pointer-events: auto;
+  transition: opacity 150ms ease;
+}
+
+.fullscreen-exit-key:hover,
+.fullscreen-exit-key:focus-visible {
+  opacity: 1;
+}
+
 /* 팝오버 내 컨트롤 — 셀렉트·버튼 종류와 무관하게 전부 컨테이너 너비를 꽉 채워 통일. */
 .system-fob-popover .quality-select-label {
   display: block;

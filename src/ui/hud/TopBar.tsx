@@ -88,7 +88,6 @@ function SystemFob({ canResetUniverse, onRequestReset }: SystemFobProps) {
           <SpeedSelect />
           <QualitySelect />
           <OrbitLinesSelect />
-          <FullscreenButton />
           {canResetUniverse ? (
             <button
               type="button"
@@ -135,6 +134,8 @@ export function TopBar() {
             일지
           </button>
         </div>
+        {/* 전체화면 — 관찰 모드 진입이라 설정 팝오버가 아닌 상단 바에 상주 (misc-ux) */}
+        <FullscreenButton />
         <SystemFob
           canResetUniverse={isGuestMode === false}
           onRequestReset={() => setIsResetDialogOpen(true)}
