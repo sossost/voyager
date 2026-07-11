@@ -155,9 +155,32 @@ const BH_DISK_OUTER_FACTOR = 18.0
 /** 항성풍 포획 원반(아케론, 백업) — 오버플로 원반보다 작고 어둡다 (Cyg X-1형). */
 const WIND_DISK_OUTER_FACTOR = 11.0
 const WIND_DISK_GAIN = 0.55
-/** 원반 기울기(라디안 ≈16°) — BH 스핀축은 강착 역사에 따라 궤도면과 어긋난다(Bardeen–
- * Petterson). Z축(함교 시선축) 회전이라 측면 프로필이 비스듬히 기운다 (렌즈 업그레이드). */
-const BH_DISK_TILT = 0.28
+/**
+ * BH별 결정론 변주 (렌즈 업그레이드) — starId 해시 파생, 렌더 전용(GEN_VERSION 무관).
+ * 랜덤이 정당한 요소만 변주한다:
+ *  - 기울기: BH 스핀축은 강착 역사의 산물이라 궤도면과 무관한 방향 (Bardeen–Petterson) —
+ *    ±5°~29°, Z축(함교 시선축) 회전이라 측면 프로필이 비스듬히 기운다.
+ *  - 폭·밝기·온도(색): 강착률·질량 차이의 발현. 색은 흑체 궤적 위에서만(앰버-적↔금↔청백).
+ * 원반 "유무"는 변주하지 않는다 — 그건 환경(동반성) 파생이어야 하는 요소로 유니크계
+ * 재투입 PR의 몫 (N-2 관통 원칙: 상태는 랜덤 롤이 아니라 환경에서).
+ */
+const BH_TILT_MIN = 0.09
+const BH_TILT_SPAN = 0.42
+const BH_DISK_OUTER_MIN = 14.0
+const BH_DISK_OUTER_SPAN = 7.0
+const BH_GAIN_MIN = 0.75
+const BH_GAIN_SPAN = 0.45
+const BH_TEMP_MIN = 0.55
+const BH_TEMP_SPAN = 1.1
+
+/** 문자열 → [0,1) 결정론 해시 — 렌더 전용 변주 시드 (엔진 rng와 무관, 전역 난수 아님). */
+function hash01(input: string, salt: number): number {
+  let h = 2166136261 ^ salt
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(h ^ input.charCodeAt(i), 16777619)
+  }
+  return ((h >>> 0) % 100_000) / 100_000
+}
 /** 카리브디스 반성의 조석 티어드롭 강도 — L1 쪽 최대 반경 +42% (로슈엽 충만 별). */
 const COMPANION_TIDAL_STRETCH = 0.42
 
@@ -349,7 +372,18 @@ export function CurrentSystem() {
       rimColor: SPECTRAL_SURFACE[companion.spectral].rimColor,
     }))
     return [primary, ...companions]
-  }, [star, bhVariant])
+  }, [star])
+
+  // BH별 결정론 변주 — starId 해시 파생 (위 상수 주석 참조). 유니크계는 명시 파라미터 우선.
+  const bhVariation = useMemo(() => {
+    const tiltSign = hash01(starId, 11) < 0.5 ? -1 : 1
+    return {
+      tilt: tiltSign * (BH_TILT_MIN + hash01(starId, 7) * BH_TILT_SPAN),
+      diskOuterFactor: BH_DISK_OUTER_MIN + hash01(starId, 13) * BH_DISK_OUTER_SPAN,
+      diskGain: BH_GAIN_MIN + hash01(starId, 17) * BH_GAIN_SPAN,
+      diskTemp: BH_TEMP_MIN + hash01(starId, 23) * BH_TEMP_SPAN,
+    }
+  }, [starId])
 
   // 동반성 렌즈 색 — 렌즈 셰이더의 해석적 구가 쓸 분광색 (매 프레임 문자열 파싱 방지 캐시).
   const companionLensColor = useMemo(
@@ -564,11 +598,12 @@ export function CurrentSystem() {
       // 디스크 안쪽을 그림자(BCRIT≈4.8 rs)보다 훨씬 안까지 끌어내려 검은 구에 바짝 붙인다(갭 제거).
       // 전체 크기는 rs(kindRadiusFactor)로 조절.
       blackHoleLens.diskInner = rs * BH_DISK_INNER_FACTOR
-      // 항성풍 포획 원반(유니크 아케론, 백업)은 작고 어둡다 — 절차 BH는 클래식(18/1.0).
+      // 원반 파라미터 — 절차 BH는 해시 변주(bhVariation), 유니크 아케론(백업)은 명시값.
       blackHoleLens.diskOuter =
-        rs * (unique?.id === 'disk_bh' ? WIND_DISK_OUTER_FACTOR : BH_DISK_OUTER_FACTOR)
-      blackHoleLens.diskGain = unique?.id === 'disk_bh' ? WIND_DISK_GAIN : 1
-      blackHoleLens.diskTilt = BH_DISK_TILT
+        rs * (unique?.id === 'disk_bh' ? WIND_DISK_OUTER_FACTOR : bhVariation.diskOuterFactor)
+      blackHoleLens.diskGain = unique?.id === 'disk_bh' ? WIND_DISK_GAIN : bhVariation.diskGain
+      blackHoleLens.diskTilt = bhVariation.tilt
+      blackHoleLens.diskTemp = unique != null ? 1 : bhVariation.diskTemp
       // 암흑화(dark = 원반 없는 고립 BH)는 백업 — 현행은 전 BH 원반 (uDiskEnabled 배관 보존).
       blackHoleLens.diskEnabled = true
       blackHoleLens.diskNormal.set(0, 1, 0)

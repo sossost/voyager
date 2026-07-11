@@ -40,7 +40,8 @@ const FRAGMENT = /* glsl */ `
   uniform float uDiskOuter;
   uniform float uDiskEnabled; // 0=암흑(렌즈·그림자만, 절차 BH) / 1=강착원반(유니크계)
   uniform float uDiskGain;    // 원반 밝기 배율 — 항성풍 포획(0.55) vs 오버플로(1)
-  uniform float uDiskTilt;    // 원반 기울기(rad, X축) — 아케론 스핀축·궤도면 어긋남
+  uniform float uDiskTilt;    // 원반 기울기(rad, Z축) — 스핀축·궤도면 어긋남 (BH별 변주)
+  uniform float uDiskTemp;    // 원반 피크 온도 배율 — 흑체 궤적 위 색 변주 (0.55 앰버-적 ~ 1.7 청백)
   uniform float uStreamEnabled; // 로슈엽 물질 스트림 (카리브디스 전용)
   uniform float uStreamAngle;   // 반성 방향 월드 각 — 나선 시작 각
   uniform float uStreamStartR;  // 스트림 시작 반경(월드, 반성 표면 근방)
@@ -112,14 +113,19 @@ const FRAGMENT = /* glsl */ `
     return (clip.xy / clip.w) * 0.5 + 0.5;
   }
 
-  // 가르강튀아 황금빛 — 외곽 앰버 → 중간 금 → 내부 백금. 빨강·파랑 배제, 전체 금색.
+  // 흑체 램프 — 저온 진홍-앰버 → 금 → 백금 → 고온 청백. 원반 색 변주(uDiskTemp)는 이
+  // 궤적 위에서만 움직인다 (임의 색조는 흑체 복사상 불가능 — 고증).
   vec3 blackbody(float tempK) {
-    float t = clamp((tempK - 1000.0) / 9000.0, 0.0, 1.0);
+    float t = clamp((tempK - 1000.0) / 9000.0, 0.0, 2.0);
+    vec3 ember = vec3(0.98, 0.42, 0.16);
     vec3 amber = vec3(1.0, 0.6, 0.24);
     vec3 gold  = vec3(1.0, 0.84, 0.5);
     vec3 white = vec3(1.0, 0.97, 0.88);
-    vec3 c = mix(amber, gold, smoothstep(0.0, 0.55, t));
-    return mix(c, white, smoothstep(0.6, 1.0, t));
+    vec3 blue  = vec3(0.82, 0.9, 1.12);
+    vec3 c = mix(ember, amber, smoothstep(0.0, 0.3, t));
+    c = mix(c, gold, smoothstep(0.25, 0.55, t));
+    c = mix(c, white, smoothstep(0.6, 1.0, t));
+    return mix(c, blue, smoothstep(1.05, 1.9, t));
   }
 
   // Perlin gradient noise — value noise 대신. 격자 경계 C1 연속 → grain/줄무늬 없음.
@@ -215,7 +221,7 @@ const FRAGMENT = /* glsl */ `
 
     // 흑체색 — 외곽→피크 온도를 falloff로 보간 (내부 청백, 외곽 주황)
     float tempFalloff = pow(DISK_REF_INNER / max(er, 1e-4), TEMP_FALLOFF);
-    float tempK = mix(DISK_OUTER_TEMP_K, DISK_PEAK_TEMP_K, tempFalloff);
+    float tempK = mix(DISK_OUTER_TEMP_K, DISK_PEAK_TEMP_K, tempFalloff) * uDiskTemp;
     vec3 col = blackbody(tempK);
 
     // 도플러 비밍 D^3 — 다가오는 쪽이 밝고 푸르게. 물질 운동 방향은 패턴 부호와 별개로
@@ -519,6 +525,7 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uDiskEnabled", new Uniform(0)],
         ["uDiskGain", new Uniform(1)],
         ["uDiskTilt", new Uniform(0)],
+        ["uDiskTemp", new Uniform(1)],
         ["uEnvMap", new Uniform(null)],
         ["uEnvReady", new Uniform(0)],
         ["uCompanionActive", new Uniform(0)],
@@ -568,6 +575,7 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uDiskEnabled", blackHoleLens.diskEnabled ? 1 : 0);
     set("uDiskGain", blackHoleLens.diskGain);
     set("uDiskTilt", blackHoleLens.diskTilt);
+    set("uDiskTemp", blackHoleLens.diskTemp);
     const envUniform = u.get("uEnvMap");
     if (envUniform != null) envUniform.value = lensEnv.texture as never;
     set("uEnvReady", lensEnv.ready && lensEnv.texture != null ? 1 : 0);
