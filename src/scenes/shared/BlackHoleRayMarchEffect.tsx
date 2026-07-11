@@ -261,10 +261,10 @@ const FRAGMENT = /* glsl */ `
     // 깔때기(baseFlare)가 없으면 물질이 허공에서 "띡" 생겨나는 것처럼 보인다 (사용자 피드백).
     float expected = uStreamAngle + STREAM_SWEEP * t;
     float d = angleDiff(angle, expected);
-    // 스트림이 반성-원반 간극(별 지름보다 짧다)에 끼어 있어 깔때기는 별 반경급으로 커야
-    // 보인다 — 별 실루엣 뒤에서 광구가 원뿔로 뜯겨 나오는 스케일.
+    // 깔때기는 반성의 조석 티어드롭(StarSurface uTidal — L1 팁)에서 이어받는 좁은 노즐로
+    // 절제한다 — 실제 L1 유출은 별 반경 대비 가늘다 (티어드롭 도입 전엔 2.6으로 과장했었다).
     float baseFlare = exp(-t * 6.0);
-    float halfW = (mix(0.32, 0.78, t) + 2.6 * baseFlare) * uRs / max(r, 1e-3);
+    float halfW = (mix(0.32, 0.78, t) + 1.3 * baseFlare) * uRs / max(r, 1e-3);
     float across = exp(-(d * d) / max(halfW * halfW, 1e-8));
 
     // BH 쪽(+t)으로 흘러가는 덩어리들 — 유입 물질이 "빨려드는" 독법의 핵심.

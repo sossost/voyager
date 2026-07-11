@@ -23,6 +23,7 @@ import {
 import { BlackHole, type BlackHoleVariant } from '@/scenes/system/BlackHole'
 import { blackHoleLens, clearBlackHoleLens } from '@/scenes/system/blackHoleLens'
 import { MatterStream } from '@/scenes/system/MatterStream'
+import { companionTide } from '@/scenes/system/companionTide'
 import { clearCurrentBodies, currentBodies } from '@/scenes/system/currentBodies'
 import {
   clearCurrentPlanetOrbits,
@@ -152,6 +153,8 @@ const DARK_BLACK_HOLE_LIGHT_COLOR = '#4a4a5e'
 /** 강착원반 안/바깥 반경 배수 (rs 기준) — 레이마칭 lens 게시·궤도 클리어런스 공용. */
 const BH_DISK_INNER_FACTOR = 2.5
 const BH_DISK_OUTER_FACTOR = 18.0
+/** 카리브디스 반성의 조석 티어드롭 강도 — L1 쪽 최대 반경 +42% (로슈엽 충만 별). */
+const COMPANION_TIDAL_STRETCH = 0.42
 
 export function CurrentSystem() {
   const seed = useGameStore((state) => state.seed)
@@ -420,6 +423,19 @@ export function CurrentSystem() {
       }
       currentBodies.starId = currentStarId
       currentBodies.count = bodyCount
+      // 조석 변형 방향 게시 (카리브디스) — 반성 StarSurface가 uTidalDir로 읽어 L1 팁을
+      // 블랙홀 쪽으로 늘인다. BH·반성 모두 질량중심을 돌므로 매 프레임 갱신.
+      if (bhVariant === 'feeding' && bodyCount > 1) {
+        const bhLocal = bodyScratch[0] as Vector3
+        const companionLocal = bodyScratch[1] as Vector3
+        const tideDx = bhLocal.x - companionLocal.x
+        const tideDz = bhLocal.z - companionLocal.z
+        const tideLen = Math.sqrt(tideDx * tideDx + tideDz * tideDz)
+        if (tideLen > 1e-6) {
+          companionTide.dirX = tideDx / tideLen
+          companionTide.dirZ = tideDz / tideLen
+        }
+      }
       // 행성 궤도 중심 — 항상 질량중심(원점) 공전 (circumbinary, 결정 8 개정).
       const center = planetCenterRef.current
       if (center != null) {
@@ -608,6 +624,10 @@ export function CurrentSystem() {
                     granulation={body.granulation}
                     rimColor={body.rimColor}
                     maxCoronaRadius={coronaMax[index] ?? Infinity}
+                    // 카리브디스 반성 — 로슈엽 충만 티어드롭 (L1 팁이 블랙홀을 향해 늘어난다).
+                    tidalStretch={
+                      bhVariant === 'feeding' && index === 1 ? COMPANION_TIDAL_STRETCH : 0
+                    }
                   />
                 )}
                 {/* 별 본체 선택은 화면공간 피킹(useStarPicking)이 currentBodies 월드 좌표로
