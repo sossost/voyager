@@ -156,6 +156,8 @@ const BH_DISK_OUTER_FACTOR = 18.0
 /** 항성풍 포획 원반(아케론) — 오버플로 원반보다 작고 어둡다 (유입 각운동량 부족, Cyg X-1형). */
 const WIND_DISK_OUTER_FACTOR = 11.0
 const WIND_DISK_GAIN = 0.55
+/** 아케론 원반 기울기(라디안 ≈16°) — 스핀축·궤도면 어긋남 (blackHoleLens.diskTilt 주석). */
+const WIND_DISK_TILT = 0.28
 /** 카리브디스 반성의 조석 티어드롭 강도 — L1 쪽 최대 반경 +42% (로슈엽 충만 별). */
 const COMPANION_TIDAL_STRETCH = 0.42
 
@@ -563,6 +565,7 @@ export function CurrentSystem() {
       blackHoleLens.diskOuter =
         rs * (bhVariant === 'disk' ? WIND_DISK_OUTER_FACTOR : BH_DISK_OUTER_FACTOR)
       blackHoleLens.diskGain = bhVariant === 'disk' ? WIND_DISK_GAIN : 1
+      blackHoleLens.diskTilt = bhVariant === 'disk' ? WIND_DISK_TILT : 0
       // 절차 BH는 암흑 — 렌즈·그림자만 그리고 원반은 유니크계(아케론·카리브디스) 전용.
       blackHoleLens.diskEnabled = bhVariant !== 'dark'
       blackHoleLens.diskNormal.set(0, 1, 0)
@@ -632,9 +635,11 @@ export function CurrentSystem() {
                     // 쓰는 가산 글로우라 레이마칭 배경 샘플에 걸려, 동반성이 BH 앞에 있을 때
                     // 반대편에 반투명 유령 호(비고증 — 전경 광원은 렌즈상 없음)로 맺힌다.
                     // 글로우를 줄이면 유령이 소멸하고 렌즈·아인슈타인 호(핵)는 그대로다.
+                    // 1.0R = 글로우가 별 원반 뒤에 숨는다 — 1.4R 잔여 고리가 동반성이 BH
+                    // 정면에 올 때 렌즈 주변 색 띠(글로우 고리의 아인슈타인 링)로 맺혔다.
                     maxCoronaRadius={
                       unique != null && index > 0
-                        ? Math.min(coronaMax[index] ?? Infinity, body.radius * 1.4)
+                        ? Math.min(coronaMax[index] ?? Infinity, body.radius)
                         : coronaMax[index] ?? Infinity
                     }
                     // 카리브디스 반성 — 로슈엽 충만 티어드롭 (L1 팁이 블랙홀을 향해 늘어난다).

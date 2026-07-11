@@ -37,6 +37,7 @@ const FRAGMENT = /* glsl */ `
   uniform float uDiskOuter;
   uniform float uDiskEnabled; // 0=암흑(렌즈·그림자만, 절차 BH) / 1=강착원반(유니크계)
   uniform float uDiskGain;    // 원반 밝기 배율 — 항성풍 포획(0.55) vs 오버플로(1)
+  uniform float uDiskTilt;    // 원반 기울기(rad, X축) — 아케론 스핀축·궤도면 어긋남
   uniform float uStreamEnabled; // 로슈엽 물질 스트림 (카리브디스 전용)
   uniform float uStreamAngle;   // 반성 방향 월드 각 — 나선 시작 각
   uniform float uStreamStartR;  // 스트림 시작 반경(월드, 반성 표면 근방)
@@ -89,6 +90,15 @@ const FRAGMENT = /* glsl */ `
   const float NEB2_SCALE = 6.0;
   const float NEB2_DENSITY = 0.5;
   const float NEB2_BRIGHT = 0.15;
+
+  // 원반 프레임 변환 (X축 회전) — 마칭·원반 판정은 "원반이 y=0"인 프레임에서 수행하고,
+  // 탈출 광선만 월드로 되돌려 배경을 샘플한다. 그림자·렌즈는 회전 불변이라 형태 불변.
+  vec3 toDiskFrame(vec3 v, float c, float s) {
+    return vec3(v.x, c * v.y + s * v.z, -s * v.y + c * v.z);
+  }
+  vec3 toWorldFrame(vec3 v, float c, float s) {
+    return vec3(v.x, c * v.y - s * v.z, s * v.y + c * v.z);
+  }
 
   vec2 dirToScreenUv(vec3 dir) {
     vec4 clip = uViewProj * vec4(uCameraPos + dir * 1e5, 1.0);
@@ -305,6 +315,11 @@ const FRAGMENT = /* glsl */ `
     if (dot(toFar, toFar) < 1e-12) return vec3(0.0);
     vec3 rayDir = normalize(toFar);
     vec3 pos = uCameraPos - uBhPos;
+    // 원반 프레임 진입 — 기울어진 원반(아케론)도 y=0 평면 판정을 그대로 쓴다.
+    float tiltC = cos(uDiskTilt);
+    float tiltS = sin(uDiskTilt);
+    pos = toDiskFrame(pos, tiltC, tiltS);
+    rayDir = toDiskFrame(rayDir, tiltC, tiltS);
     // 직선 충돌 매개변수 — 광자구 임계(b<BCRIT·rs) 안이면 그림자(배경 안 샘).
     float impactB = length(cross(pos, rayDir));
 
@@ -384,7 +399,7 @@ const FRAGMENT = /* glsl */ `
     // 배경은 *진짜 탈출한* 광선만 샘플 — 스텝 소진(미탈출)은 빨려든 셈이라 검정(그림자).
     // 광자구 안(b<BCRIT·rs)도 그림자(검정). 밖+탈출이면 휜 방향으로 실제 씬 샘플.
     if (escaped && alpha < 0.99 && impactB >= BCRIT * rs) {
-      vec2 bgUv = dirToScreenUv(rayDir);
+      vec2 bgUv = dirToScreenUv(toWorldFrame(rayDir, tiltC, tiltS));
       if (bgUv.x >= 0.0 && bgUv.x <= 1.0 && bgUv.y >= 0.0 && bgUv.y <= 1.0) {
         float dRaw = readDepth(bgUv);
         float bhDist = length(uBhPos - uCameraPos);
@@ -458,6 +473,7 @@ class BlackHoleRayMarchImpl extends Effect {
         ["uDiskOuter", new Uniform(9)],
         ["uDiskEnabled", new Uniform(0)],
         ["uDiskGain", new Uniform(1)],
+        ["uDiskTilt", new Uniform(0)],
         ["uStreamEnabled", new Uniform(0)],
         ["uStreamAngle", new Uniform(0)],
         ["uStreamStartR", new Uniform(20)],
@@ -500,6 +516,7 @@ class BlackHoleRayMarchImpl extends Effect {
     set("uDiskOuter", blackHoleLens.diskOuter);
     set("uDiskEnabled", blackHoleLens.diskEnabled ? 1 : 0);
     set("uDiskGain", blackHoleLens.diskGain);
+    set("uDiskTilt", blackHoleLens.diskTilt);
     set("uStreamEnabled", blackHoleLens.streamEnabled ? 1 : 0);
     set("uStreamAngle", blackHoleLens.streamAngle);
     set("uStreamStartR", blackHoleLens.streamStartR);
