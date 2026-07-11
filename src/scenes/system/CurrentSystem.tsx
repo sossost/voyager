@@ -148,16 +148,16 @@ interface BodyVisual {
 
 /** 블랙홀 강착원반 발광색 — 검은 본체 대신 이 따뜻한 빛이 행성·동반성을 비춘다. */
 const BLACK_HOLE_LIGHT_COLOR = '#ffcaa0'
-/** 암흑 블랙홀 광원색 — 원반이 없으니 발광원도 없다. 희미한 냉광(가독 최소한)만 남긴다. */
-const DARK_BLACK_HOLE_LIGHT_COLOR = '#4a4a5e'
+// 암흑 블랙홀 광원색(#4a4a5e — 원반 없는 고립 BH의 냉광)은 dark variant와 함께 백업.
 /** 강착원반 안/바깥 반경 배수 (rs 기준) — 레이마칭 lens 게시·궤도 클리어런스 공용. */
 const BH_DISK_INNER_FACTOR = 2.5
 const BH_DISK_OUTER_FACTOR = 18.0
-/** 항성풍 포획 원반(아케론) — 오버플로 원반보다 작고 어둡다 (유입 각운동량 부족, Cyg X-1형). */
+/** 항성풍 포획 원반(아케론, 백업) — 오버플로 원반보다 작고 어둡다 (Cyg X-1형). */
 const WIND_DISK_OUTER_FACTOR = 11.0
 const WIND_DISK_GAIN = 0.55
-/** 아케론 원반 기울기(라디안 ≈16°) — 스핀축·궤도면 어긋남 (blackHoleLens.diskTilt 주석). */
-const WIND_DISK_TILT = 0.28
+/** 원반 기울기(라디안 ≈16°) — BH 스핀축은 강착 역사에 따라 궤도면과 어긋난다(Bardeen–
+ * Petterson). Z축(함교 시선축) 회전이라 측면 프로필이 비스듬히 기운다 (렌즈 업그레이드). */
+const BH_DISK_TILT = 0.28
 /** 카리브디스 반성의 조석 티어드롭 강도 — L1 쪽 최대 반경 +42% (로슈엽 충만 별). */
 const COMPANION_TIDAL_STRETCH = 0.42
 
@@ -207,10 +207,11 @@ export function CurrentSystem() {
   const planets = useMemo(() => planetsOf(seed, starId), [seed, starId])
   // 소행성대 — 궤도 갭(암석대)·최외곽 행성 바깥(카이퍼대). 행성과 같은 중심(궤도 그룹) 기준.
   const belts = useMemo(() => beltsOf(seed, starId), [seed, starId])
-  // 블랙홀 상태 (exotic-codex) — 환경 파생: 절차 BH는 고립·암흑(dark), 유니크계만 강착 상태.
+  // 블랙홀 상태 — 렌즈 업그레이드 PR 재범위로 절차 BH 암흑화는 백업: 기본값을 'disk'
+  // (기존 룩: 모든 BH가 원반)로 되돌린다. 'dark'(고립 BH 렌즈만)·'feeding'(스트림)은
+  // 유니크계 재투입 PR에서 레지스트리 파생으로 복원 (variant 배관은 전부 보존).
   const unique = uniqueSystemOf(starId)
-  const bhVariant: BlackHoleVariant =
-    unique?.id === 'feeding_bh' ? 'feeding' : unique?.id === 'disk_bh' ? 'disk' : 'dark'
+  const bhVariant: BlackHoleVariant = unique?.id === 'feeding_bh' ? 'feeding' : 'disk'
   // 블랙홀은 행성을 숨긴다 — 강착원반이 내행성 궤도와 겹치고 천문학적으로도 이례적이다
   // (펄서·왜성·거성은 행성 유지). 유니크계도 동일 — 엔진이 행성을 아예 안 만든다(planetsOf,
   // 초신성이 행성계를 파괴). planetsOf는 무변경이라 골든·결정론 무관(렌더 전용).
@@ -326,13 +327,9 @@ export function CurrentSystem() {
       // 주계열성은 분광형 광도 로그 압축(O-4, G=1.0 불변). 이색 천체는 kindSurface가 담당.
       lightFactor: star.kind === 'main_sequence' ? SPECTRAL_LIGHT_FACTOR[star.spectral] : 1,
       kind: star.kind,
-      // 암흑 BH는 원반(발광원)이 없다 — 희미한 냉광만. 유니크계는 원반 발광색 유지.
-      lightColor:
-        star.kind === 'black_hole'
-          ? bhVariant === 'dark'
-            ? DARK_BLACK_HOLE_LIGHT_COLOR
-            : BLACK_HOLE_LIGHT_COLOR
-          : primaryColor,
+      // 암흑(dark) variant는 백업 — 현행 BH는 전부 원반 발광색. 재투입 시 dark 분기 복원
+      // (DARK_BLACK_HOLE_LIGHT_COLOR — 원반 없는 고립 BH의 냉광).
+      lightColor: star.kind === 'black_hole' ? BLACK_HOLE_LIGHT_COLOR : primaryColor,
       // 입상반 진폭·림 저온색은 주계열성만 분광 파생(O-6) — 이색 천체는 사용자 튜닝된
       // 기존 표면(진폭 1, 림 무채)을 유지한다.
       granulation:
@@ -567,13 +564,13 @@ export function CurrentSystem() {
       // 디스크 안쪽을 그림자(BCRIT≈4.8 rs)보다 훨씬 안까지 끌어내려 검은 구에 바짝 붙인다(갭 제거).
       // 전체 크기는 rs(kindRadiusFactor)로 조절.
       blackHoleLens.diskInner = rs * BH_DISK_INNER_FACTOR
-      // 항성풍 포획 원반(disk)은 오버플로 원반(feeding)보다 작고 어둡다 — Cyg X-1형 고증.
+      // 항성풍 포획 원반(유니크 아케론, 백업)은 작고 어둡다 — 절차 BH는 클래식(18/1.0).
       blackHoleLens.diskOuter =
-        rs * (bhVariant === 'disk' ? WIND_DISK_OUTER_FACTOR : BH_DISK_OUTER_FACTOR)
-      blackHoleLens.diskGain = bhVariant === 'disk' ? WIND_DISK_GAIN : 1
-      blackHoleLens.diskTilt = bhVariant === 'disk' ? WIND_DISK_TILT : 0
-      // 절차 BH는 암흑 — 렌즈·그림자만 그리고 원반은 유니크계(아케론·카리브디스) 전용.
-      blackHoleLens.diskEnabled = bhVariant !== 'dark'
+        rs * (unique?.id === 'disk_bh' ? WIND_DISK_OUTER_FACTOR : BH_DISK_OUTER_FACTOR)
+      blackHoleLens.diskGain = unique?.id === 'disk_bh' ? WIND_DISK_GAIN : 1
+      blackHoleLens.diskTilt = BH_DISK_TILT
+      // 암흑화(dark = 원반 없는 고립 BH)는 백업 — 현행은 전 BH 원반 (uDiskEnabled 배관 보존).
+      blackHoleLens.diskEnabled = true
       blackHoleLens.diskNormal.set(0, 1, 0)
       // 로슈엽 물질 스트림 (카리브디스) — 씬 파티클은 레이마칭 전담 영역에 덮여 사라지므로
       // 스트림 파라미터를 게시해 레이마칭이 원반과 같은 평면 히트로 직접 그린다.

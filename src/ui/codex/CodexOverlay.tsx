@@ -5,9 +5,8 @@ import {
   type PhenomenonArchetype,
   type PhenomenonKind,
 } from '@/data/phenomena/phenomena'
-import { UNIQUES_CATALOG, type UniqueArchetype } from '@/data/uniques/uniques'
 import type { CollectionEntry } from '@/persistence/types'
-import type { SpeciesArchetype, UniqueSystemId } from '@/engine'
+import type { SpeciesArchetype } from '@/engine'
 import { alienAt, SPECIES_BY_ID, SPECIES_CATALOG } from '@/engine'
 import { useGameStore } from '@/store'
 import { OverlayShell } from '@/ui/common/OverlayShell'
@@ -237,106 +236,10 @@ function PhenomenaTab() {
   )
 }
 
-function UniqueDetail({
-  archetype,
-  discoveredAt,
-  onBack,
-}: {
-  readonly archetype: UniqueArchetype
-  readonly discoveredAt: number
-  onBack(): void
-}) {
-  const dateFormat = useMemo(
-    () => new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }),
-    [],
-  )
-  return (
-    <section className="codex-detail" aria-label={`${archetype.label} 상세`}>
-      <button type="button" className="hud-button" onClick={onBack}>
-        ← 도감으로
-      </button>
-      <header className="codex-detail-header">
-        <h3 className="codex-detail-title">{archetype.label}</h3>
-        <span className="alien-card-rarity">유니크</span>
-      </header>
-      <p className="codex-detail-lore">{archetype.lore}</p>
-      <p className="codex-detail-subtitle">발견 {dateFormat.format(discoveredAt)}</p>
-    </section>
-  )
-}
-
-/**
- * 특이계 탭 (exotic-codex) — 은하에 하나뿐인 유니크 항성계 수집.
- * 미발견 엔트리는 이름을 감추되 서사형 힌트(방향·거리감)를 공개해 "성배 찾기"를 유도한다.
- * 발견 트리거는 해당 계 워프 도착 (warpTo → discoveredUniques).
- */
-function UniquesTab() {
-  const discoveredUniques = useGameStore((state) => state.discoveredUniques)
-  const [selectedId, setSelectedId] = useState<UniqueSystemId | null>(null)
-
-  const discoveredById = useMemo(
-    () => new Map(discoveredUniques.map((discovery) => [discovery.uniqueId, discovery])),
-    [discoveredUniques],
-  )
-
-  const selectedArchetype =
-    selectedId == null ? null : UNIQUES_CATALOG.find((a) => a.id === selectedId) ?? null
-  const selectedDiscovery = selectedId == null ? null : discoveredById.get(selectedId)
-  if (selectedArchetype != null && selectedDiscovery != null) {
-    return (
-      <UniqueDetail
-        archetype={selectedArchetype}
-        discoveredAt={selectedDiscovery.discoveredAt}
-        onBack={() => setSelectedId(null)}
-      />
-    )
-  }
-
-  const discoveredCount = discoveredById.size
-  const completionPercent = Math.round((discoveredCount / UNIQUES_CATALOG.length) * 100)
-
-  return (
-    <>
-      <p className="codex-progress">
-        발견한 특이계 <strong>{discoveredCount}</strong> / {UNIQUES_CATALOG.length} · 완성률{' '}
-        <strong>{completionPercent}%</strong>
-      </p>
-      <ul className="codex-grid">
-        {UNIQUES_CATALOG.map((archetype) => {
-          const discovery = discoveredById.get(archetype.id)
-          if (discovery == null) {
-            return (
-              <li key={archetype.id}>
-                <div className="phenomenon-slot phenomenon-slot-locked" aria-label="미발견 특이계">
-                  <span className="phenomenon-slot-name">???</span>
-                  <span className="phenomenon-slot-meta">유니크 · 미발견</span>
-                  <p className="unique-slot-hint">{archetype.hint}</p>
-                </div>
-              </li>
-            )
-          }
-          return (
-            <li key={archetype.id}>
-              <button
-                type="button"
-                className="phenomenon-slot"
-                onClick={() => setSelectedId(archetype.id)}
-              >
-                <span className="phenomenon-slot-name">{archetype.label}</span>
-                <span className="phenomenon-slot-meta">유니크 · 발견됨</span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </>
-  )
-}
-
+// 특이계 탭(유니크 항성계 도감)은 유니크계와 함께 백업 — 재투입 시 git 이력(ccbc038) 복원.
 const CODEX_TABS = [
   { id: 'species', label: '외계생명체' },
   { id: 'phenomena', label: '현상' },
-  { id: 'uniques', label: '특이계' },
 ] as const
 
 type CodexTabId = (typeof CODEX_TABS)[number]['id']
@@ -374,7 +277,7 @@ function CodexTabs({ active, onChange }: { readonly active: CodexTabId; onChange
   )
 }
 
-/** 도감 (z-20 오버레이) — store 캐시만 읽는다, DB 조회 0회 (결정 19). 외계생명체·현상·특이계 탭. */
+/** 도감 (z-20 오버레이) — store 캐시만 읽는다, DB 조회 0회 (결정 19). 외계생명체·현상 탭 (결정 15). */
 export function CodexOverlay() {
   const isOpen = useGameStore((state) => state.overlay === 'codex')
   const closeOverlay = useGameStore((state) => state.closeOverlay)
@@ -386,13 +289,7 @@ export function CodexOverlay() {
     <OverlayShell title="도감" onClose={closeOverlay}>
       <CodexTabs active={activeTab} onChange={setActiveTab} />
       <div role="tabpanel" id="codex-tabpanel" aria-labelledby={`codex-tab-${activeTab}`}>
-        {activeTab === 'species' ? (
-          <CodexContent />
-        ) : activeTab === 'phenomena' ? (
-          <PhenomenaTab />
-        ) : (
-          <UniquesTab />
-        )}
+        {activeTab === 'species' ? <CodexContent /> : <PhenomenaTab />}
       </div>
     </OverlayShell>
   )

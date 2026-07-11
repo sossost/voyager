@@ -69,9 +69,16 @@ export const FEEDING_BH_STAR: Star = {
   kind: 'black_hole',
 }
 
+/**
+ * ⚠️ 전체 백업 상태 (2026-07-11) — PR 재범위(렌즈 업그레이드 전용)로 유니크계 2계 모두
+ * 레지스트리 제외. 은하에 생성되지 않고 도감·발견도 비활성(레지스트리 파생이라 자동).
+ * 구현(핀 플러밍·렌더 variant·스트림·티어드롭·도감 텍스트)은 전부 보존 — 재투입 =
+ * 아래 항목 주석 해제 + data 카탈로그 + CodexOverlay 특이계 탭 복원(git 이력 ccbc038 참조)
+ * + GEN_VERSION 범프(핀 추가 = 해당 섹터 출력 변경) + 테스트 갱신.
+ */
 export const UNIQUE_SYSTEMS: readonly UniqueSystem[] = [
-  { id: 'disk_bh', star: DISK_BH_STAR },
-  // { id: 'feeding_bh', star: FEEDING_BH_STAR }, — 백업 (위 FEEDING_BH_STAR 주석 참조)
+  // { id: 'disk_bh', star: DISK_BH_STAR },
+  // { id: 'feeding_bh', star: FEEDING_BH_STAR },
 ]
 
 const UNIQUE_BY_STAR_ID: ReadonlyMap<StarId, UniqueSystem> = new Map(
