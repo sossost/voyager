@@ -549,6 +549,16 @@ body {
   color: color-mix(in srgb, var(--color-holo-strong) 45%, var(--color-text));
 }
 
+/* 천체 짧은 설명 (misc-ux) — 팩트 목록 아래의 낮은 위계 플레이버 텍스트 */
+.hud-panel-desc {
+  margin: 0 0 1rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-holo) 18%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--color-text-dim);
+}
+
 .badge {
   padding: 0.15rem 0.5rem;
   border-radius: 2px;
