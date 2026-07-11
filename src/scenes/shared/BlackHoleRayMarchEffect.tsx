@@ -243,7 +243,9 @@ const FRAGMENT = /* glsl */ `
   // ── 로슈엽 물질 스트림 (exotic-codex, 카리브디스) ──
   // 반성(각 uStreamAngle, r=uStreamStartR)에서 원반 외곽으로 감기는 나선. 감김은 궤도
   // 진행(+각) 방향 — 각운동량 보존으로 안쪽 물질이 공전보다 빨라져 앞쪽으로 감긴다.
-  const float STREAM_SWEEP = 2.45;
+  // 감김각은 별-원반 간극이 좁을 때(원반이 로슈엽을 거의 채움) 작다 — 크면 반경보다 각이
+  // 지배해 스트림이 티어드롭 팁이 아니라 옆구리에서 나오는 것처럼 읽힌다 (2.45→0.55 수정).
+  const float STREAM_SWEEP = 0.55;
 
   float angleDiff(float a, float b) {
     return mod(a - b + 3.14159265, 6.2831853) - 3.14159265;

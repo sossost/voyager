@@ -35,8 +35,8 @@ import { crossfadeProgress } from '@/scenes/system/starCrossfade'
 
 /** 리본 세그먼트 수 — 나선이 매끈하게 보이는 최소한. */
 const SEGMENTS = 64
-/** 나선 감김 각(라디안) — 반성에서 원반 가장자리까지 ~140° 뒤처지며 감긴다. */
-const SWEEP_RAD = 2.45
+/** 나선 감김 각(라디안) — 좁은 별-원반 간극에선 작아야 팁(L1)에서 나오는 형상이 유지된다 (레이마칭 STREAM_SWEEP와 동일). */
+const SWEEP_RAD = 0.55
 /** 스트림 폭(월드) — 시작(반성 쪽) 좁고 원반 합류부에서 살짝 퍼진다. */
 const WIDTH_START = 0.5
 const WIDTH_END = 1.4
