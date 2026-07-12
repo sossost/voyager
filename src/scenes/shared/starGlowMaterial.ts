@@ -29,6 +29,7 @@ const VERTEX_SHADER = /* glsl */ `
   uniform float uCurrentFade;
   uniform float uExtinction;
   uniform float uFaintMix;
+  uniform float uDesaturate;
   varying vec3 vColor;
   varying float vSoftness;
   varying float vCurrentScale;
@@ -36,9 +37,13 @@ const VERTEX_SHADER = /* glsl */ `
 
   void main() {
     // 광도 멱법칙 (O-19) — aFaint(다수 어두움·소수 1)를 uFaintMix만큼 반영한다.
-    // 함교(감상) 뷰만 1, 항법(도구) 뷰는 0 — 지도의 발견성·클릭 가시성은 불변.
+    // 함교(감상) 뷰 1 · 항법(도구) 뷰는 줌아웃 조망에서만 점진 적용 — 항행 거리 가독성 불변.
     float faint = mix(1.0, aFaint, uFaintMix);
     vColor = starColor * faint;
+    // 사진 탈채도 (galaxy-realism-pass) — 줌아웃 조망에서 과장 팔레트(발견성용 채도)를
+    // 실사진의 흰빛 중심 톤으로 눌러 "색종이 입자" 인상을 없앤다. 0이면 무영향.
+    float luma = dot(vColor, vec3(0.299, 0.587, 0.114));
+    vColor = mix(vColor, vec3(luma) * vec3(1.04, 0.99, 0.9), uDesaturate);
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float distanceToCamera = max(-mvPosition.z, 1.0);
 
@@ -132,6 +137,8 @@ export function createStarGlowMaterial({
       // 광도 멱법칙 혼합 (O-19) — 0이면 비활성. aFaint 미설정 지오메트리(장식 별밭 등)는
       // 어트리뷰트가 0으로 읽히므로 반드시 0이어야 무영향이다.
       uFaintMix: { value: 0 },
+      // 사진 탈채도 [0,1] — 줌아웃 조망 전용. 0이면 무영향.
+      uDesaturate: { value: 0 },
     },
     transparent: true,
     depthWrite: false,

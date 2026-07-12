@@ -135,6 +135,26 @@ const SHIP_VIEW_MAX_POINT_SIZE = 6
  */
 const FAINT_FLOOR = 0.18
 
+/**
+ * 줌아웃 조망의 사진 전환 (galaxy-realism-pass) — 은하 전경에서 점 필드가 "채도 높은
+ * 색종이 입자"로 읽히는 문제. 항행 거리(줌인)에선 도구 가독성(과장 색·균일 밝기·클릭)을
+ * 유지하고, 은하 조망으로 줌아웃할수록 멱법칙 감광·탈채도·크기 축소를 점진 적용해
+ * 확산광(GalaxyNebula 헤이즈)이 형상을 넘겨받게 한다. 거리 창은 성운 페이드인과 동일
+ * (GalaxyNebula FADE_NEAR/FAR) — 헤이즈가 떠오르는 만큼 점이 물러난다.
+ */
+const PHOTO_FADE_NEAR = 2_000
+const PHOTO_FADE_FAR = 4_500
+/** 조망 최대 적용률 — 1이면 어두운 별이 소실돼 지도 기능이 죽는다. */
+const PHOTO_FAINT_MAX = 0.75
+const PHOTO_DESATURATE_MAX = 0.7
+/** 조망에서 점 크기 상한 축소율 — 점이 잘아져야 확산광에 섞인다. */
+const PHOTO_POINT_SHRINK = 0.45
+
+function smoothstep01(edge0: number, edge1: number, value: number): number {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)))
+  return t * t * (3 - 2 * t)
+}
+
 interface GalaxyStarFieldProps {
   readonly stars: readonly Star[]
   readonly maxPointSize: number
@@ -223,12 +243,20 @@ export function GalaxyStarField({
     setUniform(material, 'uPixelRatio', state.gl.getPixelRatio())
     // 성간 소광·점 크기 상한·광도 멱법칙 — 원반 내부 시점에서만. 뷰 전환이 즉시 컷이라 페이드 불필요.
     setUniform(material, 'uExtinction', isInsideDisk ? SHIP_VIEW_EXTINCTION_PER_UNIT : 0)
-    setUniform(material, 'uFaintMix', isInsideDisk ? 1 : 0)
-    setUniform(
-      material,
-      'uMaxPointSize',
-      isInsideDisk ? Math.min(maxPointSize, SHIP_VIEW_MAX_POINT_SIZE) : maxPointSize,
-    )
+    if (isInsideDisk) {
+      setUniform(material, 'uFaintMix', 1)
+      setUniform(material, 'uDesaturate', 0)
+      setUniform(material, 'uMaxPointSize', Math.min(maxPointSize, SHIP_VIEW_MAX_POINT_SIZE))
+    } else {
+      // 항법 조망 — 줌아웃할수록 사진 톤으로 전환 (근거리 항행 가독성은 photo=0 → 불변)
+      const controls = state.controls as { target?: Vector3 } | null
+      const zoomDistance =
+        controls?.target == null ? 0 : state.camera.position.distanceTo(controls.target)
+      const photo = smoothstep01(PHOTO_FADE_NEAR, PHOTO_FADE_FAR, zoomDistance)
+      setUniform(material, 'uFaintMix', PHOTO_FAINT_MAX * photo)
+      setUniform(material, 'uDesaturate', PHOTO_DESATURATE_MAX * photo)
+      setUniform(material, 'uMaxPointSize', maxPointSize * (1 - PHOTO_POINT_SHRINK * photo))
+    }
 
     // 현재 별 포인트 크로스페이드 — 구체(StarSurface)는 항상 렌더되므로 카메라 거리로
     // 항상 핸드오프한다. 가까우면 구체, 멀면(퍼스펙티브 줌아웃) 포인트로 (결정 41-c).

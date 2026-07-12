@@ -109,13 +109,20 @@ function getDistantGalaxyMaterials(): readonly MeshBasicMaterial[] {
         map: texture,
         color: config.tint,
         transparent: true,
-        opacity: config.opacity,
+        opacity: config.opacity * GLOBAL_OPACITY_SCALE,
         blending: AdditiveBlending,
         depthWrite: false,
       }),
   )
   return cachedMaterials
 }
+
+/**
+ * 전역 감쇠 (galaxy-realism-pass) — 실제 딥스카이 사진의 배경 은하는 겨우 알아보는
+ * 희미한 스머지다. 종전 밝기는 주인공 은하와 경합해 "분홍 얼룩 노이즈"로 읽혔다
+ * (탈채도·헤이즈 강화 후 상대적으로 더 도드라짐 — 사용자 지적).
+ */
+const GLOBAL_OPACITY_SCALE = 0.45
 
 export function DistantGalaxies() {
   const groupRefs = useRef<(Group | null)[]>([])

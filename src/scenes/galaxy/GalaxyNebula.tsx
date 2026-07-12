@@ -41,7 +41,11 @@ const UPSCALE_BLUR_PX = 3
  */
 const FADE_NEAR_DISTANCE = 2_000
 const FADE_FAR_DISTANCE = 4_500
-const MAX_OPACITY = 0.4
+/**
+ * 조망 최대 불투명도 — 사진 전환(galaxy-realism-pass)에서 점 필드가 물러난 자리를
+ * 확산광이 주인공으로 채운다 (0.4는 점에 묻혀 헤이즈·먼지 레인·HII가 안 보였다).
+ */
+const MAX_OPACITY = 0.62
 /** 이 미만이면 mesh 렌더 자체를 끈다 — 투명한 전면 쿼드의 fill-rate 낭비 방지. */
 const VISIBLE_OPACITY_THRESHOLD = 0.01
 
@@ -78,7 +82,7 @@ const HII_NOISE_FREQUENCY = 0.55
 const HII_SALT = 13
 const HII_THRESHOLD_LOW = 0.76
 const HII_THRESHOLD_HIGH = 0.92
-const HII_GAIN = 0.85
+const HII_GAIN = 1.15
 
 
 function clamp01(value: number): number {
@@ -122,11 +126,15 @@ function buildNebulaTexture(): CanvasTexture {
       brightness *= 1 - DUST_LANE_DEPTH * dustLane
 
       // HII 매듭 — 팔 능선 위 고주파 노이즈 상위 꼬리만 분홍 점으로 (별 형성 영역).
+      // 밀도 게이트 필수: 별 형성은 가스가 있는 곳에서만 — 없으면 원반 밖 빈 평면에
+      // 분홍 얼룩이 찍힌다 (armRidgeAt·laneWeight 모두 외곽 차단이 없다).
+      const gasPresence = clamp01(density * 6)
       const hiiNoise = valueNoise3(sx * HII_NOISE_FREQUENCY, 0, sz * HII_NOISE_FREQUENCY, HII_SALT)
       const hiiKnot =
         smoothstep(HII_THRESHOLD_LOW, HII_THRESHOLD_HIGH, hiiNoise) *
         armRidgeAt(sx, sz) *
         laneWeight *
+        gasPresence *
         HII_GAIN
 
       // 성운 색조 — 우주선 뷰 파노라마와 같은 필드 (galaxyNebulae, 우주 일관성)
