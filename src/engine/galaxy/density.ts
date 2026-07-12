@@ -10,8 +10,15 @@ export const SECTOR_SIZE = 100
 export const GALAXY_RADIUS_SECTORS = 48
 /** 은하 원반 절반 두께 최대값 (섹터 단위) — 중심 벌지 기준. 섹터 순회 상한으로도 쓰인다. */
 export const GALAXY_HALF_THICKNESS_SECTORS = 5
-/** 원반 가장자리의 절반 두께 — 날개 끝으로 갈수록 얇아지는 렌즈형 측면 실루엣 (결정 32). */
-const RIM_HALF_THICKNESS_SECTORS = 1.2
+/**
+ * 원반 절반 두께 — 반경 무관 상수 (galaxy-realism-pass 두께 고증, GEN_VERSION 12).
+ * 실제 원반 은하의 항성 스케일 하이트는 반경에 거의 무관하다 (박원반 ~300 pc ≈ 1섹터,
+ * 후원반 ~900 pc — Jurić et al. 2008). 구 렌즈형 테이퍼(중심 5 → 림 1.2)는 중간 반경을
+ * 실은하 대비 2배 두껍게 만들었다 — "가운데만 볼록"은 원반이 아니라 벌지의 성질이다.
+ * 1.5섹터(≈0.5 kpc)는 박원반 가시 두께 + 후원반 일부의 합성 근사 — 지름 대비 32:1로
+ * 측면 은하 사진의 면도날 실루엣과 정합한다.
+ */
+const DISK_HALF_THICKNESS_SECTORS = 1.5
 
 /** 나선팔 개수 — 그랜드 디자인 2팔 나선. */
 const ARM_COUNT = 2
@@ -55,6 +62,23 @@ function clamp01(value: number): number {
 }
 
 /**
+ * 나선팔 능선 강도 [0, 1] — 팔 능선에서 1, 팔 사이에서 0 (세제곱으로 능선을 좁힌다).
+ * sectorDensity의 팔 변조와 동일 수식·연산 순서 (단일 소스 — 추출 리팩토링이라 골든 불변).
+ * 렌더 계층(먼지 레인·HII 매듭 배치)이 phaseOffset으로 능선 안/바깥쪽을 샘플할 수 있게
+ * 공개한다 — 위상 +는 같은 반경에서 능선보다 안쪽(더 작은 r의 능선 위상)을 가리킨다.
+ */
+export function armRidgeAt(sx: number, sz: number, phaseOffset = 0): number {
+  const radialDistance = Math.sqrt(sx * sx + sz * sz)
+  const angle = atan2Approx(sz, sx)
+  const armPhase =
+    ARM_COUNT * angle +
+    ARM_LOG_WINDING * lnApprox(Math.max(radialDistance, 1) / ARM_R0_SECTORS) +
+    phaseOffset
+  const armWave = 0.5 + 0.5 * cosApprox(armPhase)
+  return armWave * armWave * armWave
+}
+
+/**
  * 섹터의 별 밀도 [0, 1] — 원반 감쇠 × 수직 감쇠(렌즈형) × 나선팔 변조 × 덩어리 질감 + 중앙 벌지.
  *
  * +, -, *, /, Math.sqrt, Math.abs와 그것만으로 만든 유리 근사(trig.ts·log.ts)만 사용한다
@@ -68,27 +92,24 @@ export function sectorDensity(sector: SectorCoords): number {
   const radialFalloff = clamp01(1 - radialDistance / GALAXY_RADIUS_SECTORS)
   if (radialFalloff === 0) return 0
 
-  // 렌즈형 수직 프로파일 (결정 32): 절반 두께가 중심에서 5섹터, 가장자리에서 1.2섹터로
-  // t^1.5 테이퍼 — Math.pow 금지라 t·sqrt(t)로 표현 (결정 14 허용 연산만)
-  const taper = radialFalloff * Math.sqrt(radialFalloff)
-  const halfThickness =
-    RIM_HALF_THICKNESS_SECTORS +
-    (GALAXY_HALF_THICKNESS_SECTORS - RIM_HALF_THICKNESS_SECTORS) * taper
+  // 수직 프로파일 (galaxy-realism-pass 두께 고증, GEN_VERSION 12): 원반은 반경 무관
+  // 상수 두께(실측 스케일 하이트), 벌지 구간만 중심 5섹터로 부풀어 오른다.
+  // sy=0 평면의 밀도는 구 프로파일과 완전 동일 (|0|/두께 = 0) — Sol·LIFE1·E2E 불변.
+  const bulgeVerticalWeight = clamp01(1 - radialDistance / BULGE_RADIUS_SECTORS)
+  const halfThickness = Math.max(
+    DISK_HALF_THICKNESS_SECTORS,
+    GALAXY_HALF_THICKNESS_SECTORS * bulgeVerticalWeight,
+  )
   const verticalFalloff = clamp01(1 - Math.abs(sector.sy) / halfThickness)
   if (verticalFalloff === 0) return 0
 
-  // 나선팔: 팔 능선에서 1, 팔 사이에서 ARM_FLOOR — 세제곱으로 능선을 좁힌다.
+  // 나선팔: 팔 능선에서 1, 팔 사이에서 ARM_FLOOR (armRidgeAt — 렌더와 공유하는 단일 소스).
   // 위상은 로그 나선(∝ ln r, O-10) — 반경 1 미만은 클램프해 ln 발산을 막는다(벌지가 지배하는 구간).
-  const angle = atan2Approx(sector.sz, sector.sx)
-  const armPhase =
-    ARM_COUNT * angle +
-    ARM_LOG_WINDING * lnApprox(Math.max(radialDistance, 1) / ARM_R0_SECTORS)
-  const armWave = 0.5 + 0.5 * cosApprox(armPhase)
-  const armRidge = armWave * armWave * armWave
+  const armRidge = armRidgeAt(sector.sx, sector.sz)
   const arm = ARM_FLOOR + (1 - ARM_FLOOR) * armRidge
 
   // 벌지 안에서는 팔 변조를 무정형으로 풀어준다 (중심부는 팔이 아니라 구형 핵)
-  const bulgeWeight = clamp01(1 - radialDistance / BULGE_RADIUS_SECTORS)
+  const bulgeWeight = bulgeVerticalWeight
   const armFactor = arm + (1 - arm) * bulgeWeight
 
   const clumpNoise = valueNoise3(

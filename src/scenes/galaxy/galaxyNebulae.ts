@@ -11,9 +11,8 @@ import { valueNoise3 } from '@/engine/noise/valueNoise'
  * 어느 정박에서 봐도 항상 띠의 일부로만 읽히고, 가까이 가도 커튼이 생길 수 없다.
  * 노이즈는 시드 무관 결정론 — 모든 플레이어가 같은 색조의 하늘을 본다.
  *
- * 소비처 둘이 같은 필드를 공유한다 (우주 일관성, 결정 24 원칙):
- * - 우주선 뷰 파노라마(galaxyBandPanorama) — 광선 적분 중 밀도 가중 색조 누적
- * - 은하 전도(GalaxyNebula) — 평면도 텍셀 색에 같은 변조
+ * 소비처: 은하 전도(GalaxyNebula) — 평면도 텍셀 색에 색조 변조.
+ * (구 우주선 뷰 밴드 파노라마도 공유했으나 밴드는 galaxy-realism-pass에서 제거됨)
  */
 
 /** 색조 패치의 공간 주파수 — 파장 ~11섹터, 클럼프 노이즈(0.18)보다 굵은 가스 구름 스케일. */
@@ -22,9 +21,12 @@ const TINT_FREQUENCY = 0.09
 const ROSE_SALT = 11
 const TEAL_SALT = 12
 
-/** 색조 목표색 — 발광 성운(로즈)·반사 성운(청록). 가산 띠 위에서 자연스러운 천체 색. */
+/**
+ * 색조 목표색 — 발광 성운(로즈 H-알파)·반사 성운(청색). 반사성운은 실사진에서 청록이
+ * 아니라 푸른 산란색이다 (플레이아데스 등, galaxy-realism-pass 톤 정리).
+ */
 export const NEBULA_ROSE_RGB = [255, 122, 142] as const
-export const NEBULA_TEAL_RGB = [112, 228, 208] as const
+export const NEBULA_TEAL_RGB = [150, 190, 255] as const
 /** 색조 최대 혼합률 — 띠 고유색(한색 팔·난색 벌지)을 잃지 않는 상한. */
 export const NEBULA_TINT_MAX_BLEND = 0.58
 

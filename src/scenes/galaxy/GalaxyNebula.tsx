@@ -9,7 +9,8 @@ import {
   type Vector3,
 } from 'three'
 
-import { GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
+import { armRidgeAt, GALAXY_RADIUS_SECTORS, SECTOR_SIZE, sectorDensity } from '@/engine'
+import { valueNoise3 } from '@/engine/noise/valueNoise'
 import {
   NEBULA_ROSE_RGB,
   NEBULA_TEAL_RGB,
@@ -40,18 +41,44 @@ const UPSCALE_BLUR_PX = 3
  */
 const FADE_NEAR_DISTANCE = 2_000
 const FADE_FAR_DISTANCE = 4_500
-const MAX_OPACITY = 0.4
+/**
+ * 조망 최대 불투명도 — 사진 전환(galaxy-realism-pass)에서 점 필드가 물러난 자리를
+ * 확산광이 주인공으로 채운다 (0.4는 점에 묻혀 헤이즈·먼지 레인·HII가 안 보였다).
+ */
+const MAX_OPACITY = 0.62
 /** 이 미만이면 mesh 렌더 자체를 끈다 — 투명한 전면 쿼드의 fill-rate 낭비 방지. */
 const VISIBLE_OPACITY_THRESHOLD = 0.01
 
-/** 벌지(중심) 난색 → 나선팔(외곽) 한색. */
+/** 벌지(중심) 난색 → 나선팔(외곽) 한색 — 팔은 청백색 (사진 문법, galaxy-realism-pass). */
 const BULGE_RGB = [255, 208, 150] as const
-const ARM_RGB = [110, 140, 235] as const
+const ARM_RGB = [185, 200, 232] as const
 const COLOR_BLEND_RADIUS_SECTORS = 10
 
-/** 중심 광원 — 텍스처 위에 덧그리는 코어 글로우 (벌지 반경의 배수). */
-const CORE_GLOW_RADIUS_SECTORS = 14
-const CORE_GLOW_ALPHA = 0.85
+/**
+ * 나선팔 먼지 레인 (galaxy-realism-pass) — 실제 나선은하 사진에서 팔의 **안쪽 가장자리**를
+ * 따라 도는 어두운 먼지 띠 (밀도파 이론: 가스가 팔 중력 우물로 낙하하며 안쪽에 충격 압축).
+ * 위상 오프셋 +는 같은 반경에서 능선보다 안쪽 위상을 가리킨다 (armRidgeAt 계약).
+ */
+const DUST_LANE_PHASE_OFFSET = 0.62
+const DUST_LANE_DEPTH = 0.55
+/** 레인은 원반 팔 구간에만 — 벌지(≤6섹터) 안은 무정형이라 제외. */
+const DUST_LANE_RADIUS_START = 5
+const DUST_LANE_RADIUS_FULL = 9
+/** 레인 패치 노이즈 — 균일한 검은 줄은 인공적, 사진처럼 끊기고 뭉친다. */
+const DUST_PATCH_FREQUENCY = 0.3
+const DUST_PATCH_SALT = 14
+const DUST_PATCH_FLOOR = 0.35
+
+/**
+ * HII 영역 매듭 (galaxy-realism-pass) — 팔을 따라 박힌 별 형성 영역의 H-알파 분홍 점.
+ * 고주파 노이즈의 상위 꼬리만 매듭으로 맺혀 "군데군데" 배치된다 (결정론, 시드 무관).
+ */
+const HII_RGB = [255, 118, 150] as const
+const HII_NOISE_FREQUENCY = 0.55
+const HII_SALT = 13
+const HII_THRESHOLD_LOW = 0.76
+const HII_THRESHOLD_HIGH = 0.92
+const HII_GAIN = 1.15
 
 
 function clamp01(value: number): number {
@@ -83,7 +110,28 @@ function buildNebulaTexture(): CanvasTexture {
       const radius = Math.sqrt(sx * sx + sz * sz)
       const warmth = clamp01(1 - radius / COLOR_BLEND_RADIUS_SECTORS)
       // 어두운 영역을 더 어둡게 — 팔 사이 공간이 비어 보여야 나선이 산다
-      const brightness = Math.pow(density, 1.2)
+      let brightness = Math.pow(density, 1.2)
+
+      // 먼지 레인 — 팔 안쪽 가장자리를 따라 헤이즈를 깎는다 (벌지 밖 원반 구간만, 패치형).
+      const laneWeight = smoothstep(DUST_LANE_RADIUS_START, DUST_LANE_RADIUS_FULL, radius)
+      const lanePatch =
+        DUST_PATCH_FLOOR +
+        (1 - DUST_PATCH_FLOOR) *
+          valueNoise3(sx * DUST_PATCH_FREQUENCY, 0, sz * DUST_PATCH_FREQUENCY, DUST_PATCH_SALT)
+      const dustLane = armRidgeAt(sx, sz, DUST_LANE_PHASE_OFFSET) * laneWeight * lanePatch
+      brightness *= 1 - DUST_LANE_DEPTH * dustLane
+
+      // HII 매듭 — 팔 능선 위 고주파 노이즈 상위 꼬리만 분홍 점으로 (별 형성 영역).
+      // 밀도 게이트 필수: 별 형성은 가스가 있는 곳에서만 — 없으면 원반 밖 빈 평면에
+      // 분홍 얼룩이 찍힌다 (armRidgeAt·laneWeight 모두 외곽 차단이 없다).
+      const gasPresence = clamp01(density * 6)
+      const hiiNoise = valueNoise3(sx * HII_NOISE_FREQUENCY, 0, sz * HII_NOISE_FREQUENCY, HII_SALT)
+      const hiiKnot =
+        smoothstep(HII_THRESHOLD_LOW, HII_THRESHOLD_HIGH, hiiNoise) *
+        armRidgeAt(sx, sz) *
+        laneWeight *
+        gasPresence *
+        HII_GAIN
 
       // 성운 색조 — 우주선 뷰 파노라마와 같은 필드 (galaxyNebulae, 우주 일관성)
       const tint = nebulaTintAt(sx, 0, sz)
@@ -101,9 +149,9 @@ function buildNebulaTexture(): CanvasTexture {
       blue += (NEBULA_TEAL_RGB[2] - blue) * tealShift
 
       const offset = (texelZ * BASE_TEXELS + texelX) * 4
-      image.data[offset] = red * brightness
-      image.data[offset + 1] = green * brightness
-      image.data[offset + 2] = blue * brightness
+      image.data[offset] = red * brightness + HII_RGB[0] * hiiKnot
+      image.data[offset + 1] = green * brightness + HII_RGB[1] * hiiKnot
+      image.data[offset + 2] = blue * brightness + HII_RGB[2] * hiiKnot
       image.data[offset + 3] = 255 // 가산 블렌딩 — 검정 = 투명
     }
   }
@@ -121,17 +169,9 @@ function buildNebulaTexture(): CanvasTexture {
   context.drawImage(base, 0, 0, upscaledSize, upscaledSize)
   context.filter = 'none'
 
-  // 3) 중심 광원 — 은하핵의 따뜻한 코어 글로우
-  const center = upscaledSize / 2
-  const glowRadius = CORE_GLOW_RADIUS_SECTORS * UPSCALE_FACTOR
-  const gradient = context.createRadialGradient(center, center, 0, center, center, glowRadius)
-  gradient.addColorStop(0, `rgba(255, 232, 195, ${CORE_GLOW_ALPHA})`)
-  gradient.addColorStop(0.35, 'rgba(255, 210, 150, 0.35)')
-  gradient.addColorStop(1, 'rgba(255, 190, 120, 0)')
-  context.globalCompositeOperation = 'lighter'
-  context.fillStyle = gradient
-  context.fillRect(center - glowRadius, center - glowRadius, glowRadius * 2, glowRadius * 2)
-
+  // 중심 코어 글로우(라디얼 그라디언트)는 제거됐다 (galaxy-realism-pass) — 완전 원형이
+  // "인공 광원"으로 읽혔다 (사용자 기각). 벌지 광은 밀도 텍셀(bulgeWeight²)이 클럼프
+  // 노이즈와 함께 불규칙하게 그린다.
   const texture = new CanvasTexture(upscaled)
   texture.colorSpace = 'srgb'
   return texture

@@ -15,6 +15,8 @@ interface DevGameStore {
     warpTo(target: string): void
     scanSurroundings(): void
     setTimeScale(scale: 0 | 1 | 2 | 4 | 8 | 16): void
+    setQuality(tier: 'high' | 'medium' | 'low', mode: 'auto' | 'manual'): void
+    openPerspective(): void
   }
 }
 
