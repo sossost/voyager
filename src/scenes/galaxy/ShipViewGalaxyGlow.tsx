@@ -48,6 +48,15 @@ const BAND_OPACITY = 0.4
  */
 const BAND_FADE_NEAR = 280
 const BAND_FADE_FAR = 1_100
+/**
+ * 벌지 내부 정박의 밴드 감쇠 (galaxy-realism-pass) — 벌지 안 하늘의 사진 문법은 안개가
+ * 아니라 빽빽한 황금 별밭(바데의 창)이다. 매끈한 저해상 베이크는 벌지 내부에선 어떤
+ * 톤이어도 "베이지 벽/형광등"으로 읽히므로(실측 2회 기각), 밴드를 배경 잔광 수준으로
+ * 낮추고 별 스펙클이 하늘을 끌고 가게 한다. 벌지 밖 정박은 무영향.
+ */
+const BULGE_ANCHOR_NEAR_WORLD = 300
+const BULGE_ANCHOR_FAR_WORLD = 900
+const BULGE_BAND_OPACITY_SCALE = 0.5
 /** 고해상 정련의 프레임당 시간 예산(ms) — 저사양에서도 PerformanceMonitor를 자극하지 않는 선. */
 const REFINE_BUDGET_MS = 2
 
@@ -183,16 +192,22 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
 
   const acquisition = useMemo(() => acquireBandTexture(anchor), [anchor])
 
+  // 벌지 내부 정박은 밴드를 잔광 수준으로 — 별밭이 하늘의 주인공 (위 상수 주석 참조).
+  const anchorRadius = Math.hypot(anchor[0], anchor[2])
+  const bulgeness = 1 - smoothstep(BULGE_ANCHOR_NEAR_WORLD, BULGE_ANCHOR_FAR_WORLD, anchorRadius)
+  const bandOpacity = BAND_OPACITY * (1 - BULGE_BAND_OPACITY_SCALE * bulgeness)
+
   const bandMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
         map: acquisition.texture,
         transparent: true,
-        opacity: BAND_OPACITY,
+        opacity: bandOpacity,
         blending: AdditiveBlending,
         depthWrite: false,
         side: BackSide,
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opacity는 useFrame이 매 프레임 재설정
     [acquisition.texture],
   )
   const coreMaterial = useMemo(
@@ -236,7 +251,7 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
       state.camera.position.z - anchor[2],
     )
     bandMaterial.opacity =
-      BAND_OPACITY * (1 - smoothstep(BAND_FADE_NEAR, BAND_FADE_FAR, bandDistance))
+      bandOpacity * (1 - smoothstep(BAND_FADE_NEAR, BAND_FADE_FAR, bandDistance))
 
     // 코어 빌보드 — 카메라 응시 + 각크기 클램프 + 근접 페이드 (연속 값은 ref, 철칙 6)
     const group = coreGroupRef.current

@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { starById } from "@/engine";
 import { starWorldPosition } from "@/engine/galaxy/position";
 import { QUALITY_PRESETS } from "@/quality/presets";
+import { BandStarDust } from "@/scenes/galaxy/BandStarDust";
 import { CurrentStarArrowProjector } from "@/scenes/galaxy/CurrentStarArrowProjector";
 import { CurrentStarBeacon } from "@/scenes/galaxy/CurrentStarBeacon";
 import { GalaxyNebula } from "@/scenes/galaxy/GalaxyNebula";
@@ -120,7 +121,11 @@ export function GalaxyScene() {
       {isPerspectiveView ? (
         <DistantGalaxies />
       ) : (
-        <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
+        <>
+          <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
+          {/* 은하수 띠 별먼지 — 밴드 글로우에 입자 질감을 보태는 장식 별 (galaxy-realism-pass) */}
+          <BandStarDust anchor={shipFocus} />
+        </>
       )}
       <ShipViewGalaxyGlow anchor={shipFocus} />
       {isPerspectiveView ? <GalaxyNebula /> : null}

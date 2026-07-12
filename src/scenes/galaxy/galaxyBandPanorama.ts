@@ -295,22 +295,62 @@ function bakeColumns(
 }
 
 /** 행 → 띠 프라이어: 원반면(y=0)에서 멀수록 근거리 광을 깎는 가우시안 + 잔광 바닥. */
-function bandPrior(yWorld: number): number {
+function bandPrior(yWorld: number, sigmaScale = 1): number {
   return (
     BAND_PRIOR_FLOOR +
-    (1 - BAND_PRIOR_FLOOR) * Math.exp(-((yWorld / BAND_PRIOR_SIGMA_WORLD) ** 2))
+    (1 - BAND_PRIOR_FLOOR) *
+      Math.exp(-((yWorld / (BAND_PRIOR_SIGMA_WORLD * sigmaScale)) ** 2))
+  )
+}
+
+/**
+ * 벌지 내부 프라이어 완화 (galaxy-realism-pass) — 벌지 안 정박은 하늘 광량 거의 전부가
+ * '근거리'로 분류돼 프라이어에 통째로 눌리면 하늘이 실제 구조가 아니라 프라이어 함수의
+ * 모양(균일한 일자 띠)이 된다 ("주황 형광등", 사용자 기각). 정박 반경이 벌지 안쪽일수록
+ * 프라이어를 1로 풀어 실제 3D 적분(구형 벌지 글로우·수직 테이퍼·먼지 균열)이 하늘을
+ * 그리게 한다. 벌지 밖 정박은 0 — 기존 사방 워시 방지 메커니즘 그대로.
+ */
+const PRIOR_RELAX_INNER_SECTORS = 3
+const PRIOR_RELAX_OUTER_SECTORS = 9
+/**
+ * 완화 상한 — 1.0(완전 해제)은 사방이 균일 베이지 벽, 0.4도 뚱뚱한 안개 벽 (실측 기각 2회).
+ * 실제 은하수 사진의 문법은 "띠의 존재"가 아니라 불규칙함 — 띠는 유지하되 폭·밝기를
+ * 방위각으로 출렁이게 한다 (아래 WIDTH_BREATH). 완화는 미량만 남긴다.
+ */
+const PRIOR_RELAX_MAX = 0.15
+
+/**
+ * 띠 폭 호흡 (galaxy-realism-pass) — 프라이어 σ를 방위각 노이즈로 ±35% 변조한다.
+ * 자로 그은 듯한 수평 경계(형광등)를 깨는 핵심 — 실제 은하수의 울퉁불퉁한 실루엣.
+ */
+const WIDTH_BREATH_SPAN = 0.35
+
+function priorRelaxOf(anchorRadiusSectors: number): number {
+  return (
+    PRIOR_RELAX_MAX *
+    (1 - smoothstep(PRIOR_RELAX_INNER_SECTORS, PRIOR_RELAX_OUTER_SECTORS, anchorRadiusSectors))
   )
 }
 
 /** 원시 그리드 → 톤매핑된 베이스 캔버스: 근거리 띠 셰이핑 + 자동 노출 + 색·균열·패치. */
-function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
+function toneMapGrid(grid: RayGrid, priorRelax: number): HTMLCanvasElement {
+  // 띠 폭 호흡 — 프라이어 σ를 방위각 노이즈로 변조해 자로 그은 수평 경계를 깬다.
+  const sigmaScales = new Float32Array(grid.columns)
+  for (let column = 0; column < grid.columns; column++) {
+    const theta = (column / grid.columns) * Math.PI * 2
+    sigmaScales[column] = 1 + WIDTH_BREATH_SPAN * (azimuthNoise(theta, 5.7) * 2 - 1)
+  }
+
   // 1패스 — 근거리 광만 띠 프라이어로 모은 표시용 광량을 만들고 최댓값을 찾는다
   const shaped = new Float32Array(grid.columns * grid.rows)
   let maxShaped = 0
   for (let row = 0; row < grid.rows; row++) {
     const verticalRatio = 1 - (row / (grid.rows - 1)) * 2
-    const prior = bandPrior(verticalRatio * BAND_HALF_HEIGHT)
+    const yWorld = verticalRatio * BAND_HALF_HEIGHT
     for (let column = 0; column < grid.columns; column++) {
+      const gaussianPrior = bandPrior(yWorld, sigmaScales[column] ?? 1)
+      // 벌지 내부 정박은 프라이어를 부분 완화 — 실제 적분 구조가 하늘을 더 그린다.
+      const prior = gaussianPrior + (1 - gaussianPrior) * priorRelax
       const offset = row * grid.columns + column
       const total = grid.integrals[offset] ?? 0
       const local = grid.localIntegrals[offset] ?? 0
@@ -323,9 +363,12 @@ function toneMapGrid(grid: RayGrid): HTMLCanvasElement {
 
   // 2패스 — 노출 정규화 + 색·균열·패치·가장자리 페이드를 픽셀로
   const image = new ImageData(grid.columns, grid.rows)
+  // 벌지 내부일수록(priorRelax↑) 패치 변조를 키운다 — 완화로 넓어진 글로우가
+  // 균일 벽으로 읽히지 않게 방위각 얼룩을 강화 (실구조 클럼프에 보태는 코스메틱).
+  const patchSpan = PATCH_SPAN * (1 + priorRelax * 2)
   for (let column = 0; column < grid.columns; column++) {
     const theta = (column / grid.columns) * Math.PI * 2
-    const patch = PATCH_BASE + PATCH_SPAN * azimuthNoise(theta, 0)
+    const patch = PATCH_BASE - patchSpan * 0.5 + patchSpan * azimuthNoise(theta, 0)
 
     for (let row = 0; row < grid.rows; row++) {
       const offset = row * grid.columns + column
@@ -419,11 +462,15 @@ export function createBandPanoramaJob(
   anchor: readonly [number, number, number],
   options: { readonly withPreview: boolean },
 ): BandPanoramaJob {
+  const anchorRadiusSectors =
+    Math.sqrt(anchor[0] * anchor[0] + anchor[2] * anchor[2]) / SECTOR_SIZE
+  const priorRelax = priorRelaxOf(anchorRadiusSectors)
+
   let preview: HTMLCanvasElement | null = null
   if (options.withPreview) {
     const previewGrid = createRayGrid(PREVIEW_COLUMNS, PREVIEW_ROWS)
     bakeColumns(previewGrid, anchor, PREVIEW_STEP_SECTORS, 0, PREVIEW_COLUMNS)
-    preview = composeCanvas(toneMapGrid(previewGrid), PREVIEW_SHARP_BLUR_PX)
+    preview = composeCanvas(toneMapGrid(previewGrid, priorRelax), PREVIEW_SHARP_BLUR_PX)
   }
 
   const fullGrid = createRayGrid(BASE_COLUMNS, BASE_ROWS)
@@ -444,7 +491,7 @@ export function createBandPanoramaJob(
       if (nextColumn < BASE_COLUMNS) {
         throw new Error('정련이 끝나기 전에 composeFinal이 호출됐습니다')
       }
-      return composeCanvas(toneMapGrid(fullGrid), SHARP_BLUR_PX)
+      return composeCanvas(toneMapGrid(fullGrid, priorRelax), SHARP_BLUR_PX)
     },
   }
 }
