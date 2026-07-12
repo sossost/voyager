@@ -40,9 +40,31 @@ export const BAND_RADIUS = 10_500
  */
 export const BAND_HALF_HEIGHT = 2_600
 
-/** 최종 텍스처 크기 — 베이스를 블러 업스케일한 결과 (GalaxyNebula와 같은 합성 패턴). */
-const FINAL_WIDTH = 768
-const FINAL_HEIGHT = 192
+/** 최종 텍스처 크기 — 베이스를 블러 업스케일한 결과 (GalaxyNebula와 같은 합성 패턴).
+    별 스플랫(아래) 입자가 뭉개지지 않는 해상도 — RGBA ≈2.3MB, 정박당 1장. */
+const FINAL_WIDTH = 1_536
+const FINAL_HEIGHT = 384
+
+/**
+ * 별 스플랫 (galaxy-realism-pass 구조 해법) — 매끈한 적분 글로우 위에 개별 별 점을
+ * 밝기 비례 개수로 직접 찍는다. 실사진 은하수의 정체성인 "별 알갱이의 강" 입자감은
+ * 블러 베이크로는 불가능하고 점으로만 생긴다 (에어브러시 반복 3회 기각 후 전환).
+ * 밝기 그리드가 이미 소광·대균열·폭 호흡을 담고 있으므로 별 분포가 자동으로 따라간다
+ * — 균열엔 별이 성기고 성단 구름엔 빽빽하다. 해시 결정론 — 같은 정박 = 같은 하늘.
+ */
+const SPLAT_MAX_PER_TEXEL = 5
+const SPLAT_MIN_BRIGHTNESS = 0.03
+/** 별 광도 멱법칙 (세제곱) 위 알파 범위 — 다수는 겨우 보이는 알갱이. */
+const SPLAT_ALPHA_BASE = 0.12
+const SPLAT_ALPHA_SPAN = 0.75
+/** 밝은 소수(멱법칙 상위)만 2px — 나머지는 1px 알갱이. */
+const SPLAT_LARGE_THRESHOLD = 0.85
+
+/** 결정론 해시 — 스플랫 지터·개수 디더 (전역 난수 금지). */
+function splatHash01(n: number): number {
+  const value = Math.sin(n) * 43758.5453
+  return value - Math.floor(value)
+}
 
 /** 고해상 베이스 격자 — 열(방위각) × 행(고도). */
 const BASE_COLUMNS = 384
@@ -420,7 +442,56 @@ function toneMapGrid(grid: RayGrid, priorRelax: number): HTMLCanvasElement {
 }
 
 /**
- * 베이스 캔버스 → 최종 캔버스 합성: 블러 업스케일 + 산란 헤일로.
+ * 별 스플랫 패스 — 베이스 텍셀 밝기에 비례한 개수의 별 점을 최종 캔버스에 찍는다.
+ * 텍셀 색을 살짝 백색 쪽으로 섞어(사진의 과노출 별상) 알갱이가 또렷이 읽히게 한다.
+ */
+function splatStars(context: CanvasRenderingContext2D, base: HTMLCanvasElement): void {
+  const baseContext = base.getContext('2d')
+  if (baseContext == null) return
+  const image = baseContext.getImageData(0, 0, base.width, base.height)
+  const scaleX = FINAL_WIDTH / base.width
+  const scaleY = FINAL_HEIGHT / base.height
+
+  context.globalCompositeOperation = 'lighter'
+  context.globalAlpha = 1
+  context.filter = 'none'
+
+  for (let texelY = 0; texelY < base.height; texelY++) {
+    for (let texelX = 0; texelX < base.width; texelX++) {
+      const offset = (texelY * base.width + texelX) * 4
+      const red = image.data[offset] ?? 0
+      const green = image.data[offset + 1] ?? 0
+      const blue = image.data[offset + 2] ?? 0
+      const brightness = Math.max(red, green, blue) / 255
+      if (brightness < SPLAT_MIN_BRIGHTNESS) continue
+
+      const seedBase = texelX * 7_919 + texelY * 104_729
+      const countReal = brightness * SPLAT_MAX_PER_TEXEL + splatHash01(seedBase) * 0.9
+      const count = Math.floor(countReal)
+      for (let k = 0; k < count; k++) {
+        // 지터를 이웃 텍셀까지(±0.8) 퍼뜨린다 — 텍셀 격자 정렬로 별점이 줄지어 보이는 것 방지
+        const jitterX = splatHash01(seedBase + k * 3 + 1) * 2.6 - 0.8
+        const jitterY = splatHash01(seedBase + k * 3 + 2) * 2.6 - 0.8
+        const lumRoll = splatHash01(seedBase + k * 3 + 3)
+        const lum = lumRoll * lumRoll * lumRoll // 멱법칙 — 다수 어두움
+        const alpha = (SPLAT_ALPHA_BASE + SPLAT_ALPHA_SPAN * lum) * brightness
+        // 텍셀 색 60% + 백색 40% — 별상은 배경 글로우보다 희게 탄다
+        const starRed = Math.round(red * 0.6 + 255 * 0.4)
+        const starGreen = Math.round(green * 0.6 + 255 * 0.4)
+        const starBlue = Math.round(blue * 0.6 + 255 * 0.4)
+        const size = lum > SPLAT_LARGE_THRESHOLD ? 2 : 1
+        const x = (((texelX + jitterX) * scaleX) + FINAL_WIDTH) % FINAL_WIDTH
+        const y = Math.max(0, Math.min(FINAL_HEIGHT - size, (texelY + jitterY) * scaleY))
+        context.fillStyle = `rgba(${starRed}, ${starGreen}, ${starBlue}, ${alpha.toFixed(3)})`
+        context.fillRect(x, y, size, size)
+      }
+    }
+  }
+  context.globalCompositeOperation = 'source-over'
+}
+
+/**
+ * 베이스 캔버스 → 최종 캔버스 합성: 블러 업스케일 + 산란 헤일로 + 별 스플랫.
  * 가로는 한 바퀴 랩이므로 좌우로 한 장씩 더 그려 블러가 솔기 너머를 샘플하게 한다.
  */
 function composeCanvas(base: HTMLCanvasElement, sharpBlurPx: number): HTMLCanvasElement {
@@ -445,6 +516,7 @@ function composeCanvas(base: HTMLCanvasElement, sharpBlurPx: number): HTMLCanvas
     context.drawImage(base, offset, 0, FINAL_WIDTH, FINAL_HEIGHT)
   }
 
+  splatStars(context, base)
   return final
 }
 
