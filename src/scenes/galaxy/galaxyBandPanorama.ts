@@ -4,6 +4,7 @@ import {
   SECTOR_SIZE,
   sectorDensity,
 } from '@/engine'
+import { valueNoise3 } from '@/engine/noise/valueNoise'
 
 import {
   NEBULA_ROSE_RGB,
@@ -78,9 +79,9 @@ const PREVIEW_STEP_SECTORS = 1.5
     코어 근처 정박은 좁은 방위각이 화면을 가득 채워 격자 블록이 드러난다 — 넉넉하게. */
 const SHARP_BLUR_PX = 4
 const PREVIEW_SHARP_BLUR_PX = 8
-/** 산란 헤일로 — 밝은 영역 주변에 베이크해 넣는 블룸 (두꺼운 원반의 산란광 역할). */
+/** 산란 헤일로 — 밝은 영역 주변에 베이크해 넣는 블룸. 과하면 "빛나는 광원"으로 읽혀 감쇠. */
 const HALO_BLUR_PX = 14
-const HALO_ALPHA = 0.34
+const HALO_ALPHA = 0.2
 
 /** 적분 보폭 (섹터) — 클럼프 노이즈 파장(~5.5섹터)보다 충분히 촘촘하다. */
 const RAY_STEP_SECTORS = 0.75
@@ -137,6 +138,23 @@ const DUST_KAPPA = 0.08
 /** 방위각 패치 변조 — 실구조(클럼프 적분)가 있으므로 약하게만 보탠다. */
 const PATCH_BASE = 0.92
 const PATCH_SPAN = 0.16
+
+/**
+ * 2D 불규칙 클럼프 변조 (galaxy-realism-pass) — 매끈한 글로우가 "원형/균일 광원"으로
+ * 읽히지 않게 (방위각 × 고도) 양방향 노이즈로 얼룩을 낸다. 방위각은 cos/sin 임베딩으로
+ * 랩 이음매가 없다. 저주파(구름 덩어리) + 고주파(잔얼룩) 2옥타브.
+ */
+const CLUMP_MOD_DEPTH = 0.38
+const CLUMP_MOD_SALT = 23
+
+function clumpModAt(theta: number, verticalRatio: number): number {
+  const cx = Math.cos(theta)
+  const sz = Math.sin(theta)
+  const low = valueNoise3(cx * 1.7, verticalRatio * 2.1, sz * 1.7, CLUMP_MOD_SALT)
+  const high = valueNoise3(cx * 5.3, verticalRatio * 6.4, sz * 5.3, CLUMP_MOD_SALT + 1)
+  const noise = low * 0.65 + high * 0.35
+  return 1 - CLUMP_MOD_DEPTH + CLUMP_MOD_DEPTH * 2 * noise
+}
 
 /**
  * 근거리 광 분리 — 정박을 둘러싼 두꺼운 원반의 빛은 물리대로면 전 고도에 깔려
@@ -404,7 +422,7 @@ function toneMapGrid(grid: RayGrid, priorRelax: number): HTMLCanvasElement {
       const verticalRatio = 1 - (row / (grid.rows - 1)) * 2
       // 대균열은 적분 소광(O-20)이 구조적으로 만든다 — 구 코스메틱 rift 감산 제거.
       const edgeFade = 1 - smoothstep(EDGE_FADE_START, 1, Math.abs(verticalRatio))
-      const level = brightness * patch * edgeFade
+      const level = brightness * patch * edgeFade * clumpModAt(theta, verticalRatio)
 
       // 성운 색조 — 띠의 빛 자체가 로즈/청록으로 물든다 (더해지는 광원 없음, 결정 40 2차)
       const roseShift =

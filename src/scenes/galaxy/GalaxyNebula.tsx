@@ -54,10 +54,6 @@ const BULGE_RGB = [255, 208, 150] as const
 const ARM_RGB = [185, 200, 232] as const
 const COLOR_BLEND_RADIUS_SECTORS = 10
 
-/** 중심 광원 — 텍스처 위에 덧그리는 코어 글로우 (벌지 반경의 배수). */
-const CORE_GLOW_RADIUS_SECTORS = 14
-const CORE_GLOW_ALPHA = 0.85
-
 /**
  * 나선팔 먼지 레인 (galaxy-realism-pass) — 실제 나선은하 사진에서 팔의 **안쪽 가장자리**를
  * 따라 도는 어두운 먼지 띠 (밀도파 이론: 가스가 팔 중력 우물로 낙하하며 안쪽에 충격 압축).
@@ -173,17 +169,9 @@ function buildNebulaTexture(): CanvasTexture {
   context.drawImage(base, 0, 0, upscaledSize, upscaledSize)
   context.filter = 'none'
 
-  // 3) 중심 광원 — 은하핵의 따뜻한 코어 글로우
-  const center = upscaledSize / 2
-  const glowRadius = CORE_GLOW_RADIUS_SECTORS * UPSCALE_FACTOR
-  const gradient = context.createRadialGradient(center, center, 0, center, center, glowRadius)
-  gradient.addColorStop(0, `rgba(255, 232, 195, ${CORE_GLOW_ALPHA})`)
-  gradient.addColorStop(0.35, 'rgba(255, 210, 150, 0.35)')
-  gradient.addColorStop(1, 'rgba(255, 190, 120, 0)')
-  context.globalCompositeOperation = 'lighter'
-  context.fillStyle = gradient
-  context.fillRect(center - glowRadius, center - glowRadius, glowRadius * 2, glowRadius * 2)
-
+  // 중심 코어 글로우(라디얼 그라디언트)는 제거됐다 (galaxy-realism-pass) — 완전 원형이
+  // "인공 광원"으로 읽혔다 (사용자 기각). 벌지 광은 밀도 텍셀(bulgeWeight²)이 클럼프
+  // 노이즈와 함께 불규칙하게 그린다.
   const texture = new CanvasTexture(upscaled)
   texture.colorSpace = 'srgb'
   return texture

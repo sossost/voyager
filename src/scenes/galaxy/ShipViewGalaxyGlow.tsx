@@ -1,13 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import {
-  AdditiveBlending,
-  BackSide,
-  CanvasTexture,
-  type Group,
-  MeshBasicMaterial,
-  RepeatWrapping,
-} from 'three'
+import { AdditiveBlending, BackSide, CanvasTexture, MeshBasicMaterial, RepeatWrapping } from 'three'
 
 import {
   BAND_HALF_HEIGHT,
@@ -16,7 +9,6 @@ import {
   bandPanoramaKey,
   createBandPanoramaJob,
 } from '@/scenes/galaxy/galaxyBandPanorama'
-import { ditherCanvas } from '@/scenes/shared/canvasDither'
 import { enableLensEnvLayer } from '@/scenes/shared/lensEnvironment'
 
 /**
@@ -59,17 +51,6 @@ const BULGE_ANCHOR_FAR_WORLD = 900
 const BULGE_BAND_OPACITY_SCALE = 0.5
 /** 고해상 정련의 프레임당 시간 예산(ms) — 저사양에서도 PerformanceMonitor를 자극하지 않는 선. */
 const REFINE_BUDGET_MS = 2
-
-/** 코어 글로우 텍스처 한 변(px) — 라디얼 그라디언트라 저해상도로 충분하다. */
-const CORE_TEXTURE_SIZE = 256
-/** 코어 글로우 월드 크기 — 벌지 지름(1,200)을 살짝 감싸는 헤일로. */
-const CORE_BASE_SIZE = 1_800
-/** 화면 각크기 상한 (크기/거리) — 글로우는 벌지 별 무리의 심지여야지 하늘을 덮으면 "구체"로 읽힌다. */
-const CORE_MAX_ANGULAR_RATIO = 0.22
-const CORE_OPACITY = 0.45
-/** 벌지 안쪽까지 들어가면 "중심 방향의 빛"이라는 빌보드의 전제가 깨진다 — 근접 페이드. */
-const CORE_FADE_NEAR = 700
-const CORE_FADE_FAR = 1_600
 
 function clamp01(value: number): number {
   if (value < 0) return 0
@@ -150,43 +131,12 @@ function disposeEvictedBandTextures(): void {
   evictedBandTextures.length = 0
 }
 
-/** 코어 글로우 — 밝은 난색 심 + 옅은 외곽 헤이즈의 라디얼 스머지 (앱 수명 캐시). */
-let cachedCoreTexture: CanvasTexture | null = null
-
-function getCoreGlowTexture(): CanvasTexture {
-  if (cachedCoreTexture != null) return cachedCoreTexture
-
-  const canvas = document.createElement('canvas')
-  canvas.width = CORE_TEXTURE_SIZE
-  canvas.height = CORE_TEXTURE_SIZE
-  const context = canvas.getContext('2d')
-  if (context == null) throw new Error('코어 글로우 텍스처용 2D 컨텍스트를 만들 수 없습니다')
-
-  // 에너지를 심에 모은다 — 외곽이 살아 있으면 가장자리 림이 보여 "원반"으로 읽힌다
-  const center = CORE_TEXTURE_SIZE / 2
-  const gradient = context.createRadialGradient(center, center, 0, center, center, center)
-  gradient.addColorStop(0, 'rgba(255, 242, 220, 0.9)')
-  gradient.addColorStop(0.15, 'rgba(255, 218, 168, 0.4)')
-  gradient.addColorStop(0.4, 'rgba(255, 196, 136, 0.1)')
-  gradient.addColorStop(0.75, 'rgba(255, 185, 125, 0.02)')
-  gradient.addColorStop(1, 'rgba(255, 180, 120, 0)')
-  context.fillStyle = gradient
-  context.fillRect(0, 0, CORE_TEXTURE_SIZE, CORE_TEXTURE_SIZE)
-  // 256px 베이크를 1,800u로 확대하면 저알파 구간이 동심원 계단으로 노출된다 (O-11)
-  ditherCanvas(context)
-
-  cachedCoreTexture = new CanvasTexture(canvas)
-  cachedCoreTexture.colorSpace = 'srgb'
-  return cachedCoreTexture
-}
-
 interface ShipViewGalaxyGlowProps {
   /** 정박 별 월드 좌표 — 밴드 파노라마의 시점이자 실린더 중심. */
   readonly anchor: readonly [number, number, number]
 }
 
 export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
-  const coreGroupRef = useRef<Group>(null)
   /** 이미 스왑까지 끝낸 job — 완료된 job의 refine/compose 재호출을 막는다. */
   const completedJobRef = useRef<BandPanoramaJob | null>(null)
 
@@ -210,20 +160,7 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- opacity는 useFrame이 매 프레임 재설정
     [acquisition.texture],
   )
-  const coreMaterial = useMemo(
-    () =>
-      new MeshBasicMaterial({
-        map: getCoreGlowTexture(),
-        transparent: true,
-        opacity: CORE_OPACITY,
-        blending: AdditiveBlending,
-        depthWrite: false,
-      }),
-    [],
-  )
-
   useEffect(() => () => bandMaterial.dispose(), [bandMaterial])
-  useEffect(() => () => coreMaterial.dispose(), [coreMaterial])
   // 캐시에서 밀려난 이전 정박의 텍스처를 커밋 후 폐기 — 새 텍스처가 화면에 붙은 뒤라 안전
   useEffect(() => disposeEvictedBandTextures(), [acquisition])
 
@@ -253,37 +190,24 @@ export function ShipViewGalaxyGlow({ anchor }: ShipViewGalaxyGlowProps) {
     bandMaterial.opacity =
       bandOpacity * (1 - smoothstep(BAND_FADE_NEAR, BAND_FADE_FAR, bandDistance))
 
-    // 코어 빌보드 — 카메라 응시 + 각크기 클램프 + 근접 페이드 (연속 값은 ref, 철칙 6)
-    const group = coreGroupRef.current
-    if (group == null) return
-
-    group.quaternion.copy(state.camera.quaternion)
-    const coreDistance = state.camera.position.length() // 은하 중심 = 월드 원점
-    group.scale.setScalar(Math.min(CORE_BASE_SIZE, coreDistance * CORE_MAX_ANGULAR_RATIO))
-    coreMaterial.opacity =
-      CORE_OPACITY * smoothstep(CORE_FADE_NEAR, CORE_FADE_FAR, coreDistance)
   })
 
+  // 코어 글로우 빌보드는 제거됐다 (galaxy-realism-pass) — 완전 원형 방사 그라디언트가
+  // "인공 광원"으로 읽혔다 (사용자 기각). 벌지 광은 밴드 파노라마의 밀도 적분이
+  // 불규칙한 실구조(클럼프·소광)로 이미 그린다.
   return (
-    <>
-      {/* 원반 밴드 — 실린더 중심은 정박 별의 평면 좌표, 수직 중심은 원반면(y=0) */}
-      <mesh position={[anchor[0], 0, anchor[2]]} material={bandMaterial} onUpdate={enableLensEnvLayer}>
-        <cylinderGeometry
-          args={[
-            BAND_RADIUS,
-            BAND_RADIUS,
-            BAND_HEIGHT,
-            BAND_RADIAL_SEGMENTS,
-            BAND_HEIGHT_SEGMENTS,
-            BAND_OPEN_ENDED,
-          ]}
-        />
-      </mesh>
-      <group ref={coreGroupRef}>
-        <mesh material={coreMaterial} onUpdate={enableLensEnvLayer}>
-          <planeGeometry args={[1, 1]} />
-        </mesh>
-      </group>
-    </>
+    /* 원반 밴드 — 실린더 중심은 정박 별의 평면 좌표, 수직 중심은 원반면(y=0) */
+    <mesh position={[anchor[0], 0, anchor[2]]} material={bandMaterial} onUpdate={enableLensEnvLayer}>
+      <cylinderGeometry
+        args={[
+          BAND_RADIUS,
+          BAND_RADIUS,
+          BAND_HEIGHT,
+          BAND_RADIAL_SEGMENTS,
+          BAND_HEIGHT_SEGMENTS,
+          BAND_OPEN_ENDED,
+        ]}
+      />
+    </mesh>
   )
 }
