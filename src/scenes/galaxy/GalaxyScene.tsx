@@ -8,6 +8,7 @@ import { CurrentStarBeacon } from "@/scenes/galaxy/CurrentStarBeacon";
 import { GalaxyNebula } from "@/scenes/galaxy/GalaxyNebula";
 import { GalaxyStarField } from "@/scenes/galaxy/GalaxyStarField";
 import { JourneyPath } from "@/scenes/galaxy/JourneyPath";
+import { NebulaClusters } from "@/scenes/galaxy/NebulaClusters";
 import { ScannedExoticMarkers } from "@/scenes/galaxy/ScannedExoticMarkers";
 import { ShipCameraRig } from "@/scenes/galaxy/ShipCameraRig";
 import { SpaceshipModel } from "@/scenes/galaxy/SpaceshipModel";
@@ -121,6 +122,8 @@ export function GalaxyScene() {
         <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
       )}
       {isPerspectiveView ? <GalaxyNebula /> : null}
+      {/* 성운 클러스터 — 팔 능선 위 실제 3D 점 구름 (양 뷰 공유, galaxy-realism-pass) */}
+      <NebulaClusters />
       <GalaxyStarField
         stars={stars}
         maxPointSize={preset.maxPointSize}

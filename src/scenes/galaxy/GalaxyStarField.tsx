@@ -117,7 +117,9 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
  * 게임성 완화) — 근거리(≤400유닛) 이웃은 거의 그대로, 중심부 원거리 스펙클(2,000유닛+
  * ×수천 개 가산 블렌딩)만 어둠에 잠기도록 감광한다.
  */
-const SHIP_VIEW_EXTINCTION_PER_UNIT = 1 / 1_500
+/** 밴드 베이크 제거 후 완화 (1/1500 → 1/2800) — 은하수 인상은 이제 실제 원반 별들이
+    직접 만든다. 원거리 별이 적당히 살아야 중심 방향으로 "별의 강"이 형성된다. */
+const SHIP_VIEW_EXTINCTION_PER_UNIT = 1 / 2_800
 
 /**
  * 함교 뷰 점 크기 상한(px) — 이웃 별도 실제로는 수 광년 거리의 점광원이라 행성 원반과
