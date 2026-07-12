@@ -32,7 +32,8 @@ const BAND_RADIAL_SEGMENTS = 96
 const BAND_HEIGHT_SEGMENTS = 1
 /** 뚜껑 없는 열린 실린더 — 안쪽 면(BackSide)만 쓴다. */
 const BAND_OPEN_ENDED = true
-const BAND_OPACITY = 0.4
+/** 은은한 존재감 (galaxy-realism-pass 최종) — 0.4는 뿌연 안개로 기각, 육안 은하수 수준으로. */
+const BAND_OPACITY = 0.18
 /**
  * 띠 거리 페이드 — 정박·항법 근거리에선 보이고, 줌아웃(은하 조망)하면 사라진다.
  * 항법뷰에서 축소 시 정박 별 중심의 띠가 배경에 둥 떠 부자연스러운 것을 막는다(사용자 지적).
