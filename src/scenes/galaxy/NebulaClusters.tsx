@@ -26,10 +26,30 @@ const SPRITE_VARIANTS = 4
 const SPRITE_SIZE_PX = 160
 
 /** 비등방 월드 크기 — 장축/단축. 하늘 한 켠의 얼룩이지 하늘을 덮는 커튼이 아니다. */
-const WIDTH_MIN = 180
-const WIDTH_SPAN = 240
+const WIDTH_MIN = 130
+const WIDTH_SPAN = 170
 const ASPECT_MIN = 0.35
 const ASPECT_SPAN = 0.35
+
+/**
+ * 근접 페이드 — 정박지 코앞의 성운은 하늘 절반을 덮는 커튼이 된다 (각크기 폭주).
+ * 이 거리 안쪽은 걷어내 최대 시야각을 ~15° 아래로 묶는다 (FAR에서 최대 폭 300유닛 ≈ 14°).
+ */
+const NEAR_FADE_START = 700
+const NEAR_FADE_END = 1_250
+
+/**
+ * 부피 레이어 (사용자 방향: 평면 → 덩어리) — 사이트당 겹침 빌보드 4장을 3D로 어긋나게
+ * 배치한다. 카메라가 움직이면 레이어 간 시차가 생겨 한 장짜리 종이가 아니라 깊이 있는
+ * 가스 덩어리로 읽힌다. 장당 불투명도는 나눠 총 농도는 유지.
+ */
+const PUFFS_PER_SITE = 4
+/** 레이어 산포 — 사이트 축의 이 비율만큼 3D 오프셋 (장축 방향으로 더 넓게). */
+const PUFF_SCATTER = 0.55
+/** 레이어 크기 — 사이트 크기 대비 [MIN, MIN+SPAN]. */
+const PUFF_SCALE_MIN = 0.5
+const PUFF_SCALE_SPAN = 0.35
+const PUFF_DEPTH_SCATTER = 70
 
 const ROSE_TINT = '#ff8a9b'
 const BLUE_TINT = '#9fbcff'
@@ -152,25 +172,65 @@ function getSpriteTextures(): readonly CanvasTexture[] {
   return cachedTextures
 }
 
+interface NebulaPuff {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+  readonly spin: number
+  readonly width: number
+  readonly height: number
+  readonly variant: number
+  readonly isRose: boolean
+  readonly opacity: number
+}
+
+/** 사이트 → 부피 레이어 전개 — 3D로 어긋난 겹침 빌보드들이 한 덩어리를 이룬다. */
+function buildPuffs(sites: readonly NebulaSite[]): readonly NebulaPuff[] {
+  const puffs: NebulaPuff[] = []
+  sites.forEach((site, siteIndex) => {
+    const cos = Math.cos(site.spin)
+    const sin = Math.sin(site.spin)
+    for (let p = 0; p < PUFFS_PER_SITE; p++) {
+      const seed = siteIndex * 971 + p * 37 + 5
+      const along = gaussianish(seed) * site.width * PUFF_SCATTER
+      const across = gaussianish(seed + 1.9) * site.height * PUFF_SCATTER
+      const scale = PUFF_SCALE_MIN + PUFF_SCALE_SPAN * hash01(seed + 3.3)
+      puffs.push({
+        x: site.x + along * cos - across * sin,
+        y: site.y + gaussianish(seed + 5.1) * PUFF_DEPTH_SCATTER,
+        z: site.z + along * sin + across * cos,
+        spin: hash01(seed + 7.7) * Math.PI * 2,
+        width: site.width * scale,
+        height: site.height * scale * (0.8 + 0.4 * hash01(seed + 9.2)),
+        variant: Math.floor(hash01(seed + 11.4) * SPRITE_VARIANTS) % SPRITE_VARIANTS,
+        isRose: site.isRose,
+        // 레이어가 겹쳐 쌓이므로 장당 농도를 나눈다 — 총합이 구 단일 스프라이트와 동급
+        opacity: (site.opacity / PUFFS_PER_SITE) * 1.7,
+      })
+    }
+  })
+  return puffs
+}
+
 export function NebulaClusters() {
   const groupRefs = useRef<(Group | null)[]>([])
-  const sites = useMemo(() => sampleSites(), [])
+  const puffs = useMemo(() => buildPuffs(sampleSites()), [])
   const textures = getSpriteTextures()
 
   const materials = useMemo(
     () =>
-      sites.map(
-        (site) =>
+      puffs.map(
+        (puff) =>
           new MeshBasicMaterial({
-            map: textures[site.variant],
-            color: site.isRose ? ROSE_TINT : BLUE_TINT,
+            map: textures[puff.variant],
+            color: puff.isRose ? ROSE_TINT : BLUE_TINT,
             transparent: true,
-            opacity: site.opacity,
+            opacity: puff.opacity,
             blending: AdditiveBlending,
             depthWrite: false,
           }),
       ),
-    [sites, textures],
+    [puffs, textures],
   )
 
   useEffect(
@@ -180,24 +240,36 @@ export function NebulaClusters() {
     [materials],
   )
 
-  // 빌보드 — 그룹이 카메라를 바라보고, 자식 메시가 면내 회전·비등방 스케일을 가진다
+  // 빌보드 — 그룹이 카메라를 바라보고, 자식 메시가 면내 회전·비등방 스케일을 가진다.
+  // 근접 페이드 — 카메라와 가까운 성운을 걷어 각크기를 묶는다 (연속 값은 ref/직접 갱신, 철칙 6).
   useFrame((state) => {
-    for (const group of groupRefs.current) {
-      if (group != null) group.quaternion.copy(state.camera.quaternion)
-    }
+    groupRefs.current.forEach((group, index) => {
+      if (group == null) return
+      group.quaternion.copy(state.camera.quaternion)
+      const puff = puffs[index]
+      const material = materials[index]
+      if (puff == null || material == null) return
+      const distance = state.camera.position.distanceTo(group.position)
+      const nearFade = Math.min(
+        1,
+        Math.max(0, (distance - NEAR_FADE_START) / (NEAR_FADE_END - NEAR_FADE_START)),
+      )
+      material.opacity = puff.opacity * nearFade * nearFade
+      group.visible = material.opacity > 0.002
+    })
   })
 
   return (
     <>
-      {sites.map((site, index) => (
+      {puffs.map((puff, index) => (
         <group
           key={index}
-          position={[site.x, site.y, site.z]}
+          position={[puff.x, puff.y, puff.z]}
           ref={(node) => {
             groupRefs.current[index] = node
           }}
         >
-          <mesh material={materials[index]} rotation={[0, 0, site.spin]} scale={[site.width, site.height, 1]}>
+          <mesh material={materials[index]} rotation={[0, 0, puff.spin]} scale={[puff.width, puff.height, 1]}>
             <planeGeometry args={[1, 1]} />
           </mesh>
         </group>
