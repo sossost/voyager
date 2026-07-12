@@ -1,65 +1,116 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
-import { BufferGeometry, Float32BufferAttribute } from 'three'
+import { useEffect, useMemo, useRef } from 'react'
+import { AdditiveBlending, CanvasTexture, type Group, MeshBasicMaterial } from 'three'
 
 import { armRidgeAt, SECTOR_SIZE, sectorDensity } from '@/engine'
-import { createStarGlowMaterial, setUniform } from '@/scenes/shared/starGlowMaterial'
+import { valueNoise3 } from '@/engine/noise/valueNoise'
+import { ditherCanvas } from '@/scenes/shared/canvasDither'
 
 /**
- * 성운 클러스터 (galaxy-realism-pass 최종안) — 텍스처를 그리는 대신 성운을 **실제 3D
- * 오브젝트로 배치**한다 (사용자 방향: 실제 별·성운 배치로 효과). 팔 능선 위 결정론
- * 위치에 비등방(길쭉한) 점 구름을 두므로:
- * - 형태가 원형/대칭 프리미티브가 아니라 불규칙 3D 구조 (기각된 라디얼 빌보드와 반대)
- * - 함교에서 가까운 성운은 하늘 한 켠의 큰 얼룩, 먼 성운은 작은 뭉침 — 시차 공짜
- * - 조망뷰에선 팔을 따라 박힌 발광 매듭으로 읽힘
- * 색은 발광(로즈 H-알파)/반사(청색) 두 계열. 해시 결정론 — 시드 무관, 렌더 전용.
+ * 성운 클러스터 (galaxy-realism-pass 최종안) — 성운을 실제 3D 위치에 배치하되(시차·
+ * 원근 실물), 렌더는 점 구름이 아니라 **뿌연 연속 헤이즈**로 한다 (점 두드러기 기각).
+ *
+ * 형태 원칙: 원형 라디얼 그라디언트 금지 (인공 광원으로 읽혀 기각) — 노이즈 도메인
+ * 워프로 실루엣 자체가 불규칙한 스프라이트를 굽고, 사이트마다 비등방 스케일(장축
+ * 2~4배)·면내 회전을 다르게 준다. 발광(로즈)/반사(청) 2계열. 해시 결정론 — 시드 무관.
  */
 
 const SITE_COUNT = 36
 const SITE_TRIALS = 4_000
-/** 배치 반경 (섹터) — 벌지 밖 팔 구간. */
 const SITE_RADIUS_MIN = 8
 const SITE_RADIUS_MAX = 44
-/** 후보 채택 문턱 — 밀도×팔능선이 높은 곳만 (별 형성 영역은 가스 밀집부). */
 const SITE_ACCEPT_THRESHOLD = 0.22
 
-const POINTS_PER_SITE = 170
-/** 비등방 축 스케일 (월드) — 장축이 단축의 2~4배로 길쭉한 구름. */
-const AXIS_LONG_MIN = 160
-const AXIS_LONG_SPAN = 320
-const AXIS_SHORT_MIN = 60
-const AXIS_SHORT_SPAN = 90
-const AXIS_VERTICAL = 55
+/** 스프라이트 변형 수 — 같은 성운이 반복돼 보이지 않는 최소선 (텍스처 4장 캐시). */
+const SPRITE_VARIANTS = 4
+const SPRITE_SIZE_PX = 160
 
-/** 발광(로즈)·반사(청) 계열 — 포인트별 변주 폭. */
-const ROSE_RGB: readonly [number, number, number] = [1, 0.52, 0.6]
-const BLUE_RGB: readonly [number, number, number] = [0.62, 0.74, 1]
-const BRIGHTNESS_BASE = 0.05
-const BRIGHTNESS_SPAN = 0.3
+/** 비등방 월드 크기 — 장축/단축. 하늘 한 켠의 얼룩이지 하늘을 덮는 커튼이 아니다. */
+const WIDTH_MIN = 180
+const WIDTH_SPAN = 240
+const ASPECT_MIN = 0.35
+const ASPECT_SPAN = 0.35
 
-const MAX_POINT_SIZE = 4
-const MIN_POINT_SIZE_PER_UNIT = 0.35
-const SIZE_BASE = 1.2
-const SIZE_SPAN = 2.4
+const ROSE_TINT = '#ff8a9b'
+const BLUE_TINT = '#9fbcff'
+const OPACITY_MIN = 0.05
+const OPACITY_SPAN = 0.08
 
 function hash01(n: number): number {
   const value = Math.sin(n) * 43758.5453
   return value - Math.floor(value)
 }
 
-/** 근사 가우시안 [-1, 1] — 균일 해시 4개 합 (중심극한). */
 function gaussianish(seed: number): number {
   return (hash01(seed) + hash01(seed + 0.37) + hash01(seed + 0.71) + hash01(seed + 1.13) - 2) / 2
 }
 
+function clamp01(value: number): number {
+  if (value < 0) return 0
+  if (value > 1) return 1
+  return value
+}
+
+/** 2옥타브 fbm — 스프라이트 내부 구조·실루엣용. */
+function fbm2(x: number, y: number, salt: number): number {
+  return valueNoise3(x, y, 0.5, salt) * 0.65 + valueNoise3(x * 2.3, y * 2.3, 1.7, salt + 1) * 0.35
+}
+
+/**
+ * 불규칙 성운 스프라이트 — 도메인 워프(좌표를 노이즈로 비틀기)로 실루엣이 원이 아니라
+ * 찢긴 구름 조각이 된다. 그레이스케일 발광 × 알파 — 색은 머티리얼 틴트가 입힌다.
+ */
+function bakeNebulaSprite(variant: number): CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = SPRITE_SIZE_PX
+  canvas.height = SPRITE_SIZE_PX
+  const context = canvas.getContext('2d')
+  if (context == null) throw new Error('성운 스프라이트용 2D 컨텍스트를 만들 수 없습니다')
+
+  const image = context.createImageData(SPRITE_SIZE_PX, SPRITE_SIZE_PX)
+  const salt = 31 + variant * 7
+  for (let py = 0; py < SPRITE_SIZE_PX; py++) {
+    for (let px = 0; px < SPRITE_SIZE_PX; px++) {
+      const nx = (px / SPRITE_SIZE_PX) * 2 - 1
+      const ny = (py / SPRITE_SIZE_PX) * 2 - 1
+
+      // 도메인 워프 — 반경 판정 좌표 자체를 비틀어 원형 실루엣을 깬다
+      const warpX = nx + (valueNoise3(nx * 1.9, ny * 1.9, 3.1, salt + 2) - 0.5) * 1.1
+      const warpY = ny + (valueNoise3(nx * 1.9, ny * 1.9, 7.4, salt + 3) - 0.5) * 1.1
+      const radial = Math.sqrt(warpX * warpX + warpY * warpY)
+
+      const body = fbm2(nx * 2.6, ny * 2.6, salt)
+      // 노이즈 문턱 × 워프 반경 감쇠 — 가장자리가 찢기고 내부에 농담이 생긴다.
+      // 쿼드 경계 강제 0 — 워프 좌표는 모서리에서 알파를 남길 수 있어 비워프 좌표로 잘라낸다.
+      const edgeGuard = clamp01((1 - Math.max(Math.abs(nx), Math.abs(ny))) * 3.5)
+      const alpha = clamp01((body * 1.5 - 0.42) * clamp01(1.15 - radial) * 1.6) * edgeGuard
+      const glow = 165 + 90 * fbm2(nx * 4.1 + 9, ny * 4.1 - 5, salt + 4)
+
+      const offset = (py * SPRITE_SIZE_PX + px) * 4
+      image.data[offset] = glow
+      image.data[offset + 1] = glow
+      image.data[offset + 2] = glow
+      image.data[offset + 3] = Math.round(alpha * 255)
+    }
+  }
+  context.putImageData(image, 0, 0)
+  ditherCanvas(context)
+
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = 'srgb'
+  return texture
+}
+
 interface NebulaSite {
   readonly x: number
-  readonly z: number
   readonly y: number
-  readonly angle: number
-  readonly axisLong: number
-  readonly axisShort: number
+  readonly z: number
+  readonly spin: number
+  readonly width: number
+  readonly height: number
+  readonly variant: number
   readonly isRose: boolean
+  readonly opacity: number
 }
 
 function sampleSites(): readonly NebulaSite[] {
@@ -74,82 +125,83 @@ function sampleSites(): readonly NebulaSite[] {
     if (quality < SITE_ACCEPT_THRESHOLD * hash01(seed + 2)) continue
     if (quality < SITE_ACCEPT_THRESHOLD * 0.5) continue
 
+    const width = WIDTH_MIN + WIDTH_SPAN * hash01(seed + 5)
     sites.push({
       x: sx * SECTOR_SIZE,
-      z: sz * SECTOR_SIZE,
       y: gaussianish(seed + 3) * 60,
-      angle: hash01(seed + 4) * Math.PI * 2,
-      axisLong: AXIS_LONG_MIN + AXIS_LONG_SPAN * hash01(seed + 5),
-      axisShort: AXIS_SHORT_MIN + AXIS_SHORT_SPAN * hash01(seed + 6),
+      z: sz * SECTOR_SIZE,
+      spin: hash01(seed + 4) * Math.PI * 2,
+      width,
+      height: width * (ASPECT_MIN + ASPECT_SPAN * hash01(seed + 6)),
+      variant: Math.floor(hash01(seed + 8) * SPRITE_VARIANTS) % SPRITE_VARIANTS,
       isRose: hash01(seed + 7) < 0.55,
+      opacity: OPACITY_MIN + OPACITY_SPAN * hash01(seed + 9),
     })
   }
   return sites
 }
 
-function buildGeometry(): BufferGeometry {
-  const sites = sampleSites()
-  const count = sites.length * POINTS_PER_SITE
-  const positions = new Float32Array(count * 3)
-  const colors = new Float32Array(count * 3)
-  const sizes = new Float32Array(count)
+/** 텍스처·머티리얼 앱 수명 캐시 — 씬 전환 리마운트마다 재베이크하지 않는다. */
+let cachedTextures: readonly CanvasTexture[] | null = null
 
-  let index = 0
-  sites.forEach((site, siteIndex) => {
-    const cos = Math.cos(site.angle)
-    const sin = Math.sin(site.angle)
-    const base = site.isRose ? ROSE_RGB : BLUE_RGB
-    for (let p = 0; p < POINTS_PER_SITE; p++) {
-      const seed = siteIndex * 100_003 + p * 13 + 7
-      // 비등방 가우시안 — 장축 방향으로 길쭉, 수직은 얇게
-      const along = gaussianish(seed) * site.axisLong
-      const across = gaussianish(seed + 2.3) * site.axisShort
-      positions[index * 3] = site.x + along * cos - across * sin
-      positions[index * 3 + 1] = site.y + gaussianish(seed + 4.7) * AXIS_VERTICAL
-      positions[index * 3 + 2] = site.z + along * sin + across * cos
-
-      // 중심부일수록 밝게 — 구름 심이 생긴다 (완전 균일이면 안개 조각)
-      const radial = Math.min(1, (Math.abs(along) / site.axisLong + Math.abs(across) / site.axisShort) * 0.7)
-      const brightness =
-        (BRIGHTNESS_BASE + BRIGHTNESS_SPAN * hash01(seed + 6.1) * hash01(seed + 6.1)) *
-        (1 - radial * 0.75)
-      colors[index * 3] = base[0] * brightness
-      colors[index * 3 + 1] = base[1] * brightness
-      colors[index * 3 + 2] = base[2] * brightness
-
-      sizes[index] = SIZE_BASE + SIZE_SPAN * hash01(seed + 8.9)
-      index++
-    }
-  })
-
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-  geometry.setAttribute('starColor', new Float32BufferAttribute(colors, 3))
-  geometry.setAttribute('size', new Float32BufferAttribute(sizes, 1))
-  return geometry
+function getSpriteTextures(): readonly CanvasTexture[] {
+  if (cachedTextures != null) return cachedTextures
+  cachedTextures = Array.from({ length: SPRITE_VARIANTS }, (_, variant) =>
+    bakeNebulaSprite(variant),
+  )
+  return cachedTextures
 }
 
 export function NebulaClusters() {
-  const geometry = useMemo(() => buildGeometry(), [])
-  const material = useMemo(
+  const groupRefs = useRef<(Group | null)[]>([])
+  const sites = useMemo(() => sampleSites(), [])
+  const textures = getSpriteTextures()
+
+  const materials = useMemo(
     () =>
-      createStarGlowMaterial({
-        maxPointSize: MAX_POINT_SIZE,
-        initialOpacity: 1,
-        minPointSizePerUnit: MIN_POINT_SIZE_PER_UNIT,
-        // 항상 소프트 글로우 — 성운 점은 별상이 아니라 가스 뭉침으로 읽혀야 한다
-        softNear: 1,
-        softFar: 2,
-      }),
-    [],
+      sites.map(
+        (site) =>
+          new MeshBasicMaterial({
+            map: textures[site.variant],
+            color: site.isRose ? ROSE_TINT : BLUE_TINT,
+            transparent: true,
+            opacity: site.opacity,
+            blending: AdditiveBlending,
+            depthWrite: false,
+          }),
+      ),
+    [sites, textures],
   )
 
-  useEffect(() => () => geometry.dispose(), [geometry])
-  useEffect(() => () => material.dispose(), [material])
+  useEffect(
+    () => () => {
+      for (const material of materials) material.dispose()
+    },
+    [materials],
+  )
 
+  // 빌보드 — 그룹이 카메라를 바라보고, 자식 메시가 면내 회전·비등방 스케일을 가진다
   useFrame((state) => {
-    setUniform(material, 'uPixelRatio', state.gl.getPixelRatio())
+    for (const group of groupRefs.current) {
+      if (group != null) group.quaternion.copy(state.camera.quaternion)
+    }
   })
 
-  return <points geometry={geometry} material={material} />
+  return (
+    <>
+      {sites.map((site, index) => (
+        <group
+          key={index}
+          position={[site.x, site.y, site.z]}
+          ref={(node) => {
+            groupRefs.current[index] = node
+          }}
+        >
+          <mesh material={materials[index]} rotation={[0, 0, site.spin]} scale={[site.width, site.height, 1]}>
+            <planeGeometry args={[1, 1]} />
+          </mesh>
+        </group>
+      ))}
+    </>
+  )
 }
