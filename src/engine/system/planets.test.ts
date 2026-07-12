@@ -165,8 +165,9 @@ describe('planetsOf', () => {
   it('적색거성·백색왜성 항성계는 생명체가 전혀 없다 (exotic-stars 결정 8 — 고증)', () => {
     let sterileStarsChecked = 0
 
-    for (let i = 0; i < 4_000 && sterileStarsChecked < 12; i++) {
-      const starId = makeStarId({ sx: i % 60, sy: (i % 5) - 2, sz: Math.floor(i / 60) }, i % 5)
+    // v12 두께 고증으로 고고도(|sy|≥2) 별이 희소해짐 — 원반면 위주로 표본 확대
+    for (let i = 0; i < 12_000 && sterileStarsChecked < 12; i++) {
+      const starId = makeStarId({ sx: i % 60, sy: (i % 3) - 1, sz: Math.floor(i / 60) % 60 }, i % 5)
       const kind = starById(seed, starId)?.kind
       if (kind !== 'red_giant' && kind !== 'white_dwarf') continue
       sterileStarsChecked += 1

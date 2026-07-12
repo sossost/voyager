@@ -164,7 +164,7 @@ function sampleSites(): readonly NebulaSite[] {
 /** 텍스처·머티리얼 앱 수명 캐시 — 씬 전환 리마운트마다 재베이크하지 않는다. */
 let cachedTextures: readonly CanvasTexture[] | null = null
 
-function getSpriteTextures(): readonly CanvasTexture[] {
+export function getSpriteTextures(): readonly CanvasTexture[] {
   if (cachedTextures != null) return cachedTextures
   cachedTextures = Array.from({ length: SPRITE_VARIANTS }, (_, variant) =>
     bakeNebulaSprite(variant),

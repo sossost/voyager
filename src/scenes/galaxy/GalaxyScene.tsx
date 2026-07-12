@@ -5,6 +5,7 @@ import { starWorldPosition } from "@/engine/galaxy/position";
 import { QUALITY_PRESETS } from "@/quality/presets";
 import { CurrentStarArrowProjector } from "@/scenes/galaxy/CurrentStarArrowProjector";
 import { CurrentStarBeacon } from "@/scenes/galaxy/CurrentStarBeacon";
+import { GalaxyGlowPuffs } from "@/scenes/galaxy/GalaxyGlowPuffs";
 import { GalaxyNebula } from "@/scenes/galaxy/GalaxyNebula";
 import { GalaxyStarField } from "@/scenes/galaxy/GalaxyStarField";
 import { JourneyPath } from "@/scenes/galaxy/JourneyPath";
@@ -122,7 +123,9 @@ export function GalaxyScene() {
         <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
       )}
       {isPerspectiveView ? <GalaxyNebula /> : null}
-      {/* 성운 클러스터 — 팔 능선 위 실제 3D 점 구름 (양 뷰 공유, galaxy-realism-pass) */}
+      {/* 은하광 부피 퍼프 — 조망뷰 은하광 입체화 (galaxy-realism-pass) */}
+      {isPerspectiveView ? <GalaxyGlowPuffs /> : null}
+      {/* 성운 클러스터 — 팔 능선 위 실물 성운 (양 뷰 공유, galaxy-realism-pass) */}
       <NebulaClusters />
       <GalaxyStarField
         stars={stars}
