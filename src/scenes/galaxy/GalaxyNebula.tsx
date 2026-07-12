@@ -49,7 +49,7 @@ const MAX_OPACITY = 0.62
 /** 이 미만이면 mesh 렌더 자체를 끈다 — 투명한 전면 쿼드의 fill-rate 낭비 방지. */
 const VISIBLE_OPACITY_THRESHOLD = 0.01
 
-/** 벌지(중심) 난색 → 나선팔(외곽) 한색 — 팔은 청백색 (galaxyBandPanorama와 동일 톤, 사진 문법). */
+/** 벌지(중심) 난색 → 나선팔(외곽) 한색 — 팔은 청백색 (사진 문법, galaxy-realism-pass). */
 const BULGE_RGB = [255, 208, 150] as const
 const ARM_RGB = [185, 200, 232] as const
 const COLOR_BLEND_RADIUS_SECTORS = 10

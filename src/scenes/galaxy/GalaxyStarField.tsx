@@ -115,7 +115,7 @@ function buildGeometry(stars: readonly Star[]): BufferGeometry {
  * ↔ 원반 반경 ~15 kpc, 1 kpc ≈ 320유닛)로 환산하면 τ ≈ 0.005/유닛이라 600유닛 밖이 전부
  * 소멸해 항행 정보가 죽는다. 의도적으로 ~1/8로 완화한 값 (M-6 분광 분포 평탄화와 같은
  * 게임성 완화) — 근거리(≤400유닛) 이웃은 거의 그대로, 중심부 원거리 스펙클(2,000유닛+
- * ×수천 개 가산 블렌딩)만 은하수 띠(ShipViewGalaxyGlow)에 흡수되도록 감광한다.
+ * ×수천 개 가산 블렌딩)만 어둠에 잠기도록 감광한다.
  */
 const SHIP_VIEW_EXTINCTION_PER_UNIT = 1 / 1_500
 

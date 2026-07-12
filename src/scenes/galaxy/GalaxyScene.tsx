@@ -10,7 +10,6 @@ import { GalaxyStarField } from "@/scenes/galaxy/GalaxyStarField";
 import { JourneyPath } from "@/scenes/galaxy/JourneyPath";
 import { ScannedExoticMarkers } from "@/scenes/galaxy/ScannedExoticMarkers";
 import { ShipCameraRig } from "@/scenes/galaxy/ShipCameraRig";
-import { ShipViewGalaxyGlow } from "@/scenes/galaxy/ShipViewGalaxyGlow";
 import { SpaceshipModel } from "@/scenes/galaxy/SpaceshipModel";
 import { StarCalloutProjector } from "@/scenes/galaxy/StarCalloutProjector";
 import { useGalaxyStars } from "@/scenes/galaxy/useGalaxyStars";
@@ -114,15 +113,13 @@ export function GalaxyScene() {
         />
       ) : null}
       {/* 장식 배경 (백로그 G-a-2) — 퍼스펙티브는 원거리 은하 빌보드, 우주선 뷰·워프는
-          균일 별밭. 은하 광원감(원반 밴드·코어 글로우, 백로그 G-b-6)은 모든 뷰에 마운트하되
-          밴드는 카메라-별 거리로 페이드한다 — 항법뷰 근거리에선 함교와 같은 황색 은하수 배경이
-          보이고(사용자 지적), 줌아웃해 은하를 조망하면 걷혀 부자연스럽지 않다(사용자 지적). */}
+          균일 별밭. 함교 은하수 밴드(구 ShipViewGalaxyGlow)는 절차 생성으로 사진급 형태가
+          불가능해 제거됐다 (galaxy-realism-pass 최종 결정) — 함교 하늘은 검은 우주 + 별. */}
       {isPerspectiveView ? (
         <DistantGalaxies />
       ) : (
         <DecorativeStarfield radius={SHIP_SKY_RADIUS} center={shipFocus} />
       )}
-      <ShipViewGalaxyGlow anchor={shipFocus} />
       {isPerspectiveView ? <GalaxyNebula /> : null}
       <GalaxyStarField
         stars={stars}
