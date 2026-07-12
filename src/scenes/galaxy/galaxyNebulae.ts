@@ -22,9 +22,12 @@ const TINT_FREQUENCY = 0.09
 const ROSE_SALT = 11
 const TEAL_SALT = 12
 
-/** 색조 목표색 — 발광 성운(로즈)·반사 성운(청록). 가산 띠 위에서 자연스러운 천체 색. */
+/**
+ * 색조 목표색 — 발광 성운(로즈 H-알파)·반사 성운(청색). 반사성운은 실사진에서 청록이
+ * 아니라 푸른 산란색이다 (플레이아데스 등, galaxy-realism-pass 톤 정리).
+ */
 export const NEBULA_ROSE_RGB = [255, 122, 142] as const
-export const NEBULA_TEAL_RGB = [112, 228, 208] as const
+export const NEBULA_TEAL_RGB = [150, 190, 255] as const
 /** 색조 최대 혼합률 — 띠 고유색(한색 팔·난색 벌지)을 잃지 않는 상한. */
 export const NEBULA_TINT_MAX_BLEND = 0.58
 

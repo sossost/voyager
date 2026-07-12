@@ -83,9 +83,13 @@ const MIN_EXPOSURE_INTEGRAL = 3
  */
 const EDGE_FADE_START = 0.75
 
-/** 벌지(난색) ↔ 나선팔(한색) — GalaxyNebula(결정 23)와 같은 색 언어. */
+/**
+ * 벌지(난색) ↔ 나선팔(한색) — GalaxyNebula(결정 23)와 같은 색 언어.
+ * 팔 색은 청백색 (galaxy-realism-pass) — 구 [110,140,235]는 실사진에 없는 채도 파랑.
+ * 실제 은하수 띠는 따뜻한 백색~황금 + 갈색 먼지이고, 파랑 기운은 미미하다.
+ */
 const BULGE_RGB = [255, 208, 150] as const
-const ARM_RGB = [110, 140, 235] as const
+const ARM_RGB = [185, 200, 232] as const
 const COLOR_BLEND_RADIUS_SECTORS = 10
 /** 밀도 가중 평균 난색도 증폭 — 벌지 방향만 난색으로, 띠 전체가 베이지가 되면 과한 것. */
 const WARMTH_GAIN = 1.6
